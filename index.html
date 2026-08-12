@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🏦 보험 고객 관리</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F4F6FB;--surface:#FFF;--surface2:#F0F2F8;--border:#E2E6EF;
+  --text:#1A1D2E;--muted:#6B7280;--hint:#9CA3AF;
+  --blue:#3B5BDB;--blue-l:#EEF2FF;
+  --green:#0D9466;--green-l:#ECFDF5;
+  --red:#DC2626;--red-l:#FEF2F2;
+  --amber:#D97706;--amber-l:#FFFBEB;
+  --purple:#7C3AED;
+  --radius:10px;--shadow:0 2px 8px rgba(0,0,0,.08);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+
+/* Header */
+@keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.hdr{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;box-shadow:var(--shadow)}
+.hdr-left{display:flex;align-items:center;gap:10px}
+.hdr-logo{font-size:15px;font-weight:700;letter-spacing:-.3px}
+.hdr-logo span{color:var(--blue)}
+.hdr-right{display:flex;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:#2f4ac5}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:var(--border)}
+.btn-danger{background:var(--red-l);color:var(--red);border:1px solid #fecaca}
+.btn-danger:hover{background:#fecaca}
+.btn-sm{padding:4px 10px;font-size:12px}
+
+/* Main */
+.main{max-width:1280px;margin:0 auto;padding:20px 16px}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;border-top:3px solid transparent}
+.kpi.blue{border-top-color:var(--blue)}.kpi.green{border-top-color:var(--green)}
+.kpi.red{border-top-color:var(--red)}.kpi.amber{border-top-color:var(--amber)}
+.kpi.purple{border-top-color:var(--purple)}
+.kpi-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.kpi-val{font-size:22px;font-weight:700;letter-spacing:-1px}
+.kpi-sub{font-size:11px;color:var(--hint);margin-top:3px}
+
+/* Tabs */
+.tabs{display:flex;gap:2px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:4px;margin-bottom:16px;width:fit-content}
+.tab{padding:7px 18px;border-radius:7px;border:none;background:none;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .15s;white-space:nowrap}
+.tab.on{background:var(--blue);color:#fff;box-shadow:0 1px 4px rgba(59,91,219,.3)}
+.pane{display:none}.pane.on{display:block}
+
+/* Controls */
+.ctrl{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.search-w{position:relative;flex:1;min-width:180px}
+.search-w input{width:100%;padding:8px 12px 8px 34px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);outline:none;transition:border .15s}
+.search-w input:focus{border-color:var(--blue)}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--hint);pointer-events:none}
+select{padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);cursor:pointer;outline:none}
+select:focus{border-color:var(--blue)}
+.cnt{font-size:12px;color:var(--muted);margin-bottom:8px}
+
+/* Table */
+.tbl-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--surface2);padding:10px 12px;text-align:left;font-weight:600;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;position:sticky;top:0}
+thead th:hover{color:var(--text)}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s;cursor:pointer}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--surface2)}
+td{padding:9px 12px;white-space:nowrap;vertical-align:middle}
+.td-act{padding:6px 12px;text-align:right;white-space:nowrap}
+
+/* Badges */
+.b-done{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--green-l);color:var(--green)}
+.b-cancel{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--red-l);color:var(--red)}
+.b-pending{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--amber-l);color:var(--amber)}
+.gbadge{display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:999px}
+
+/* Group cards */
+.gcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden}
+.gheader{display:flex;align-items:center;gap:10px;padding:13px 16px;cursor:pointer;transition:background .1s;user-select:none}
+.gheader:hover{background:var(--surface2)}
+.gdot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.gname{font-weight:600;font-size:14px;flex:1}
+.gmeta{font-size:12px;color:var(--muted)}
+.gamt{font-size:13px;font-weight:700;margin-left:8px}
+.garr{font-size:11px;color:var(--hint);transition:transform .2s}
+.gtbl{display:none;border-top:1px solid var(--border)}
+
+/* Monthly tab */
+.month-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:20px}
+.mcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.mcard-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.mcard-month{font-size:15px;font-weight:700}
+.mcard-cnt{font-size:12px;color:var(--muted)}
+.mcard-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;border-bottom:1px solid var(--border)}
+.mcard-row:last-child{border:none;font-weight:600}
+.mcard-lbl{color:var(--muted)}
+.mcard-val{font-weight:500;text-align:right}
+
+/* Charts */
+.chart-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px}
+.chart-title{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}
+
+/* Modal */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;padding:16px}
+.overlay.on{display:flex}
+.modal{background:var(--surface);border-radius:14px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 0}
+.modal-title{font-size:16px;font-weight:700}
+.modal-close{border:none;background:none;font-size:20px;cursor:pointer;color:var(--muted);padding:4px;border-radius:6px;line-height:1}
+.modal-close:hover{background:var(--surface2)}
+.modal-body{padding:16px 20px 20px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-field{display:flex;flex-direction:column;gap:5px}
+.form-field.full{grid-column:1/-1}
+label{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+input[type=text],input[type=number],select.form-sel,textarea{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);outline:none;transition:border .15s;font-family:inherit}
+input[type=text]:focus,input[type=number]:focus,select.form-sel:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(59,91,219,.1)}
+.form-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+
+/* Monthly income modal */
+.income-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--text);color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:500;z-index:999;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+
+/* Stats cards */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.stat{background:var(--surface2);border-radius:8px;padding:12px 14px}
+.stat-l{font-size:11px;color:var(--muted);margin-bottom:3px}
+.stat-v{font-size:14px;font-weight:700}
+
+@media(max-width:900px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.kpi-grid{grid-template-columns:repeat(2,1fr)};.form-grid{grid-template-columns:1fr};.income-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:400px){.kpi-grid{grid-template-columns:1fr}}
+</style>
+
+<!-- 잠금 화면 -->
+<div id="lock-screen" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#0F172A 0%,#1E3A8A 100%);z-index:9999;align-items:center;justify-content:center;flex-direction:column">
+  <div style="text-align:center;color:#fff;padding:40px 24px;width:100%;max-width:360px">
+    <div style="font-size:48px;margin-bottom:16px">🏦</div>
+    <div style="font-size:22px;font-weight:800;letter-spacing:-.3px;margin-bottom:6px">보험 고객 관리</div>
+    <div style="font-size:13px;opacity:.6;margin-bottom:40px">김성래 설계사 전용</div>
+
+    <!-- PIN 표시 -->
+    <div style="display:flex;justify-content:center;gap:14px;margin-bottom:32px" id="pin-dots">
+      <div class="pdot"></div><div class="pdot"></div><div class="pdot"></div><div class="pdot"></div>
+    </div>
+
+    <!-- 오류 메시지 -->
+    <div id="pin-error" style="font-size:13px;color:#F87171;height:18px;margin-bottom:16px;transition:opacity .2s"></div>
+
+    <!-- 숫자 패드 -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:260px;margin:0 auto">
+      <button class="pkey" onclick="pinPress('1')">1</button>
+      <button class="pkey" onclick="pinPress('2')">2</button>
+      <button class="pkey" onclick="pinPress('3')">3</button>
+      <button class="pkey" onclick="pinPress('4')">4</button>
+      <button class="pkey" onclick="pinPress('5')">5</button>
+      <button class="pkey" onclick="pinPress('6')">6</button>
+      <button class="pkey" onclick="pinPress('7')">7</button>
+      <button class="pkey" onclick="pinPress('8')">8</button>
+      <button class="pkey" onclick="pinPress('9')">9</button>
+      <div></div>
+      <button class="pkey" onclick="pinPress('0')">0</button>
+      <button class="pkey pkey-del" onclick="pinDel()">⌫</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.pdot{width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.25);transition:all .15s}
+.pdot.on{background:#60A5FA;transform:scale(1.15)}
+.pkey{padding:18px;border-radius:14px;border:none;background:rgba(255,255,255,.1);color:#fff;font-size:22px;font-weight:600;cursor:pointer;transition:all .15s;backdrop-filter:blur(4px)}
+.pkey:hover{background:rgba(255,255,255,.2)}
+.pkey:active{transform:scale(.93);background:rgba(96,165,250,.4)}
+.pkey-del{font-size:18px}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.shake{animation:shake .35s ease}
+</style>
+
+<script>
+const CORRECT_PIN = '9644';
+let pinInput = '';
+
+function showLock() {
+  document.getElementById('lock-screen').style.display = 'flex';
+  document.getElementById('app-wrap').style.display = 'none';
+}
+function unlock() {
+  sessionStorage.setItem('ins_unlocked', '1');
+  document.getElementById('lock-screen').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'block';
+}
+
+function pinPress(n) {
+  if(pinInput.length >= 4) return;
+  pinInput += n;
+  updateDots();
+  if(pinInput.length === 4) {
+    setTimeout(() => {
+      if(pinInput === CORRECT_PIN) {
+        unlock();
+      } else {
+        const dots = document.getElementById('pin-dots');
+        dots.classList.add('shake');
+        document.getElementById('pin-error').textContent = '비밀번호가 틀렸습니다';
+        setTimeout(() => { dots.classList.remove('shake'); pinInput=''; updateDots(); document.getElementById('pin-error').textContent=''; }, 600);
+      }
+    }, 100);
+  }
+}
+function pinDel() {
+  pinInput = pinInput.slice(0,-1);
+  updateDots();
+  document.getElementById('pin-error').textContent = '';
+}
+function updateDots() {
+  document.querySelectorAll('.pdot').forEach((d,i) => {
+    d.classList.toggle('on', i < pinInput.length);
+  });
+}
+
+// 키보드 지원
+document.addEventListener('keydown', e => {
+  if(document.getElementById('lock-screen').style.display==='none') return;
+  if(e.key>='0'&&e.key<='9') pinPress(e.key);
+  if(e.key==='Backspace') pinDel();
+});
+
+// 초기 잠금 체크
+if(sessionStorage.getItem('ins_unlocked')==='1') {
+  document.getElementById('lock-screen').style.display = 'none';
+} else {
+  showLock();
+}
+</script>
+
+</head>
+<body>
+
+<div id="app-wrap">
+<div class="hdr">
+  <div class="hdr-left">
+    <div class="hdr-logo">🏦 <span>보험 고객 관리</span></div>
+    <span style="font-size:11px;color:var(--hint);background:var(--surface2);padding:2px 8px;border-radius:20px">김성래</span>
+    <span id="sync-status" style="margin-left:4px"><span style="color:var(--muted);font-size:12px">☁️ 연결 중...</span></span>
+  </div>
+  <div class="hdr-right">
+    <button class="btn btn-secondary" onclick="exportData()" title="데이터 백업">💾 백업</button>
+    <label class="btn btn-secondary" title="백업 파일 불러오기" style="cursor:pointer;margin:0">
+      📂 복원
+      <input type="file" accept=".json" onchange="importData(event)" style="display:none">
+    </label>
+    <button class="btn btn-secondary" onclick="openIncomeModal()">💰 월 수입 입력</button>
+    <button class="btn btn-primary" onclick="openAddModal()">＋ 계약 추가</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="kpi-grid" id="kpis"></div>
+  <div class="tabs">
+    <button class="tab on" onclick="switchTab('리스트',this)">📋 계약 리스트</button>
+    <button class="tab" onclick="switchTab('그룹별',this)">👥 그룹별</button>
+    <button class="tab" onclick="switchTab('고객별',this)">👤 고객별</button>
+    <button class="tab" onclick="switchTab('월별',this)">📊 월별 실적</button>
+  </div>
+  <div id="pane-리스트" class="pane on"></div>
+  <div id="pane-그룹별" class="pane"></div>
+  <div id="pane-고객별" class="pane"></div>
+  <div id="pane-월별" class="pane"></div>
+</div>
+
+<!-- 계약 추가/수정 모달 -->
+<div class="overlay" id="modal-contract">
+<div class="modal">
+  <div class="modal-header">
+    <div class="modal-title" id="modal-title">새 계약 추가</div>
+    <button class="modal-close" onclick="closeModal('contract')">✕</button>
+  </div>
+  <div class="modal-body">
+    <input type="hidden" id="edit-id">
+    <div class="form-grid">
+      <div class="form-field">
+        <label>상태</label>
+        <select class="form-sel" id="f-status">
+          <option value="계약완료">계약완료</option>
+          <option value="가입 예정">가입 예정</option>
+          <option value="계약해지">계약해지</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>가입일 (YY.MM.DD)</label>
+        <input type="text" id="f-date" placeholder="예: 26.05.20">
+      </div>
+      <div class="form-field">
+        <label>계약자</label>
+        <input type="text" id="f-holder" placeholder="계약자 이름">
+      </div>
+      <div class="form-field">
+        <label>가입자 (피보험자)</label>
+        <input type="text" id="f-insured" placeholder="가입자 이름">
+      </div>
+      <div class="form-field">
+        <label>보험회사</label>
+        <input type="text" id="f-co" placeholder="예: 삼성화재">
+      </div>
+      <div class="form-field">
+        <label>보험명</label>
+        <input type="text" id="f-name" placeholder="예: 종합, 운전자">
+      </div>
+      <div class="form-field">
+        <label>월보험료 (원)</label>
+        <input type="number" id="f-price" placeholder="0" min="0">
+      </div>
+      <div class="form-field">
+        <label>그룹</label>
+        <div style="display:flex;gap:6px">
+          <select class="form-sel" id="f-group" style="flex:1"></select>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="showAddGroupInput()" id="btn-add-grp" title="새 그룹 추가" style="flex-shrink:0;white-space:nowrap">＋ 그룹</button>
+        </div>
+        <div id="new-grp-wrap" style="display:none;margin-top:6px;display:none">
+          <div style="display:flex;gap:6px">
+            <input type="text" id="new-grp-name" placeholder="새 그룹명 입력" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+            <input type="color" id="new-grp-color" value="#3B5BDB" style="width:38px;height:34px;padding:2px;border:1px solid var(--border);border-radius:8px;cursor:pointer">
+            <button type="button" class="btn btn-primary btn-sm" onclick="addNewGroup()" style="flex-shrink:0">추가</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="cancelAddGroup()" style="flex-shrink:0">취소</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="form-btns">
+      <button class="btn btn-secondary" onclick="closeModal('contract')">취소</button>
+      <button class="btn btn-danger btn-sm" id="btn-delete" style="display:none" onclick="deleteContract()">삭제</button>
+      <button class="btn btn-primary" onclick="saveContract()">저장</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 월 수입 입력 모달 -->
+<div class="overlay" id="modal-income">
+<div class="modal">
+  <div class="modal-header">
+    <div class="modal-title">💰 월별 수입 입력</div>
+    <button class="modal-close" onclick="closeModal('income')">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="form-grid">
+      <div class="form-field full">
+        <label>월 선택</label>
+        <select class="form-sel" id="i-month" onchange="loadIncomeData()"></select>
+      </div>
+      <div class="form-field">
+        <label>세전 수입 (원)</label>
+        <input type="number" id="i-before" placeholder="0" min="0">
+      </div>
+      <div class="form-field">
+        <label>세후 수입 (원)</label>
+        <input type="number" id="i-after" placeholder="0" min="0">
+      </div>
+      <div class="form-field">
+        <label>세금 (원)</label>
+        <input type="number" id="i-tax" placeholder="0" min="0">
+      </div>
+      <div class="form-field">
+        <label>메모</label>
+        <input type="text" id="i-memo" placeholder="선택 메모">
+      </div>
+    </div>
+    <div class="form-btns">
+      <button class="btn btn-secondary" onclick="closeModal('income')">취소</button>
+      <button class="btn btn-primary" onclick="saveIncome()">저장</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// DEFAULT DATA
+// ════════════════════════════════════════════════════════════
+const DEFAULT_CONTRACTS = [{"id":1,"s":"계약완료","d":"24.07.05","c":"강인구","p":"강인구","co":"삼성생명","n":"치아","pr":32700,"g":"지인들"},{"id":2,"s":"계약완료","d":"24.07.05","c":"강인구","p":"강인구","co":"라이나생명","n":"치아","pr":27370,"g":"지인들"},{"id":3,"s":"계약완료","d":"24.07.18","c":"김태원","p":"정진영","co":"삼성생명","n":"치아","pr":34150,"g":"김성래 가족"},{"id":4,"s":"계약완료","d":"24.07.05","c":"정진영","p":"정진영","co":"라이나생명","n":"치아","pr":31430,"g":"김성래 가족"},{"id":5,"s":"계약완료","d":"24.09.10","c":"김성래","p":"김성래","co":"KDB생명","n":"고혈압","pr":21505,"g":"김성래 가족"},{"id":6,"s":"계약완료","d":"24.09.10","c":"김성래","p":"김성래","co":"라이나손해","n":"상해","pr":14550,"g":"김성래 가족"},{"id":7,"s":"계약완료","d":"24.07.29","c":"김성래","p":"김성래","co":"한화생명","n":"용종","pr":30371,"g":"김성래 가족"},{"id":8,"s":"계약완료","d":"24.10.22","c":"김성래","p":"김성래","co":"삼성화재","n":"용종","pr":21490,"g":"김성래 가족"},{"id":9,"s":"계약완료","d":"24.10.31","c":"김성래","p":"김성래(메리)","co":"KB손해","n":"펫보험","pr":39211,"g":"김성래 가족"},{"id":10,"s":"계약완료","d":"24.11.29","c":"김성래","p":"김성래","co":"삼성화재","n":"재활치료","pr":10410,"g":"김성래 가족"},{"id":11,"s":"계약완료","d":"25.06.23","c":"김성래","p":"김성래","co":"흥국화재","n":"용종","pr":10235,"g":"김성래 가족"},{"id":12,"s":"계약완료","d":"24.12.24","c":"김성래","p":"김성래","co":"라이나생명","n":"종신","pr":202290,"g":"김성래 가족"},{"id":13,"s":"계약완료","d":"25.12.24","c":"김성래","p":"김성래","co":"삼성생명","n":"용종","pr":7956,"g":"김성래 가족"},{"id":14,"s":"계약완료","d":"24.12.30","c":"김태순","p":"김태순","co":"메리츠화재","n":"치아","pr":53750,"g":"김성래 가족"},{"id":15,"s":"계약완료","d":"24.12.30","c":"김태순","p":"김태순","co":"삼성화재","n":"종합","pr":108930,"g":"김성래 가족"},{"id":16,"s":"계약완료","d":"25.04.17","c":"김태순","p":"김태순","co":"삼성화재","n":"운전자보험","pr":14832,"g":"김성래 가족"},{"id":17,"s":"계약완료","d":"25.04.17","c":"김태순","p":"김태순","co":"메리츠화재","n":"화재보험","pr":11250,"g":"김성래 가족"},{"id":18,"s":"계약완료","d":"25.09.30","c":"김태순","p":"김태순","co":"메리츠화재","n":"상통치","pr":18160,"g":"김성래 가족"},{"id":19,"s":"계약완료","d":"25.06.17","c":"김아름","p":"조유건","co":"현대해상","n":"상해보험","pr":30980,"g":"김성래 가족"},{"id":20,"s":"계약완료","d":"25.06.30","c":"정현철","p":"정현철","co":"흥국화재","n":"용종","pr":22780,"g":"김성래 가족"},{"id":21,"s":"계약완료","d":"25.10.29","c":"김주형","p":"김주형","co":"메리츠","n":"종합","pr":47990,"g":"김성래 가족"},{"id":22,"s":"계약완료","d":"25.12.31","c":"김금수","p":"김금수","co":"현대해상","n":"운전자","pr":11720,"g":"김성래 가족"},{"id":23,"s":"계약완료","d":"25.12.31","c":"이지형","p":"이지형","co":"현대해상","n":"종합","pr":35220,"g":"김성래 가족"},{"id":24,"s":"계약완료","d":"25.12.30","c":"이지형","p":"이지형","co":"현대해상","n":"운전자","pr":13990,"g":"김성래 가족"},{"id":25,"s":"계약완료","d":"25.12.30","c":"이시형","p":"이시형","co":"현대해상","n":"종합","pr":30880,"g":"김성래 가족"},{"id":26,"s":"계약완료","d":"25.12.30","c":"이시형","p":"이시형","co":"현대해상","n":"운전자","pr":13990,"g":"김성래 가족"},{"id":27,"s":"계약완료","d":"24.07.24","c":"손채련","p":"손채련","co":"흥국생명","n":"종합","pr":115000,"g":"손채련님 가족"},{"id":28,"s":"계약완료","d":"24.07.26","c":"손채련","p":"손채련","co":"메리츠","n":"종합","pr":58310,"g":"손채련님 가족"},{"id":29,"s":"계약완료","d":"24.07.30","c":"손채련","p":"손채련","co":"한화생명","n":"용종","pr":35618,"g":"손채련님 가족"},{"id":30,"s":"계약완료","d":"24.07.29","c":"손채련","p":"손채련","co":"현대해상","n":"용종","pr":20720,"g":"손채련님 가족"},{"id":31,"s":"계약완료","d":"24.08.09","c":"손채련","p":"손채련","co":"삼성생명","n":"용종","pr":22190,"g":"손채련님 가족"},{"id":32,"s":"계약완료","d":"24.08.09","c":"손채련","p":"손채련","co":"ABL생명","n":"용종","pr":10905,"g":"손채련님 가족"},{"id":33,"s":"계약완료","d":"24.08.09","c":"손채련","p":"손채련","co":"라이나생명","n":"용종","pr":30590,"g":"손채련님 가족"},{"id":34,"s":"계약완료","d":"24.08.09","c":"손채련","p":"손채련","co":"미래에셋","n":"용종","pr":22204,"g":"손채련님 가족"},{"id":35,"s":"계약완료","d":"24.08.13","c":"손채련","p":"손채련","co":"동양생명","n":"용종","pr":65325,"g":"손채련님 가족"},{"id":36,"s":"계약완료","d":"24.07.30","c":"손채련","p":"손채련","co":"한화손해","n":"치아","pr":28297,"g":"손채련님 가족"},{"id":37,"s":"계약완료","d":"24.07.29","c":"손채련","p":"손채련","co":"메리츠","n":"치아","pr":29500,"g":"손채련님 가족"},{"id":38,"s":"계약완료","d":"24.08.21","c":"손채련","p":"손채련","co":"ABL생명","n":"치아","pr":26450,"g":"손채련님 가족"},{"id":39,"s":"계약완료","d":"24.09.03","c":"손채련","p":"손채련","co":"삼성생명","n":"치아","pr":34150,"g":"손채련님 가족"},{"id":40,"s":"계약완료","d":"24.09.04","c":"손채련","p":"손채련","co":"라이나생명","n":"치아","pr":35590,"g":"손채련님 가족"},{"id":41,"s":"계약완료","d":"24.08.13","c":"손채련","p":"손채련","co":"DGB(IM)","n":"종신(단기납)","pr":496780,"g":"손채련님 가족"},{"id":42,"s":"계약완료","d":"24.11.05","c":"손채련","p":"손채련","co":"삼성화재","n":"질병/상해종수술","pr":23482,"g":"손채련님 가족"},{"id":43,"s":"계약완료","d":"25.06.23","c":"손채련","p":"손채련","co":"흥국화재","n":"용종","pr":10522,"g":"손채련님 가족"},{"id":44,"s":"계약완료","d":"24.09.10","c":"전상용","p":"전상용","co":"한화손해","n":"치아","pr":31310,"g":"손채련님 가족"},{"id":45,"s":"계약완료","d":"24.09.10","c":"전상용","p":"전상용","co":"메리츠","n":"치아","pr":25780,"g":"손채련님 가족"},{"id":46,"s":"계약완료","d":"24.09.30","c":"전상용","p":"전상용","co":"ABL생명","n":"치아","pr":25320,"g":"손채련님 가족"},{"id":47,"s":"계약완료","d":"24.10.08","c":"전상용","p":"전상용","co":"삼성생명","n":"치아","pr":37090,"g":"손채련님 가족"},{"id":48,"s":"계약완료","d":"24.10.10","c":"전상용","p":"전상용","co":"라이나생명","n":"치아","pr":30670,"g":"손채련님 가족"},{"id":49,"s":"계약완료","d":"24.12.06","c":"전상용","p":"전상용","co":"삼성화재","n":"종합","pr":100041,"g":"손채련님 가족"},{"id":50,"s":"계약완료","d":"24.12.06","c":"전상용","p":"전상용","co":"라이나손해","n":"암진단","pr":25030,"g":"손채련님 가족"},{"id":51,"s":"계약완료","d":"24.12.12","c":"박주향","p":"박주향","co":"현대해상","n":"종합","pr":117080,"g":"손채련님 가족"},{"id":52,"s":"계약완료","d":"24.12.12","c":"박주향","p":"박주향","co":"메리츠","n":"입원일당","pr":30710,"g":"손채련님 가족"},{"id":53,"s":"계약완료","d":"24.12.13","c":"박주향","p":"박주향","co":"메리츠","n":"운전자","pr":14160,"g":"손채련님 가족"},{"id":54,"s":"계약완료","d":"24.12.12","c":"박주향","p":"박주향","co":"라이손해","n":"암진단","pr":45320,"g":"손채련님 가족"},{"id":55,"s":"계약완료","d":"24.08.14","c":"손채련","p":"전새은","co":"메리츠","n":"어린이보험(종합)","pr":59890,"g":"손채련님 가족"},{"id":56,"s":"계약완료","d":"25.12.09","c":"정준식","p":"정준식","co":"메리츠","n":"종합","pr":65150,"g":"이경민님 가족"},{"id":57,"s":"계약완료","d":"25.12.09","c":"정준식","p":"정준식","co":"메리츠","n":"실비","pr":14810,"g":"이경민님 가족"},{"id":58,"s":"계약완료","d":"25.12.09","c":"정준식","p":"정준식","co":"메리츠","n":"운전자","pr":11520,"g":"이경민님 가족"},{"id":59,"s":"계약완료","d":"24.07.24","c":"이경민","p":"이경민","co":"흥국생명","n":"종합","pr":49604,"g":"이경민님 가족"},{"id":60,"s":"계약완료","d":"24.07.24","c":"이경민","p":"이경민","co":"흥국생명","n":"종합","pr":83817,"g":"이경민님 가족"},{"id":61,"s":"계약완료","d":"24.07.25","c":"이경민","p":"이경민","co":"메리츠","n":"종합(간편)","pr":41730,"g":"이경민님 가족"},{"id":62,"s":"계약완료","d":"24.07.29","c":"이경민","p":"이경민","co":"KB손해","n":"용종","pr":28117,"g":"이경민님 가족"},{"id":63,"s":"계약완료","d":"24.07.29","c":"이경민","p":"이경민","co":"한화생명","n":"용종(간편)","pr":37242,"g":"이경민님 가족"},{"id":64,"s":"계약완료","d":"24.08.07","c":"이경민","p":"이경민","co":"DGB(IM)","n":"종신(단기납)","pr":298550,"g":"이경민님 가족"},{"id":65,"s":"계약완료","d":"24.08.08","c":"이경민","p":"이경민","co":"KB손해","n":"운전자(상해)","pr":22183,"g":"이경민님 가족"},{"id":66,"s":"계약완료","d":"24.08.09","c":"이경민","p":"이경민","co":"삼성생명","n":"용종","pr":22650,"g":"이경민님 가족"},{"id":67,"s":"계약완료","d":"24.08.09","c":"이경민","p":"이경민","co":"ABL생명","n":"용종","pr":11325,"g":"이경민님 가족"},{"id":68,"s":"계약완료","d":"24.08.09","c":"이경민","p":"이경민","co":"라이나생명","n":"용종","pr":33730,"g":"이경민님 가족"},{"id":69,"s":"계약완료","d":"24.08.09","c":"이경민","p":"이경민","co":"미래에셋","n":"용종","pr":23019,"g":"이경민님 가족"},{"id":70,"s":"계약완료","d":"24.08.13","c":"이경민","p":"이경민","co":"동양생명","n":"용종(간편)","pr":66164,"g":"이경민님 가족"},{"id":71,"s":"계약완료","d":"24.09.11","c":"이경민","p":"이경민","co":"라이나손해","n":"상해","pr":12400,"g":"이경민님 가족"},{"id":72,"s":"계약완료","d":"24.09.13","c":"이경민","p":"이경민","co":"KDB생명","n":"고혈압/당뇨","pr":21208,"g":"이경민님 가족"},{"id":73,"s":"계약완료","d":"24.11.05","c":"이경민","p":"이경민","co":"삼성화재","n":"상해/질병 종수술","pr":23482,"g":"이경민님 가족"},{"id":74,"s":"계약완료","d":"24.11.05","c":"이경민","p":"이경민","co":"라이나생명","n":"치아","pr":49580,"g":"이경민님 가족"},{"id":75,"s":"계약완료","d":"24.11.29","c":"이경민","p":"이경민","co":"삼성화재","n":"재활치료","pr":10890,"g":"이경민님 가족"},{"id":76,"s":"계약완료","d":"25.06.23","c":"이경민","p":"이경민","co":"흥국화재","n":"용종","pr":10346,"g":"이경민님 가족"},{"id":77,"s":"계약완료","d":"25.10.30","c":"이경민","p":"이경민","co":"메리츠","n":"상통치","pr":15200,"g":"이경민님 가족"},{"id":78,"s":"계약완료","d":"24.12.23","c":"이경민","p":"이상돈","co":"삼성화재","n":"종합","pr":234668,"g":"이경민님 가족"},{"id":79,"s":"계약완료","d":"24.12.30","c":"이연주","p":"이연주","co":"삼성화재","n":"종합","pr":42868,"g":"이경민님 가족"},{"id":80,"s":"계약완료","d":"25.12.24","c":"이규민","p":"이규민","co":"메리츠","n":"운전자","pr":16770,"g":"이경민님 가족"},{"id":81,"s":"계약완료","d":"25.12.23","c":"이규민","p":"이규민","co":"메리츠","n":"종합","pr":45980,"g":"이경민님 가족"},{"id":82,"s":"계약완료","d":"25.12.23","c":"이규민","p":"이규민","co":"메리츠","n":"실비","pr":15550,"g":"이경민님 가족"},{"id":83,"s":"계약완료","d":"24.08.28","c":"강소영","p":"강소영","co":"DGB(IM)","n":"종신(단기납)","pr":204720,"g":"강소영 가족"},{"id":84,"s":"계약완료","d":"25.08.19","c":"강소영","p":"강소영","co":"삼성화재","n":"운전자","pr":10175,"g":"강소영 가족"},{"id":85,"s":"계약완료","d":"26.04.09","c":"강소영","p":"강소영","co":"현대해상","n":"태아 종합","pr":136510,"g":"강소영 가족"},{"id":86,"s":"계약완료","d":"26.04.09","c":"강소영","p":"강소영","co":"현대해상","n":"태아 실비","pr":23870,"g":"강소영 가족"},{"id":87,"s":"계약완료","d":"25.09.11","c":"김영준","p":"김영준","co":"메리츠화재","n":"종합","pr":46620,"g":"강소영 가족"},{"id":88,"s":"계약완료","d":"25.09.15","c":"김영준","p":"김영준","co":"메리츠화재","n":"실비","pr":15430,"g":"강소영 가족"},{"id":89,"s":"계약완료","d":"25.09.15","c":"김영준","p":"김영준","co":"메리츠화재","n":"운전자","pr":11510,"g":"강소영 가족"},{"id":90,"s":"계약완료","d":"26.04.09","c":"김영준","p":"김영준","co":"메트라이프","n":"달러종신","pr":318000,"g":"강소영 가족"},{"id":91,"s":"계약완료","d":"25.08.19","c":"이연수","p":"이연수","co":"삼성화재","n":"운전자","pr":13550,"g":"강소영 가족"},{"id":92,"s":"계약완료","d":"24.08.08","c":"서영찬","p":"서영찬","co":"현대해상","n":"실비","pr":10990,"g":"지인들"},{"id":93,"s":"계약완료","d":"24.08.07","c":"서영찬","p":"서영찬","co":"현대해상","n":"운전자","pr":20210,"g":"지인들"},{"id":94,"s":"계약완료","d":"24.10.31","c":"김슬기","p":"김슬기(뭉이)","co":"KB","n":"펫보험","pr":60224,"g":"브숏즈"},{"id":95,"s":"계약완료","d":"24.11.08","c":"김상윤","p":"김상윤","co":"삼성화재","n":"운전자","pr":10686,"g":"카이 패밀리"},{"id":96,"s":"계약완료","d":"25.04.15","c":"김상윤","p":"김상윤","co":"삼성화재","n":"재활치료","pr":10609,"g":"카이 패밀리"},{"id":97,"s":"계약완료","d":"26.03.13","c":"김상윤","p":"김상윤","co":"메리츠","n":"화재보험","pr":12510,"g":"카이 패밀리"},{"id":98,"s":"계약완료","d":"25.01.25","c":"김상아","p":"김상아","co":"삼성화재","n":"운전자","pr":10765,"g":"카이 패밀리"},{"id":99,"s":"계약완료","d":"25.07.08","c":"최단비","p":"최단비","co":"삼성화재","n":"종합","pr":52505,"g":"카이 패밀리"},{"id":100,"s":"계약완료","d":"25.07.08","c":"최단비","p":"최단비","co":"삼성화재","n":"운전자","pr":10095,"g":"카이 패밀리"},{"id":101,"s":"계약완료","d":"25.04.14","c":"오진우","p":"오진우","co":"DB손해","n":"종합","pr":68001,"g":"카이 패밀리"},{"id":102,"s":"계약완료","d":"25.04.14","c":"오진우","p":"오진우","co":"삼성화재","n":"운전자","pr":10125,"g":"카이 패밀리"},{"id":103,"s":"계약완료","d":"25.04.15","c":"오진우","p":"오진우","co":"삼성화재","n":"재활치료비","pr":10995,"g":"카이 패밀리"},{"id":104,"s":"계약해지","d":"24.11.28","c":"송나은","p":"송나은","co":"한화손해","n":"상질치","pr":26620,"g":"브숏즈"},{"id":105,"s":"계약완료","d":"25.06.02","c":"송나은","p":"송나은","co":"현대해상","n":"태아종합","pr":38430,"g":"브숏즈"},{"id":106,"s":"계약완료","d":"25.06.02","c":"송나은","p":"송나은","co":"현대해상","n":"태아종합","pr":40870,"g":"브숏즈"},{"id":107,"s":"계약해지","d":"25.06.02","c":"송나은","p":"송나은","co":"현대해상","n":"태아실비","pr":19460,"g":"브숏즈"},{"id":108,"s":"계약해지","d":"25.06.02","c":"송나은","p":"송나은","co":"현대해상","n":"태아실비","pr":19460,"g":"브숏즈"},{"id":109,"s":"계약완료","d":"24.11.29","c":"이승환","p":"이승환","co":"삼성화재","n":"화재보험","pr":32987,"g":"지인들"},{"id":110,"s":"계약완료","d":"24.12.30","c":"이승환","p":"이승환","co":"삼성생명","n":"치아","pr":44748,"g":"지인들"},{"id":111,"s":"계약완료","d":"24.12.06","c":"차유미","p":"구름이","co":"KB","n":"펫보험","pr":51924,"g":"브숏즈"},{"id":112,"s":"계약완료","d":"24.12.11","c":"박귀완","p":"박하루","co":"삼성화재","n":"종합","pr":30384,"g":"박귀완 형님 가족"},{"id":113,"s":"계약완료","d":"24.12.11","c":"박귀완","p":"박하루","co":"삼성화재","n":"실비","pr":16039,"g":"박귀완 형님 가족"},{"id":114,"s":"계약완료","d":"24.12.16","c":"김수인","p":"김수인","co":"메리츠","n":"운전자","pr":10830,"g":"박귀완 형님 가족"},{"id":115,"s":"계약완료","d":"25.10.15","c":"박귀완","p":"박귀완","co":"메리츠","n":"종합","pr":27850,"g":"박귀완 형님 가족"},{"id":116,"s":"계약완료","d":"25.04.14","c":"김기옥","p":"김기옥","co":"KB손해","n":"실비","pr":55291,"g":"박귀완 형님 가족"},{"id":117,"s":"계약완료","d":"25.04.14","c":"김기옥","p":"김기옥","co":"KB손해","n":"운전자","pr":12399,"g":"박귀완 형님 가족"},{"id":118,"s":"계약완료","d":"25.04.14","c":"김기옥","p":"김기옥","co":"메리츠화재","n":"간병인","pr":25688,"g":"박귀완 형님 가족"},{"id":119,"s":"계약완료","d":"25.04.16","c":"김기옥","p":"김기옥","co":"메리츠화재","n":"종합","pr":68001,"g":"박귀완 형님 가족"},{"id":120,"s":"계약완료","d":"25.04.18","c":"김완","p":"김완","co":"메리츠","n":"종합","pr":70400,"g":"박귀완 형님 가족"},{"id":121,"s":"계약완료","d":"24.12.21","c":"위선빈","p":"위선빈","co":"현대해상","n":"용종","pr":26650,"g":"위선빈님 가족"},{"id":122,"s":"계약완료","d":"24.12.23","c":"위선빈","p":"위선빈","co":"한화손해","n":"용종","pr":24248,"g":"위선빈님 가족"},{"id":123,"s":"계약완료","d":"24.12.23","c":"위선빈","p":"위선빈","co":"흥국생명","n":"용종","pr":39282,"g":"위선빈님 가족"},{"id":124,"s":"계약완료","d":"24.12.30","c":"위선빈","p":"위선빈","co":"메리츠","n":"용종","pr":20030,"g":"위선빈님 가족"},{"id":125,"s":"계약완료","d":"24.12.23","c":"위선빈","p":"위선빈","co":"미래에셋","n":"용종","pr":22579,"g":"위선빈님 가족"},{"id":126,"s":"계약완료","d":"24.12.27","c":"위선빈","p":"위선빈","co":"ABL생명","n":"용종","pr":17547,"g":"위선빈님 가족"},{"id":127,"s":"계약완료","d":"25.01.24","c":"배동민","p":"배동민","co":"흥국생명","n":"용종","pr":23732,"g":"위선빈님 가족"},{"id":128,"s":"계약완료","d":"25.01.24","c":"배동민","p":"배동민","co":"미래에셋","n":"용종","pr":22689,"g":"위선빈님 가족"},{"id":129,"s":"계약완료","d":"25.01.24","c":"배동민","p":"배동민","co":"현대해상","n":"용종","pr":33585,"g":"위선빈님 가족"},{"id":130,"s":"계약완료","d":"25.02.03","c":"배동민","p":"배동민","co":"ABL생명","n":"용종","pr":26907,"g":"위선빈님 가족"},{"id":131,"s":"계약완료","d":"25.12.03","c":"위인환","p":"위인환","co":"현대해상","n":"세탁소 화재","pr":105110,"g":"위선빈님 가족"},{"id":132,"s":"계약완료","d":"25.12.08","c":"위인환","p":"위인환","co":"메리츠","n":"간병인","pr":11530,"g":"위선빈님 가족"},{"id":133,"s":"계약완료","d":"25.12.08","c":"위인환","p":"위인환","co":"메리츠","n":"운전자","pr":28200,"g":"위선빈님 가족"},{"id":134,"s":"계약완료","d":"25.12.03","c":"위인환","p":"위인환","co":"삼성화재","n":"주택 화재","pr":14343,"g":"위선빈님 가족"},{"id":135,"s":"계약완료","d":"25.12.08","c":"서삼숙","p":"서삼숙","co":"메리츠","n":"운전자","pr":10810,"g":"위선빈님 가족"},{"id":136,"s":"계약완료","d":"25.04.07","c":"김상태","p":"김상태","co":"삼성화재","n":"종합","pr":54531,"g":"지인들"},{"id":137,"s":"계약완료","d":"25.04.07","c":"이유림","p":"이유림","co":"삼성화재","n":"운전자","pr":10035,"g":"이유림님 가족"},{"id":138,"s":"계약완료","d":"26.03.18","c":"이유림","p":"이유림","co":"메리츠","n":"종합","pr":112810,"g":"이유림님 가족"},{"id":139,"s":"계약완료","d":"26.03.18","c":"이유림","p":"이유림","co":"메리츠","n":"암통치","pr":10070,"g":"이유림님 가족"},{"id":140,"s":"계약완료","d":"25.04.08","c":"우말남","p":"우말남","co":"삼성화재","n":"운전자","pr":10773,"g":"이유림님 가족"},{"id":141,"s":"계약완료","d":"25.07.10","c":"박아연","p":"박아연","co":"삼성화재","n":"종합","pr":52678,"g":"박지연님 가족"},{"id":142,"s":"계약완료","d":"25.07.10","c":"박아연","p":"박아연","co":"삼성화재","n":"운전자","pr":10244,"g":"박지연님 가족"},{"id":143,"s":"계약완료","d":"25.08.08","c":"구본학","p":"구본학","co":"삼성화재","n":"종합","pr":51660,"g":"박지연님 가족"},{"id":144,"s":"계약완료","d":"25.08.08","c":"구본학","p":"구본학","co":"삼성화재","n":"운전자","pr":14302,"g":"박지연님 가족"},{"id":145,"s":"계약완료","d":"25.12.09","c":"박봉우","p":"박봉우","co":"메리츠","n":"상통치","pr":10980,"g":"박지연님 가족"},{"id":146,"s":"계약완료","d":"25.12.19","c":"박봉우","p":"박봉우","co":"흥국생명","n":"재가","pr":67649,"g":"박지연님 가족"},{"id":147,"s":"계약완료","d":"25.12.09","c":"정희선","p":"정희선","co":"메리츠","n":"상통칭","pr":16060,"g":"박지연님 가족"},{"id":148,"s":"계약완료","d":"26.04.16","c":"박지연","p":"박지연","co":"현대해상","n":"종합","pr":50400,"g":"박지연님 가족"},{"id":149,"s":"계약완료","d":"26.04.16","c":"박지연","p":"박지연","co":"현대해상","n":"실비","pr":23200,"g":"박지연님 가족"},{"id":150,"s":"계약완료","d":"26.05.08","c":"박천환","p":"박천환","co":"메리츠화재","n":"종합","pr":33390,"g":"박지연님 가족"},{"id":151,"s":"계약완료","d":"26.05.08","c":"박천환","p":"박천환","co":"메리츠화재","n":"운전자","pr":12240,"g":"박지연님 가족"},{"id":152,"s":"계약완료","d":"25.08.19","c":"안세희","p":"안세희","co":"삼성화재","n":"운전자","pr":10702,"g":"대전세종 커뮤니티"},{"id":153,"s":"계약완료","d":"25.09.19","c":"윤나리","p":"윤나리","co":"메리츠","n":"주택화재","pr":10750,"g":"대전세종 커뮤니티"},{"id":154,"s":"계약완료","d":"25.09.25","c":"임서준","p":"임서준","co":"메리츠","n":"운전자","pr":13470,"g":"지인들"},{"id":155,"s":"계약완료","d":"25.10.29","c":"한규상","p":"한규상","co":"메리츠","n":"상통치","pr":10100,"g":"지인들"},{"id":156,"s":"계약완료","d":"25.12.10","c":"한규상","p":"한규상","co":"한화손해","n":"종합","pr":31668,"g":"지인들"},{"id":157,"s":"계약완료","d":"25.12.24","c":"한규상","p":"한규상","co":"메리츠","n":"운전자","pr":15170,"g":"지인들"},{"id":158,"s":"계약완료","d":"25.12.04","c":"장하람","p":"장하람","co":"메리츠","n":"운전자","pr":13480,"g":"지인들"},{"id":159,"s":"계약완료","d":"25.12.08","c":"조영애","p":"조영애","co":"한화","n":"운전자","pr":11502,"g":"윤지현 가족"},{"id":160,"s":"계약완료","d":"26.02.11","c":"조영애","p":"조영애","co":"메리츠","n":"상통치","pr":17270,"g":"윤지현 가족"},{"id":161,"s":"계약완료","d":"25.12.09","c":"김다혜","p":"김다혜","co":"메리츠","n":"종합","pr":43750,"g":"에이원(메리츠)"},{"id":162,"s":"계약완료","d":"25.12.09","c":"김다혜","p":"김다혜","co":"메리츠","n":"운전자","pr":10810,"g":"에이원(메리츠)"},{"id":163,"s":"계약완료","d":"25.12.30","c":"정의철","p":"정의철","co":"현대해상","n":"운전자","pr":13920,"g":"정의철 가족"},{"id":164,"s":"계약완료","d":"25.12.30","c":"이윤예","p":"이윤예","co":"현대해상","n":"운전자","pr":11790,"g":"정의철 가족"},{"id":165,"s":"계약완료","d":"25.12.31","c":"김민석","p":"김민석","co":"현대해상","n":"운전자","pr":13670,"g":"지인들"},{"id":166,"s":"계약완료","d":"26.03.03","c":"전석일","p":"전석일","co":"흥국생명","n":"종합","pr":28940,"g":"전진영 가족"},{"id":167,"s":"계약완료","d":"26.03.03","c":"이인숙","p":"이인숙","co":"흥국생명","n":"종합","pr":22910,"g":"전진영 가족"},{"id":168,"s":"계약완료","d":"26.03.04","c":"이인숙","p":"이인숙","co":"메리츠화재","n":"운전자","pr":11360,"g":"전진영 가족"},{"id":169,"s":"계약완료","d":"26.05.06","c":"임규현","p":"임규현","co":"메리츠","n":"운전자","pr":13990,"g":"규찬 가족"},{"id":170,"s":"계약완료","d":"26.05.08","c":"이자희","p":"이자희","co":"메리츠화재","n":"종합","pr":41250,"g":"지인들"},{"id":171,"s":"계약완료","d":"26.05.08","c":"김백천","p":"김백천","co":"메리츠화재","n":"종합","pr":30710,"g":"지인들"},{"id":172,"s":"계약완료","d":"26.05.08","c":"김백천","p":"김백천","co":"메리츠화재","n":"종합","pr":12240,"g":"지인들"},{"id":173,"s":"계약완료","d":"26.05.08","c":"김백천","p":"김백천","co":"메리츠화재","n":"주택화재","pr":10010,"g":"지인들"},{"id":174,"s":"계약완료","d":"26.05.15","c":"조민석","p":"조민석","co":"메리츠화재","n":"종합","pr":107730,"g":"지인들"},{"id":175,"s":"계약완료","d":"26.05.15","c":"조민석","p":"조민석","co":"현대해상","n":"운전자","pr":11360,"g":"지인들"}];
+
+const DEFAULT_MONTHLY = [
+  {m:"24.07",k:16,before:0,after:0,tax:0,memo:""},
+  {m:"24.08",k:18,before:1850331,after:1549911,tax:0,memo:""},
+  {m:"24.09",k:9,before:5400940,after:5168050,tax:0,memo:""},
+  {m:"24.10",k:5,before:2255430,after:2128150,tax:0,memo:""},
+  {m:"24.11",k:7,before:1206703,after:1138983,tax:0,memo:""},
+  {m:"24.12",k:22,before:1292771,after:1227001,tax:0,memo:""},
+  {m:"25.01",k:4,before:3102663,after:2976993,tax:0,memo:""},
+  {m:"25.02",k:1,before:8294517,after:8380849,tax:0,memo:"연말정산 포함"},
+  {m:"25.03",k:0,before:1680226,after:1548946,tax:0,memo:""},
+  {m:"25.04",k:14,before:86765,after:59815,tax:0,memo:""},
+  {m:"25.05",k:0,before:1121107,after:1073947,tax:0,memo:""},
+  {m:"25.06",k:7,before:3861035,after:3710685,tax:0,memo:""},
+  {m:"25.07",k:4,before:1494292,after:1404352,tax:0,memo:""},
+  {m:"25.08",k:5,before:2013181,after:1923051,tax:0,memo:""},
+  {m:"25.09",k:6,before:2158261,after:2061081,tax:0,memo:""},
+  {m:"25.10",k:4,before:3972984,after:3814764,tax:0,memo:""},
+  {m:"25.11",k:0,before:1994540,after:1887200,tax:0,memo:""},
+  {m:"25.12",k:29,before:1576488,after:1498658,tax:0,memo:""},
+  {m:"26.01",k:0,before:2102659,after:2009409,tax:0,memo:""},
+  {m:"26.02",k:1,before:5618546,after:6153423,tax:0,memo:""},
+  {m:"26.03",k:5,before:1588854,after:1481831,tax:0,memo:""},
+  {m:"26.04",k:5,before:852958,after:829058,tax:23900,memo:""},
+  {m:"26.05",k:9,before:0,after:0,tax:0,memo:"입력 예정"},
+];
+
+const DEFAULT_GROUPS = {
+  "김성래 가족":"#3B5BDB","손채련님 가족":"#C2255C","이경민님 가족":"#0CA678",
+  "강소영 가족":"#E8590C","카이 패밀리":"#7048E8","박귀완 형님 가족":"#2F9E44",
+  "위선빈님 가족":"#1971C2","이유림님 가족":"#C92A2A","박지연님 가족":"#0C8599",
+  "정의철 가족":"#495057","전진영 가족":"#5C940D","규찬 가족":"#F59F00",
+  "윤지현 가족":"#9C36B5","브숏즈":"#E64980","대전세종 커뮤니티":"#1098AD",
+  "에이원(메리츠)":"#D9480F","지인들":"#868E96"
+};
+
+// ════════════════════════════════════════════════════════════
+// STATE (localStorage)
+// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+// 구글 드라이브 클라우드 연동
+// ════════════════════════════════════════════════════════════
+const CLOUD_URL = 'https://script.google.com/macros/s/AKfycbxf1jq4zdQQuVOVdkOEgLn3yJXX_oR2JWYsoSOfJ8sxFzPg-jJJgh03hBlQA50TYaSbZA/exec';
+
+let cloudStatus = 'idle'; // idle | syncing | ok | error
+let lastSyncedAt = null;
+let syncTimer = null;
+
+function setSyncStatus(status, msg) {
+  cloudStatus = status;
+  const el = document.getElementById('sync-status');
+  if(!el) return;
+  const icons = {idle:'☁️', syncing:'🔄', ok:'✅', error:'❌'};
+  const colors = {idle:'var(--muted)', syncing:'var(--amber)', ok:'var(--green)', error:'var(--red)'};
+  el.innerHTML = `<span style="color:${colors[status]};font-size:12px;font-weight:500">${icons[status]} ${msg}</span>`;
+}
+
+async function saveToCloud(data) {
+  setSyncStatus('syncing', '저장 중...');
+  try {
+    const res = await fetch(CLOUD_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'text/plain'},
+      body: JSON.stringify(data),
+    });
+    const json = await res.json();
+    if(json.success) {
+      lastSyncedAt = new Date();
+      setSyncStatus('ok', `저장됨 ${lastSyncedAt.toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'})}`);
+    } else {
+      setSyncStatus('error', '저장 실패');
+    }
+  } catch(e) {
+    setSyncStatus('error', '연결 오류');
+  }
+}
+
+async function loadFromCloud() {
+  setSyncStatus('syncing', '불러오는 중...');
+  try {
+    const res = await fetch(CLOUD_URL + '?t=' + Date.now());
+    const data = await res.json();
+    if(data.error || !data.contracts) {
+      setSyncStatus('idle', '로컬 데이터 사용 중');
+      return false;
+    }
+    if(data.contracts.length === 0 && CONTRACTS.length > 0) {
+      // 클라우드가 비어있으면 로컬 데이터 업로드
+      const all = {contracts:CONTRACTS,monthly:MONTHLY,groups:GROUPS,version:1};
+      saveToCloud(all);
+      setSyncStatus('ok', '초기 업로드 완료');
+      return false;
+    }
+    // 클라우드 데이터로 교체
+    CONTRACTS = data.contracts;
+    MONTHLY   = data.monthly   || MONTHLY;
+    GROUPS    = data.groups    || GROUPS;
+    nextId    = Math.max(...CONTRACTS.map(c=>c.id||0), 0) + 1;
+    save('ins_contracts', CONTRACTS);
+    save('ins_monthly',   MONTHLY);
+    save('ins_groups',    GROUPS);
+    lastSyncedAt = new Date();
+    setSyncStatus('ok', `불러옴 ${lastSyncedAt.toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'})}`);
+    return true;
+  } catch(e) {
+    setSyncStatus('error', '연결 실패 — 로컬 사용 중');
+    return false;
+  }
+}
+
+function scheduleSave() {
+  // 연속 입력 시 1.5초 후 한 번만 저장
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    const all = {contracts:CONTRACTS, monthly:MONTHLY, groups:GROUPS, version:1, savedAt:new Date().toISOString()};
+    save('ins_contracts', CONTRACTS);
+    save('ins_monthly',   MONTHLY);
+    save('ins_groups',    GROUPS);
+    saveToCloud(all);
+  }, 1500);
+}
+
+function load(key, def){ try{const v=localStorage.getItem(key);return v?JSON.parse(v):def;}catch(e){return def;} }
+function save(key,val){ try{localStorage.setItem(key,JSON.stringify(val));}catch(e){} }
+
+
+let CONTRACTS = load('ins_contracts', DEFAULT_CONTRACTS);
+let MONTHLY   = load('ins_monthly',   DEFAULT_MONTHLY);
+let GROUPS    = load('ins_groups',    DEFAULT_GROUPS);
+
+// Ensure nextId
+let nextId = Math.max(...CONTRACTS.map(c=>c.id||0), 0) + 1;
+
+// ════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════
+const won = n => (n||0).toLocaleString('ko-KR') + '원';
+const wonN = n => (n||0).toLocaleString('ko-KR');
+const wonAxis = n => {
+  if(n>=10000000) return (n/10000000).toFixed(1)+'천만';
+  if(n>=1000000) return (n/10000).toFixed(0)+'만';
+  if(n>=10000) return (n/10000).toFixed(1)+'만';
+  return n;
+};
+const gc = g => GROUPS[g] || '#868E96';
+const gbadge = g => `<span class="gbadge" style="background:${gc(g)}18;color:${gc(g)}">${g}</span>`;
+const sbadge = s => s==='계약완료'?`<span class="b-done">✓ 완료</span>`:s==='가입 예정'?`<span class="b-pending">⏳ 예정</span>`:`<span class="b-cancel">✕ 해지</span>`;
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+
+// ════════════════════════════════════════════════════════════
+// RENDER KPIs
+// ════════════════════════════════════════════════════════════
+function renderKPIs() {
+  const active  = CONTRACTS.filter(r=>r.s==='계약완료');
+  const pending = CONTRACTS.filter(r=>r.s==='가입 예정');
+  const cancel  = CONTRACTS.filter(r=>r.s==='계약해지');
+  const amt     = active.reduce((s,r)=>s+r.pr,0);
+  document.getElementById('kpis').innerHTML = [
+    ['blue','총 계약',active.length+cancel.length+'건','예정 제외'],
+    ['green','계약 완료',active.length+'건','현재 유지 중'],
+    ['red','계약 해지',cancel.length+'건','해지된 계약'],
+    ['amber','가입 예정',pending.length+'건','진행 예정'],
+    ['purple','월 보험료',wonN(amt)+'원','연 '+wonN(amt*12)+'원'],
+  ].map(([cls,l,v,sub])=>`<div class="kpi ${cls}"><div class="kpi-label">${l}</div><div class="kpi-val">${v}</div><div class="kpi-sub">${sub}</div></div>`).join('');
+}
+
+// ════════════════════════════════════════════════════════════
+// TAB: 리스트
+// ════════════════════════════════════════════════════════════
+let sortK='d', sortD=-1, sq='';
+let fStatus=new Set(), fGroups=new Set(), fMonths=new Set(), fCos=new Set();
+let filterOpen=false;
+let expandedCustomer=null;
+let expandedMonth=null;
+
+function toggleFilter(type, val) {
+  const map={status:fStatus,groups:fGroups,months:fMonths,cos:fCos};
+  const s=map[type];
+  if(s.has(val)) s.delete(val); else s.add(val);
+  renderList();
+}
+function clearAllFilters(){fStatus=new Set();fGroups=new Set();fMonths=new Set();fCos=new Set();renderList();}
+function toggleFilterPanel(){filterOpen=!filterOpen;renderList();}
+
+function renderList() {
+  const wasSearch = document.activeElement && document.activeElement.id==='sq-inp';
+
+  let d = [...CONTRACTS];
+  if(fStatus.size) d=d.filter(r=>fStatus.has(r.s));
+  if(fGroups.size) d=d.filter(r=>fGroups.has(r.g));
+  if(fMonths.size) d=d.filter(r=>fMonths.has((r.d||'').slice(0,5)));
+  if(fCos.size)    d=d.filter(r=>fCos.has(r.co));
+  if(sq){const q=sq.toLowerCase();d=d.filter(r=>[r.c,r.p,r.co,r.n,r.g].some(v=>(v||'').toLowerCase().includes(q)));}
+  d.sort((a,b)=>sortK==='pr'?(a.pr-b.pr)*sortD:String(a[sortK]||'').localeCompare(String(b[sortK]||''))*sortD);
+
+  const allMonths=[...new Set(CONTRACTS.map(r=>(r.d||'').slice(0,5)).filter(Boolean))].sort();
+  const allCos=[...new Set(CONTRACTS.map(r=>r.co).filter(Boolean))].sort();
+  const allGrps=[...new Set(CONTRACTS.map(r=>r.g).filter(Boolean))].sort();
+  const allStatus=['계약완료','가입 예정','계약해지'];
+  const activeCnt=fStatus.size+fGroups.size+fMonths.size+fCos.size;
+  const H=(k,l)=>`<th onclick="srt('${k}')">${l}${sortK===k?(sortD===1?' ↑':' ↓'):''}</th>`;
+
+  const chipRow=(label,items,type,activeSet)=>`
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${label}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${items.map(v=>{const on=activeSet.has(v);
+          return`<button onclick="toggleFilter('${type}','${v.replace(/'/g,"\\'")}')"`+
+          ` style="padding:5px 12px;border-radius:999px;font-size:12px;font-weight:500;cursor:pointer;`+
+          `border:1.5px solid ${on?'var(--blue)':'var(--border)'};background:${on?'var(--blue-l)':'var(--surface)'};`+
+          `color:${on?'var(--blue)':'var(--muted)'};transition:all .15s">${v}</button>`;
+        }).join('')}
+      </div>
+    </div>`;
+
+  document.getElementById('pane-리스트').innerHTML=`
+    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+      <div class="search-w" style="flex:1">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="sq-inp" placeholder="계약자 · 보험사 · 보험명 · 그룹 검색..." value="${sq.replace(/"/g,'&quot;')}"
+          oninput="sq=this.value;renderList()">
+      </div>
+      <button onclick="toggleFilterPanel()" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid ${filterOpen||activeCnt?'var(--blue)':'var(--border)'};background:${filterOpen||activeCnt?'var(--blue-l)':'var(--surface)'};color:${filterOpen||activeCnt?'var(--blue)':'var(--muted)'};font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;flex-shrink:0">
+        ⚙️ 필터${activeCnt?` <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:var(--blue);color:#fff;border-radius:50%;font-size:10px;font-weight:700">${activeCnt}</span>`:''}
+      </button>
+    </div>
+
+    ${filterOpen?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:10px;animation:fadeIn .15s ease">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="font-size:14px;font-weight:600;color:var(--text)">필터 설정</div>
+        ${activeCnt?`<button onclick="clearAllFilters()" style="font-size:12px;color:var(--red);background:var(--red-l);border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:500">전체 초기화</button>`:''}
+      </div>
+      ${chipRow('상태',allStatus,'status',fStatus)}
+      ${chipRow('가입 월',allMonths,'months',fMonths)}
+      ${chipRow('보험회사',allCos,'cos',fCos)}
+      ${chipRow('그룹',allGrps,'groups',fGroups)}
+    </div>`:''}
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div class="cnt" style="margin-bottom:0">${d.length}건</div>
+      ${activeCnt?`<div style="display:flex;flex-wrap:wrap;gap:4px">${
+        [...fStatus,...fGroups,...fMonths,...fCos].map(v=>`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:var(--blue-l);color:var(--blue);font-size:11px;font-weight:500">${v} <span onclick="removeOneFilter('${v.replace(/'/g,"\\'")}')" style="cursor:pointer;opacity:.7;font-size:13px">×</span></span>`).join('')
+      }</div>`:''}
+    </div>
+
+    ${(()=>{
+      const active=d.filter(r=>r.s==='계약완료');
+      const total=active.reduce((s,r)=>s+r.pr,0);
+      if(d.length===0)return'';
+      return`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--blue-l);border:1px solid #BFDBFE;border-radius:10px;flex:1;min-width:180px">
+          <span style="font-size:16px">💰</span>
+          <div>
+            <div style="font-size:11px;color:var(--blue);font-weight:600;margin-bottom:2px">완료 계약 월보험료 합계</div>
+            <div style="font-size:17px;font-weight:700;color:var(--navy,#1E3A8A)">${wonN(total)}원</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;flex:1;min-width:180px">
+          <span style="font-size:16px">📅</span>
+          <div>
+            <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:2px">연 환산 보험료</div>
+            <div style="font-size:17px;font-weight:700;color:var(--text)">${wonN(total*12)}원</div>
+          </div>
+        </div>
+      </div>`;
+    })()}
+
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        ${H('s','상태')}${H('d','가입일')}${H('c','계약자')}${H('p','가입자')}
+        ${H('co','보험회사')}${H('n','보험명')}${H('pr','월보험료')}${H('g','그룹')}<th>편집</th>
+      </tr></thead>
+      <tbody>${d.length?d.map(r=>`<tr onclick="openEditModal(${r.id})" style="cursor:pointer">
+        <td>${sbadge(r.s)}</td>
+        <td style="color:var(--muted);font-size:12px;white-space:nowrap">${r.d}</td>
+        <td style="font-weight:600;white-space:nowrap">${r.c}</td>
+        <td style="color:var(--muted);white-space:nowrap">${r.p}</td>
+        <td style="white-space:nowrap">${r.co}</td>
+        <td style="white-space:nowrap">${r.n}</td>
+        <td style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">${wonN(r.pr)}</td>
+        <td>${gbadge(r.g)}</td>
+        <td class="td-act" onclick="event.stopPropagation()">
+          <button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.id})">✏️</button>
+        </td>
+      </tr>`).join(''):`<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--hint)">검색 결과가 없습니다</td></tr>`}</tbody>
+    </table></div>`;
+
+  // ★ 검색창 포커스 복원 (DOM 재생성 후 focus가 날아가는 버그 수정)
+  if(wasSearch) {
+    setTimeout(()=>{
+      const el=document.getElementById('sq-inp');
+      if(el){el.focus();try{el.setSelectionRange(sq.length,sq.length);}catch(e){}}
+    },0);
+  }
+}
+
+function removeOneFilter(val){
+  [fStatus,fGroups,fMonths,fCos].forEach(s=>s.delete(val));
+  renderList();
+}
+function srt(k){sortK===k?sortD*=-1:(sortK=k,sortD=-1);renderList();}
+
+// ════════════════════════════════════════════════════════════
+// TAB: 그룹별
+// ════════════════════════════════════════════════════════════
+let openG = null;
+function renderGroups() {
+  const gm = {};
+  CONTRACTS.forEach(r=>{
+    if(!gm[r.g])gm[r.g]={k:0,amt:0,cancel:0,pending:0,nc:new Set()};
+    if(r.s==='계약완료'){gm[r.g].k++;gm[r.g].amt+=r.pr;}
+    else if(r.s==='계약해지')gm[r.g].cancel++;
+    else gm[r.g].pending++;
+    gm[r.g].nc.add(r.c);
+  });
+  const gs = Object.entries(gm).map(([g,v])=>({g,...v,nc:v.nc.size})).sort((a,b)=>b.amt-a.amt);
+  document.getElementById('pane-그룹별').innerHTML = gs.map(g=>{
+    const id=g.g.replace(/[\s()]/g,'_');
+    const rows=CONTRACTS.filter(r=>r.g===g.g).sort((a,b)=>a.c.localeCompare(b.c));
+    const meta=[`${g.nc}명`,`${g.k}건 완료`,g.cancel?`${g.cancel}건 해지`:'',g.pending?`${g.pending}건 예정`:''].filter(Boolean).join(' · ');
+    return `<div class="gcard">
+      <div class="gheader" onclick="toggleG('${id}')">
+        <div class="gdot" style="background:${gc(g.g)}"></div>
+        <span class="gname">${g.g}</span>
+        <span class="gmeta">${meta}</span>
+        <span class="gamt" style="color:${gc(g.g)}">${wonN(g.amt)}원/월</span>
+        <span class="garr" id="arr-${id}">▼</span>
+      </div>
+      <div class="gtbl" id="gt-${id}">
+        <table>
+          <thead><tr>${['계약자','가입자','가입일','보험회사','보험명','월보험료','상태',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+          <tbody>${rows.map(r=>`<tr>
+            <td style="font-weight:600">${r.c}</td>
+            <td style="color:var(--muted)">${r.p}</td>
+            <td style="color:var(--muted);font-size:12px">${r.d}</td>
+            <td>${r.co}</td><td>${r.n}</td>
+            <td style="text-align:right">${wonN(r.pr)}</td>
+            <td>${sbadge(r.s)}</td>
+            <td class="td-act"><button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.id})">✏️</button></td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+}
+function toggleG(id){
+  const t=document.getElementById('gt-'+id),a=document.getElementById('arr-'+id);
+  if(t.style.display==='table'){t.style.display='none';a.textContent='▼';}
+  else{t.style.display='table';a.textContent='▲';}
+}
+
+// ════════════════════════════════════════════════════════════
+// TAB: 고객별
+// ════════════════════════════════════════════════════════════
+function toggleCustomerDetail(name) {
+  expandedCustomer = expandedCustomer === name ? null : name;
+  renderCustomers();
+}
+
+function renderCustomers() {
+  const cm={};
+  CONTRACTS.forEach(r=>{
+    if(!cm[r.c])cm[r.c]={k:0,amt:0,cancel:0,pending:0,g:r.g,rows:[]};
+    cm[r.c].rows.push(r);
+    if(r.s==='계약완료'){cm[r.c].k++;cm[r.c].amt+=r.pr;}
+    else if(r.s==='계약해지')cm[r.c].cancel++;
+    else cm[r.c].pending++;
+  });
+  const cs=Object.entries(cm).map(([c,v])=>({c,...v})).sort((a,b)=>b.amt-a.amt);
+
+  document.getElementById('pane-고객별').innerHTML=`
+    <div class="tbl-wrap"><table>
+    <thead><tr>
+      <th>#</th><th>계약자</th><th>그룹</th><th>건수</th><th>월보험료</th><th>연보험료</th><th>보험 목록</th>
+    </tr></thead>
+    <tbody>${cs.map((c,i)=>{
+      const exp=expandedCustomer===c.c;
+      const safeN=c.c.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const summaryRow=`<tr onclick="toggleCustomerDetail('${safeN}')" style="cursor:pointer;background:${exp?'var(--blue-l)':''};transition:background .15s">
+        <td style="color:var(--hint);font-size:12px">${i+1}</td>
+        <td style="font-weight:600">${c.c} <span style="font-size:11px;color:${exp?'var(--blue)':'var(--hint)'}">${exp?'▲':'▼'}</span></td>
+        <td>${gbadge(c.g)}</td>
+        <td style="text-align:center">
+          ${c.k>0?`<span style="color:var(--green)">${c.k}건</span>`:''}
+          ${c.cancel?`<span style="color:var(--red);font-size:11px"> 해지${c.cancel}</span>`:''}
+          ${c.pending?`<span style="color:var(--amber);font-size:11px"> 예정${c.pending}</span>`:''}
+        </td>
+        <td style="text-align:right;font-weight:${c.amt>=200000?700:400};color:${c.amt>=200000?'var(--blue)':'inherit'}">${wonN(c.amt)}</td>
+        <td style="text-align:right;color:var(--muted)">${wonN(c.amt*12)}</td>
+        <td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.rows.filter(r=>r.s==='계약완료').map(r=>r.n).slice(0,4).join(' · ')}${c.rows.length>4?' …':''}</td>
+      </tr>`;
+
+      const detailRow=exp?`<tr style="background:#EFF6FF">
+        <td colspan="7" style="padding:0">
+          <div style="padding:12px 16px 16px;border-top:1px dashed var(--border)">
+            <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">📋 ${c.c}님의 전체 계약 현황 (${c.rows.length}건)</div>
+            <table style="width:100%;font-size:12px;border-collapse:collapse">
+              <thead><tr style="background:var(--surface2)">
+                ${['가입일','상태','보험회사','보험명','월보험료',''].map(h=>`<th style="padding:6px 10px;text-align:left;font-weight:600;color:var(--muted);white-space:nowrap">${h}</th>`).join('')}
+              </tr></thead>
+              <tbody>${c.rows.sort((a,b)=>a.d.localeCompare(b.d)).map((r,ri)=>`
+                <tr style="border-bottom:1px dashed var(--border);background:${ri%2?'#F8FAFF':'#fff'}">
+                  <td style="padding:7px 10px;color:var(--muted);white-space:nowrap">${r.d}</td>
+                  <td style="padding:7px 10px">${sbadge(r.s)}</td>
+                  <td style="padding:7px 10px;white-space:nowrap">${r.co}</td>
+                  <td style="padding:7px 10px;white-space:nowrap;font-weight:500">${r.n}</td>
+                  <td style="padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">${wonN(r.pr)}원</td>
+                  <td style="padding:7px 10px;text-align:right">
+                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openEditModal(${r.id})">✏️</button>
+                  </td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+            <div style="margin-top:10px;padding:10px 12px;background:var(--blue-l);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:12px;color:var(--blue)">월 합계 보험료</span>
+              <span style="font-size:14px;font-weight:700;color:var(--blue)">${wonN(c.amt)}원 / 연 ${wonN(c.amt*12)}원</span>
+            </div>
+          </div>
+        </td>
+      </tr>`:'';
+
+      return summaryRow+detailRow;
+    }).join('')}</tbody>
+    </table></div>`;
+}
+
+
+// ════════════════════════════════════════════════════════════
+// TAB: 월별 실적
+// ════════════════════════════════════════════════════════════
+function toggleMonthDetail(m) {
+  expandedMonth = expandedMonth === m ? null : m;
+  renderMonthly();
+}
+
+function renderMonthly() {
+  // 빈 달 채우기: 마지막 달 ~ 현재+3개월
+  const now2 = new Date();
+  const displayMonths = [...MONTHLY];
+  const lastM2 = displayMonths.length ? displayMonths.map(x=>x.m).sort().pop() : '24.07';
+  const [ly2,lm2] = lastM2.split('.').map(Number);
+  let cur2 = new Date(2000+ly2, lm2-1, 1);
+  cur2.setMonth(cur2.getMonth()+1);
+  const endDate2 = new Date(now2.getFullYear(), now2.getMonth()+4, 1);
+  while(cur2 < endDate2){
+    const ms2 = `${String(cur2.getFullYear()).slice(2)}.${String(cur2.getMonth()+1).padStart(2,'0')}`;
+    if(!displayMonths.find(x=>x.m===ms2)){
+      displayMonths.push({m:ms2,k:0,before:0,after:0,tax:0,memo:''});
+    }
+    cur2.setMonth(cur2.getMonth()+1);
+  }
+  displayMonths.sort((a,b)=>b.m.localeCompare(a.m));
+  const kByMonth = {};
+  CONTRACTS.filter(r=>r.s==='계약완료').forEach(r=>{
+    const m = r.d ? r.d.slice(0,5) : '';
+    if(m) kByMonth[m] = (kByMonth[m]||0)+1;
+  });
+
+  const recentMonths = MONTHLY.slice().reverse().slice(0,12).reverse();
+  const maxAfter = Math.max(...MONTHLY.filter(m=>m.after>0).map(m=>m.after), 1);
+
+  // Bar chart SVG
+  const BW=680,BH=180,PL=58,PR=8,PT=22,PB=30;
+  const bw=(BW-PL-PR)/MONTHLY.length;
+  const maxK2=Math.max(...MONTHLY.map(m=>kByMonth[m.m]||m.k||0),1);
+  const yticks=[0,5,10,15,20,25,30].filter(v=>v<=maxK2+3);
+  const barSVG=`<svg viewBox="0 0 ${BW} ${BH}" style="width:100%;display:block">
+    ${yticks.map(v=>{const y=PT+(BH-PT-PB)*(1-v/maxK2);return`<line x1="${PL}" y1="${y}" x2="${BW-PR}" y2="${y}" stroke="#E2E6EF" stroke-width="1"/><text x="${PL-6}" y="${y+4}" text-anchor="end" font-size="10" fill="#9CA3AF">${v}건</text>`;}).join('')}
+    ${MONTHLY.map((m,i)=>{
+      const kv=kByMonth[m.m]||m.k||0;
+      const ch=BH-PT-PB;const bh=maxK2>0?Math.max(kv>0?3:0,Math.round((kv/maxK2)*ch)):0;
+      const bx=PL+i*bw+(bw-bw*.65)/2;const by=PT+ch-bh;
+      const col=kv>=20?'#3B5BDB':kv>=10?'#748FFC':'#BAC8FF';
+      return`${kv>0?`<rect x="${bx}" y="${by}" width="${bw*.65}" height="${bh}" rx="3" fill="${col}"/><text x="${bx+bw*.65/2}" y="${by-5}" text-anchor="middle" font-size="10" fill="${col}" font-weight="600">${kv}</text>`:''}
+      <text x="${PL+i*bw+bw/2}" y="${BH-6}" text-anchor="middle" font-size="9" fill="#9CA3AF">${m.m}</text>`;
+    }).join('')}
+  </svg>`;
+
+  // Line chart
+  const incl=MONTHLY.filter(m=>m.after>0);
+  const LW=680,LH=180,LP=72,LR=10,LT=16,LB=30;
+  const cw=LW-LP-LR,ch2=LH-LT-LB;
+  const xStep=incl.length>1?cw/(incl.length-1):cw;
+  const pts=incl.map((m,i)=>({x:LP+i*xStep,y:LT+ch2*(1-m.after/maxAfter)}));
+  const pathD=pts.map((p,i)=>i===0?`M${p.x},${p.y}`:`L${p.x},${p.y}`).join(' ');
+  const lineSVG=incl.length>0?`<svg viewBox="0 0 ${LW} ${LH}" style="width:100%;display:block">
+    <defs><linearGradient id="lg3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0D9466" stop-opacity=".15"/><stop offset="100%" stop-color="#0D9466" stop-opacity="0"/></linearGradient></defs>
+    ${Array.from({length:5},(_,i)=>{const v=Math.round(maxAfter*(i/4));const y=LT+ch2*(1-i/4);return`<line x1="${LP}" y1="${y}" x2="${LW-LR}" y2="${y}" stroke="#E2E6EF" stroke-width="1"/><text x="${LP-6}" y="${y+4}" text-anchor="end" font-size="9" fill="#9CA3AF">${wonAxis(v)}</text>`;}).join('')}
+    <path d="${pathD} L${pts[pts.length-1].x},${LT+ch2} L${LP},${LT+ch2} Z" fill="url(#lg3)"/>
+    <path d="${pathD}" fill="none" stroke="#0D9466" stroke-width="2.5" stroke-linejoin="round"/>
+    ${pts.map((p,i)=>`<circle cx="${p.x}" cy="${p.y}" r="4" fill="#0D9466" stroke="white" stroke-width="1.5"><title>${incl[i].m}: ${won(incl[i].after)}</title></circle>`).join('')}
+    ${incl.filter((_,i)=>i%3===0||i===incl.length-1).map((m,_,arr,idx=incl.indexOf(m))=>`<text x="${pts[idx].x}" y="${LH-6}" text-anchor="middle" font-size="9" fill="#9CA3AF">${m.m}</text>`).join('')}
+  </svg>`:'<div style="text-align:center;padding:40px;color:var(--hint)">수입 데이터 없음</div>';
+
+  const totalAfter=MONTHLY.reduce((s,m)=>s+m.after,0);
+  const avgAfter=incl.length>0?Math.round(incl.reduce((s,m)=>s+m.after,0)/incl.length):0;
+  const maxIncM=incl.length>0?incl.reduce((a,b)=>b.after>a.after?b:a):{m:'-',after:0};
+  const maxKM=MONTHLY.reduce((a,b)=>(kByMonth[b.m]||b.k)>(kByMonth[a.m]||a.k)?b:a,MONTHLY[0]);
+
+  document.getElementById('pane-월별').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+      <div class="chart-wrap"><div class="chart-title">월별 신규 가입 건수</div>${barSVG}</div>
+      <div class="chart-wrap"><div class="chart-title">월별 세후 수입 추이</div>${lineSVG}</div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-l">누적 세후 수입</div><div class="stat-v">${won(totalAfter)}</div></div>
+      <div class="stat"><div class="stat-l">최고 수입 월</div><div class="stat-v">${maxIncM.m} (${won(maxIncM.after)})</div></div>
+      <div class="stat"><div class="stat-l">평균 월 수입</div><div class="stat-v">${won(avgAfter)}</div></div>
+      <div class="stat"><div class="stat-l">최다 가입 월</div><div class="stat-v">${maxKM.m} (${kByMonth[maxKM.m]||maxKM.k}건)</div></div>
+    </div>
+    <div style="margin-top:18px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:600;color:var(--muted)">월별 수입 내역</div>
+        <button class="btn btn-secondary btn-sm" onclick="openIncomeModal()">＋ 수입 입력</button>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr>${['월','신규계약','세전 수입','세후 수입','메모',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>${displayMonths.map(m=>{
+          const exp=expandedMonth===m.m;
+          const mContracts=CONTRACTS.filter(r=>r.d&&r.d.slice(0,5)===m.m);
+          const summaryRow=`<tr onclick="toggleMonthDetail('${m.m}')" style="cursor:pointer;background:${exp?'var(--blue-l)':''};transition:background .15s">
+            <td style="font-weight:700">${m.m} <span style="font-size:11px;color:${exp?'var(--blue)':'var(--hint)'}">${exp?'▲':'▼'}</span></td>
+            <td style="text-align:center">${kByMonth[m.m]||m.k||0}건</td>
+            <td style="text-align:right">${m.before?won(m.before):'-'}</td>
+            <td style="text-align:right;font-weight:${m.after>=3000000?600:400};color:${m.after>=3000000?'var(--blue)':'inherit'}">${m.after?won(m.after):'-'}</td>
+            <td style="color:var(--hint);font-size:12px">${m.memo||''}</td>
+            <td class="td-act" onclick="event.stopPropagation()">
+              <button class="btn btn-secondary btn-sm" onclick="openIncomeModalFor('${m.m}')">✏️ 수입편집</button>
+            </td>
+          </tr>`;
+          const detailRow=exp?`<tr style="background:#EFF6FF">
+            <td colspan="6" style="padding:0">
+              <div style="padding:12px 16px 16px;border-top:1px dashed var(--border)">
+                <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">📋 ${m.m} 계약 리스트 (${mContracts.length}건)</div>
+                ${mContracts.length>0?`<table style="width:100%;font-size:12px;border-collapse:collapse">
+                  <thead><tr style="background:var(--surface2)">
+                    ${['가입일','상태','계약자','보험회사','보험명','월보험료',''].map(h=>`<th style="padding:6px 10px;text-align:left;font-weight:600;color:var(--muted);white-space:nowrap">${h}</th>`).join('')}
+                  </tr></thead>
+                  <tbody>${mContracts.map((r,ri)=>`
+                    <tr style="border-bottom:1px dashed var(--border);background:${ri%2?'#F8FAFF':'#fff'}">
+                      <td style="padding:7px 10px;color:var(--muted);white-space:nowrap">${r.d}</td>
+                      <td style="padding:7px 10px">${sbadge(r.s)}</td>
+                      <td style="padding:7px 10px;font-weight:600;white-space:nowrap">${r.c}</td>
+                      <td style="padding:7px 10px;white-space:nowrap">${r.co}</td>
+                      <td style="padding:7px 10px;white-space:nowrap;font-weight:500">${r.n}</td>
+                      <td style="padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">${wonN(r.pr)}원</td>
+                      <td style="padding:7px 10px;text-align:right">
+                        <button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.id})">✏️</button>
+                      </td>
+                    </tr>`).join('')}
+                  </tbody>
+                </table>
+                <div style="margin-top:10px;padding:10px 12px;background:var(--blue-l);border-radius:8px;display:flex;justify-content:space-between">
+                  <span style="font-size:12px;color:var(--blue)">이 월 월보험료 합계</span>
+                  <span style="font-size:13px;font-weight:700;color:var(--blue)">${wonN(mContracts.filter(r=>r.s==='계약완료').reduce((s,r)=>s+r.pr,0))}원/월</span>
+                </div>`
+                :`<div style="padding:20px;text-align:center;color:var(--hint);font-size:13px">이 월의 계약 데이터가 없습니다</div>`}
+              </div>
+            </td>
+          </tr>`:'';
+          return summaryRow+detailRow;
+        }).join('')}</tbody>
+      </table></div>
+    </div>`;
+}
+
+// ════════════════════════════════════════════════════════════
+// MODAL: 계약 추가/수정
+// ════════════════════════════════════════════════════════════
+function showAddGroupInput() {
+  document.getElementById('new-grp-wrap').style.display = 'block';
+  setTimeout(()=>document.getElementById('new-grp-name').focus(), 50);
+}
+function cancelAddGroup() {
+  document.getElementById('new-grp-wrap').style.display = 'none';
+  document.getElementById('new-grp-name').value = '';
+}
+function addNewGroup() {
+  const name = document.getElementById('new-grp-name').value.trim();
+  const color = document.getElementById('new-grp-color').value;
+  if(!name) { showToast('⚠️ 그룹명을 입력해주세요'); return; }
+  if(GROUPS[name]) { showToast('⚠️ 이미 있는 그룹명이에요'); return; }
+  GROUPS[name] = color;
+  save('ins_groups', GROUPS);
+  const cur = document.getElementById('f-group').value;
+  populateGroupDropdown(name);
+  cancelAddGroup();
+  showToast(`✅ '${name}' 그룹이 추가되었습니다`);
+}
+
+function populateGroupDropdown(selectedG) {
+  const sel = document.getElementById('f-group');
+  sel.innerHTML = Object.keys(GROUPS).sort().map(g=>`<option value="${g}"${g===selectedG?' selected':''}>${g}</option>`).join('');
+}
+
+function openAddModal() {
+  document.getElementById('modal-title').textContent = '새 계약 추가';
+  document.getElementById('edit-id').value = '';
+  document.getElementById('f-status').value = '계약완료';
+  document.getElementById('f-date').value = '';
+  document.getElementById('f-holder').value = '';
+  document.getElementById('f-insured').value = '';
+  document.getElementById('f-co').value = '';
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-price').value = '';
+  populateGroupDropdown('지인들');
+  document.getElementById('btn-delete').style.display = 'none';
+  document.getElementById('new-grp-wrap').style.display = 'none';
+  document.getElementById('modal-contract').classList.add('on');
+  setTimeout(()=>document.getElementById('f-holder').focus(), 100);
+}
+
+function openEditModal(id) {
+  const r = CONTRACTS.find(c=>c.id===id);
+  if(!r) return;
+  document.getElementById('modal-title').textContent = `계약 수정 — ${r.c}`;
+  document.getElementById('edit-id').value = id;
+  document.getElementById('f-status').value = r.s;
+  document.getElementById('f-date').value = r.d;
+  document.getElementById('f-holder').value = r.c;
+  document.getElementById('f-insured').value = r.p;
+  document.getElementById('f-co').value = r.co;
+  document.getElementById('f-name').value = r.n;
+  document.getElementById('f-price').value = r.pr;
+  populateGroupDropdown(r.g);
+  document.getElementById('btn-delete').style.display = 'inline-flex';
+  document.getElementById('new-grp-wrap').style.display = 'none';
+  document.getElementById('modal-contract').classList.add('on');
+}
+
+function saveContract() {
+  const id = document.getElementById('edit-id').value;
+  const data = {
+    s:  document.getElementById('f-status').value,
+    d:  document.getElementById('f-date').value.trim(),
+    c:  document.getElementById('f-holder').value.trim(),
+    p:  document.getElementById('f-insured').value.trim() || document.getElementById('f-holder').value.trim(),
+    co: document.getElementById('f-co').value.trim(),
+    n:  document.getElementById('f-name').value.trim(),
+    pr: parseInt(document.getElementById('f-price').value) || 0,
+    g:  document.getElementById('f-group').value,
+  };
+  if(!data.c){showToast('⚠️ 계약자를 입력해주세요');return;}
+
+  if(id) {
+    const idx = CONTRACTS.findIndex(c=>c.id===parseInt(id));
+    if(idx>=0) CONTRACTS[idx] = {...CONTRACTS[idx],...data};
+    showToast('✅ 계약이 수정되었습니다');
+  } else {
+    data.id = nextId++;
+    CONTRACTS.push(data);
+    // Add month to MONTHLY if new
+    const m = data.d.slice(0,5);
+    if(m && !MONTHLY.find(x=>x.m===m)) {
+      MONTHLY.push({m,k:0,before:0,after:0,tax:0,memo:''});
+      MONTHLY.sort((a,b)=>a.m.localeCompare(b.m));
+    }
+    showToast('✅ 계약이 추가되었습니다');
+  }
+  save('ins_contracts', CONTRACTS);
+  save('ins_monthly', MONTHLY);
+  closeModal('contract');
+  scheduleSave();
+  renderAll();
+}
+
+function deleteContract() {
+  const id = parseInt(document.getElementById('edit-id').value);
+  const r = CONTRACTS.find(c=>c.id===id);
+  if(!r || !confirm(`'${r.c} / ${r.n}' 계약을 삭제하시겠습니까?`)) return;
+  CONTRACTS = CONTRACTS.filter(c=>c.id!==id);
+  save('ins_contracts', CONTRACTS);
+  closeModal('contract');
+  showToast('🗑️ 계약이 삭제되었습니다');
+  scheduleSave();
+  renderAll();
+}
+
+// ════════════════════════════════════════════════════════════
+// MODAL: 월 수입 입력
+// ════════════════════════════════════════════════════════════
+function openIncomeModal() {
+  const sel = document.getElementById('i-month');
+
+  // MONTHLY에 있는 달 + 빈 달 채우기 (마지막 달 ~ 현재+3개월)
+  const months = [...MONTHLY].map(m=>m.m);
+  const now = new Date();
+
+  // 마지막 달부터 현재+3개월까지 빈 달 자동 채우기
+  const lastM = months.length ? months.slice().sort().pop() : '24.07';
+  const [ly, lm] = lastM.split('.').map(Number);
+  let cur = new Date(2000+ly, lm-1, 1); // 마지막 달 다음달부터
+  cur.setMonth(cur.getMonth()+1);
+  const endDate = new Date(now.getFullYear(), now.getMonth()+4, 1); // 현재+3개월
+  while(cur < endDate){
+    const ms = `${String(cur.getFullYear()).slice(2)}.${String(cur.getMonth()+1).padStart(2,'0')}`;
+    if(!months.includes(ms)) months.push(ms);
+    cur.setMonth(cur.getMonth()+1);
+  }
+  months.sort((a,b)=>b.localeCompare(a)); // 최신순 정렬
+
+  sel.innerHTML = months.map(m=>`<option value="${m}">${m}</option>`).join('');
+
+  // 기본값: 이번 달
+  const thisMonth = `${String(now.getFullYear()).slice(2)}.${String(now.getMonth()+1).padStart(2,'0')}`;
+  sel.value = months.includes(thisMonth) ? thisMonth : months[0];
+  loadIncomeData();
+  document.getElementById('modal-income').classList.add('on');
+}
+
+function openIncomeModalFor(m) {
+  openIncomeModal();
+  document.getElementById('i-month').value = m;
+  loadIncomeData();
+}
+
+function loadIncomeData() {
+  const m = document.getElementById('i-month').value;
+  const data = MONTHLY.find(x=>x.m===m);
+  document.getElementById('i-before').value = data?.before || '';
+  document.getElementById('i-after').value  = data?.after  || '';
+  document.getElementById('i-tax').value    = data?.tax    || '';
+  document.getElementById('i-memo').value   = data?.memo   || '';
+}
+
+function saveIncome() {
+  const m      = document.getElementById('i-month').value;
+  const before = parseInt(document.getElementById('i-before').value) || 0;
+  const after  = parseInt(document.getElementById('i-after').value)  || 0;
+  const tax    = parseInt(document.getElementById('i-tax').value)    || 0;
+  const memo   = document.getElementById('i-memo').value.trim();
+  const idx = MONTHLY.findIndex(x=>x.m===m);
+  if(idx>=0) Object.assign(MONTHLY[idx],{before,after,tax,memo});
+  else { MONTHLY.push({m,k:0,before,after,tax,memo}); MONTHLY.sort((a,b)=>a.m.localeCompare(b.m)); }
+  save('ins_monthly', MONTHLY);
+  closeModal('income');
+  showToast(`✅ ${m} 수입이 저장되었습니다`);
+  scheduleSave();
+  renderMonthly();
+}
+
+// ════════════════════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════════════════════
+function closeModal(name) { document.getElementById('modal-'+name).classList.remove('on'); }
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('on');}));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.overlay.on').forEach(o=>o.classList.remove('on'));});
+
+let currentTab = '리스트';
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.pane').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('pane-'+name).classList.add('on');
+  currentTab = name;
+  renderTab(name);
+}
+function renderTab(name) {
+  if(name==='리스트') renderList();
+  else if(name==='그룹별') renderGroups();
+  else if(name==='고객별') renderCustomers();
+  else if(name==='월별') renderMonthly();
+}
+// ════════════════════════════════════════════════════════════
+// 백업 / 복원
+// ════════════════════════════════════════════════════════════
+function exportData() {
+  const data = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    contracts: CONTRACTS,
+    monthly: MONTHLY,
+    groups: GROUPS,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const d = new Date();
+  const ds = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  a.href = url; a.download = `보험관리툴_백업_${ds}.json`; a.click();
+  URL.revokeObjectURL(url);
+  showToast('💾 백업 파일이 다운로드되었습니다');
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if(!data.contracts || !data.monthly) { showToast('⚠️ 올바른 백업 파일이 아닙니다'); return; }
+      const exportDate = data.exportedAt ? new Date(data.exportedAt).toLocaleString('ko-KR') : '알 수 없음';
+      if(!confirm(`백업 파일을 복원하면 현재 데이터가 교체됩니다.\n\n📋 계약: ${data.contracts.length}건\n📅 월 데이터: ${data.monthly.length}개월\n👥 그룹: ${Object.keys(data.groups||{}).length}개\n🕐 백업 일시: ${exportDate}\n\n계속하시겠습니까?`)) return;
+      CONTRACTS = data.contracts;
+      MONTHLY   = data.monthly;
+      GROUPS    = data.groups || DEFAULT_GROUPS;
+      nextId    = Math.max(...CONTRACTS.map(c=>c.id||0), 0) + 1;
+      save('ins_contracts', CONTRACTS);
+      save('ins_monthly',   MONTHLY);
+      save('ins_groups',    GROUPS);
+      renderAll();
+      showToast(`✅ 복원 완료! 계약 ${CONTRACTS.length}건 불러왔습니다`);
+    } catch(err) {
+      showToast('⚠️ 파일을 읽는 중 오류가 발생했습니다');
+    } finally {
+      event.target.value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+
+function renderAll() {
+  renderKPIs();
+  renderTab(currentTab);
+}
+
+// ════════════════════════════════════════════════════════════
+// Init — 클라우드에서 먼저 로드, 실패 시 로컬 사용
+// ════════════════════════════════════════════════════════════
+(async function init() {
+  renderAll(); // 우선 로컬 데이터로 먼저 그리기
+  const loaded = await loadFromCloud();
+  if(loaded) renderAll(); // 클라우드 데이터로 다시 그리기
+})();
+</script>
+</div><!-- /app-wrap -->
+</body>
+</html>
