@@ -1391,25 +1391,60 @@ function renderCovDetail(name){
   const cData = COVERAGES[name] || {policies:[]};
   const contracts = CONTRACTS.filter(r=>r.c===name && r.s==='계약완료');
 
-  // 총 보장 합산
-  const totals = {};
-  (cData.policies||[]).forEach(pol=>{
-    (pol.items||[]).forEach(item=>{
-      if(!totals[item.name]) totals[item.name]={amount:0, count:0};
-      totals[item.name].amount += (parseFloat(item.amount)||0);
-      totals[item.name].count++;
+  // ── 보장 매트릭스 (행: 담보항목, 열: 보험사·상품명) ──
+  const policyLabels = []; // 열 헤더
+  const matrix = {};       // matrix[담보명][policyLabel] = amount
+
+  contracts.forEach(contract=>{
+    const pol = (cData.policies||[]).find(p=>p.id===contract.id);
+    if(!pol || !pol.items?.length) return;
+    const label = `${contract.co}`;
+    const prodLabel = `${contract.co}\n${contract.n}`;
+    if(!policyLabels.find(p=>p.key===prodLabel)){
+      policyLabels.push({key:prodLabel, co:contract.co, n:contract.n});
+    }
+    pol.items.forEach(item=>{
+      if(!item.name || !item.amount) return;
+      if(!matrix[item.name]) matrix[item.name]={};
+      matrix[item.name][prodLabel] = (matrix[item.name][prodLabel]||0) + (parseFloat(item.amount)||0);
     });
   });
 
-  const totalCards = Object.entries(totals).map(([name2,v])=>{
-    const icons={'암':'🎗️','뇌':'🧠','심장':'❤️','실손':'🏥','입원':'🛏️','수술':'⚕️','간병':'👩‍⚕️','치매':'🧓','사망':'📋','후유':'♿'};
-    const icon = Object.entries(icons).find(([k])=>name2.includes(k))?.[1]||'📌';
-    return`<div class="total-card" style="border-left-color:var(--blue)">
-      <div class="tc-label">${icon} ${name2}</div>
-      <div class="tc-val">${v.amount>0?wonN(v.amount*10000)+'원':'-'}</div>
-      <div class="tc-sub">${v.count}개 보험 합산</div>
-    </div>`;
-  }).join('');
+  const itemNames = Object.keys(matrix);
+  const matrixTable = itemNames.length>0 ? `
+    <div style="overflow-x:auto;margin-bottom:16px">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:400px">
+      <thead>
+        <tr style="background:var(--navy,#1E3A8A)">
+          <th style="padding:10px 12px;text-align:left;color:#fff;font-weight:600;white-space:nowrap;position:sticky;left:0;background:var(--navy,#1E3A8A);min-width:130px">담보 항목</th>
+          ${policyLabels.map(p=>`
+            <th style="padding:10px 8px;text-align:center;color:#fff;font-weight:600;white-space:nowrap;min-width:90px;line-height:1.3">
+              <div style="font-size:11px;opacity:.8">${p.co}</div>
+              <div style="font-size:11px">${p.n}</div>
+            </th>`).join('')}
+          <th style="padding:10px 12px;text-align:right;color:#fff;font-weight:700;white-space:nowrap;background:#1a327a">합계</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemNames.map((itemName,ri)=>{
+          const rowTotal = policyLabels.reduce((s,p)=>{
+            return s+(matrix[itemName][p.key]||0);
+          },0);
+          return`<tr style="background:${ri%2===0?'var(--surface2)':'#fff'}">
+            <td style="padding:9px 12px;font-weight:500;color:var(--text);position:sticky;left:0;background:${ri%2===0?'var(--surface2)':'#fff'};border-right:1px solid var(--border)">${itemName}</td>
+            ${policyLabels.map(p=>{
+              const v=matrix[itemName][p.key]||0;
+              return`<td style="padding:9px 8px;text-align:center;color:${v>0?'var(--blue)':'var(--hint)'};font-weight:${v>0?600:400}">
+                ${v>0?wonN(v*10000)+'원':'-'}
+              </td>`;
+            }).join('')}
+            <td style="padding:9px 12px;text-align:right;font-weight:700;color:var(--text);border-left:1px solid var(--border)">${wonN(rowTotal*10000)}원</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    </div>` : '';
+
 
   const policySections = contracts.map(contract=>{
     const polId = contract.id;
@@ -1456,9 +1491,9 @@ function renderCovDetail(name){
       <button class="btn btn-primary btn-sm" onclick="copyShareLink('${name}')">📤 고객 링크 복사</button>
     </div>
 
-    ${Object.keys(totals).length>0?`
-    <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px">📊 총 보장 합산</div>
-    <div class="total-cards">${totalCards}</div>
+    ${itemNames.length>0?`
+    <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px">📊 보장 합산 매트릭스</div>
+    ${matrixTable}
     `:''}
 
     <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px">📋 보험별 담보 내역</div>
@@ -1569,17 +1604,49 @@ function showCustomerView(name){
   const cData = COVERAGES[name] || {policies:[]};
   const contracts = CONTRACTS.filter(r=>r.c===name && r.s==='계약완료');
 
-  // 총 합산
-  const totals = {};
-  (cData.policies||[]).forEach(pol=>{
-    (pol.items||[]).forEach(item=>{
+  // 고객 뷰 매트릭스
+  const cvPolicies = [];
+  const cvMatrix = {};
+  contracts.forEach(contract=>{
+    const pol = (cData.policies||[]).find(p=>p.id===contract.id);
+    if(!pol||!pol.items?.length) return;
+    const label = `${contract.co}\n${contract.n}`;
+    if(!cvPolicies.find(p=>p.key===label)) cvPolicies.push({key:label,co:contract.co,n:contract.n});
+    pol.items.forEach(item=>{
       if(!item.name||!item.amount) return;
-      if(!totals[item.name]) totals[item.name]=0;
-      totals[item.name] += parseFloat(item.amount)||0;
+      if(!cvMatrix[item.name]) cvMatrix[item.name]={};
+      cvMatrix[item.name][label]=(cvMatrix[item.name][label]||0)+(parseFloat(item.amount)||0);
     });
   });
+  const cvItems=Object.keys(cvMatrix);
 
-  const icons={'암':'🎗️','뇌':'🧠','심장':'❤️','실손':'🏥','입원':'🛏️','수술':'⚕️','간병':'👩‍⚕️','치매':'🧓','사망':'📋','후유':'♿'};
+  const matrixTableCV = cvItems.length>0?`
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="background:#1E3A8A">
+          <th style="padding:10px 12px;text-align:left;color:#fff;font-weight:600;position:sticky;left:0;background:#1E3A8A;min-width:120px">담보 항목</th>
+          ${cvPolicies.map(p=>`<th style="padding:10px 8px;text-align:center;color:#fff;font-weight:600;min-width:80px;line-height:1.3">
+            <div style="font-size:10px;opacity:.8">${p.co}</div>
+            <div style="font-size:10px">${p.n}</div>
+          </th>`).join('')}
+          <th style="padding:10px 12px;text-align:right;color:#fff;font-weight:700;background:#1a327a">합계</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${cvItems.map((item,ri)=>{
+          const tot=cvPolicies.reduce((s,p)=>s+(cvMatrix[item][p.key]||0),0);
+          return`<tr style="background:${ri%2===0?'#F8FAFC':'#fff'}">
+            <td style="padding:8px 12px;font-weight:500;color:#374151;position:sticky;left:0;background:${ri%2===0?'#F8FAFC':'#fff'};border-right:1px solid #E5E7EB">${item}</td>
+            ${cvPolicies.map(p=>{
+              const v=cvMatrix[item][p.key]||0;
+              return`<td style="padding:8px;text-align:center;color:${v>0?'#1E3A8A':'#9CA3AF'};font-weight:${v>0?600:400}">${v>0?wonN(v*10000)+'원':'-'}</td>`;
+            }).join('')}
+            <td style="padding:8px 12px;text-align:right;font-weight:700;color:#0F172A;border-left:1px solid #E5E7EB">${wonN(tot*10000)}원</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table></div>`:'';
 
   const policySections = contracts.map(contract=>{
     const pol = (cData.policies||[]).find(p=>p.id===contract.id);
@@ -1601,14 +1668,6 @@ function showCustomerView(name){
     </div>`;
   }).join('');
 
-  const totalRows = Object.entries(totals).map(([n,v])=>{
-    const icon=Object.entries(icons).find(([k])=>n.includes(k))?.[1]||'📌';
-    return`<div class="cv-total-row">
-      <span>${icon} ${n}</span>
-      <span style="color:#1E3A8A;font-weight:600">${wonN(v*10000)}원</span>
-    </div>`;
-  }).join('');
-
   const html=`<div class="cv-wrap">
     <div class="cv-header">
       <div style="font-size:14px;opacity:.75;margin-bottom:4px">보험 보장 내역서</div>
@@ -1616,10 +1675,10 @@ function showCustomerView(name){
       <div style="font-size:12px;opacity:.7">담당: 김성래 설계사</div>
     </div>
     <div style="padding:16px 0 0">
-      ${Object.keys(totals).length?`
-      <div style="margin:0 16px 12px;font-size:13px;font-weight:600;color:var(--muted)">📊 총 보장 합산</div>
-      <div class="cv-total" style="margin:0 16px 12px">${totalRows}</div>`:''}
-      <div style="margin:0 16px 12px;font-size:13px;font-weight:600;color:var(--muted)">📋 보험별 담보 내역</div>
+      ${cvItems.length>0?`
+      <div style="margin:0 16px 12px;font-size:13px;font-weight:600;color:#374151">📊 보장 합산 매트릭스</div>
+      <div style="margin:0 16px 12px">${matrixTableCV}</div>`:''}
+      <div style="margin:0 16px 12px;font-size:13px;font-weight:600;color:#374151">📋 보험별 담보 내역</div>
       ${policySections||'<div style="text-align:center;padding:30px;color:#9CA3AF">보장 데이터가 없습니다</div>'}
       <div style="text-align:center;margin-top:20px;font-size:12px;color:#9CA3AF">
         문의: 김성래 설계사 📞
