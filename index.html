@@ -1387,11 +1387,54 @@ function renderCoverageTab(){
   if(selectedCovCustomer) renderCovDetail(selectedCovCustomer);
 }
 
+function updatePolMeta(customer, polId, field, value){
+  if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
+  let pol = COVERAGES[customer].policies.find(p=>p.id===polId);
+  if(!pol){pol={id:polId,items:[]};COVERAGES[customer].policies.push(pol);}
+  pol[field] = value;
+  saveCoverages();
+}
+
 function renderCovDetail(name){
   const cData = COVERAGES[name] || {policies:[]};
   const contracts = CONTRACTS.filter(r=>r.c===name && r.s==='계약완료');
 
-  // ── 보장 매트릭스 (행: 담보항목, 열: 보험사·상품명) ──
+  // ── 보험 개요 테이블 ───────────────────────────────
+  const totalPremium = contracts.reduce((s,r)=>s+r.pr,0);
+  const overviewTable = contracts.length>0?`
+    <div style="overflow-x:auto;margin-bottom:16px">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="background:var(--navy,#1E3A8A)">
+          ${['보험사','보험명','월 납입료','납입기간','보험기간'].map(h=>`<th style="padding:9px 12px;text-align:left;color:#fff;font-weight:600;white-space:nowrap">${h}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>
+        ${contracts.map((r,ri)=>{
+          const pol=(cData.policies||[]).find(p=>p.id===r.id)||{};
+          return`<tr style="background:${ri%2===0?'var(--surface2)':'#fff'}">
+            <td style="padding:9px 12px;font-weight:600">${r.co}</td>
+            <td style="padding:9px 12px">${r.n}</td>
+            <td style="padding:9px 12px;color:var(--blue);font-weight:600">${wonN(r.pr)}원</td>
+            <td style="padding:6px 8px">
+              <input class="cov-input" value="${pol.payPeriod||''}" placeholder="예: 20년납"
+                onchange="updatePolMeta('${name}',${r.id},'payPeriod',this.value)">
+            </td>
+            <td style="padding:6px 8px">
+              <input class="cov-input" value="${pol.covPeriod||''}" placeholder="예: 100세"
+                onchange="updatePolMeta('${name}',${r.id},'covPeriod',this.value)">
+            </td>
+          </tr>`;
+        }).join('')}
+        <tr style="background:var(--blue-l);font-weight:700">
+          <td colspan="2" style="padding:9px 12px;color:var(--blue)">합계</td>
+          <td style="padding:9px 12px;color:var(--blue)">${wonN(totalPremium)}원/월</td>
+          <td colspan="2" style="padding:9px 12px;font-size:12px;color:var(--muted)">연 ${wonN(totalPremium*12)}원</td>
+        </tr>
+      </tbody>
+    </table></div>`:'';
+
+
   const policyLabels = []; // 열 헤더
   const matrix = {};       // matrix[담보명][policyLabel] = amount
 
@@ -1491,6 +1534,10 @@ function renderCovDetail(name){
       <button class="btn btn-primary btn-sm" onclick="copyShareLink('${name}')">📤 고객 링크 복사</button>
     </div>
 
+    ${contracts.length>0?`
+    <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px">📑 보험 개요</div>
+    ${overviewTable}`:''}
+
     ${itemNames.length>0?`
     <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px">📊 보장 합산 매트릭스</div>
     ${matrixTable}
@@ -1548,9 +1595,9 @@ async function handlePDFUpload(event, polId, coName, prodName){
   reader.onload = async e => {
     const base64 = e.target.result.split(',')[1];
     try {
-      const prompt = `이 보험 제안서에서 보장 담보를 모두 추출해주세요.
+      const prompt = `이 보험 제안서에서 정보를 추출해주세요.
 반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만:
-{"items":[{"name":"담보명","amount":숫자(만원단위),"unit":"만원"}]}
+{"payPeriod":"납입기간(예:20년납,전기납)","covPeriod":"보험기간(예:100세,80세,30년)","items":[{"name":"담보명","amount":숫자(만원단위),"unit":"만원"}]}
 금액은 만원 단위 숫자만. 예) 3000만원→3000, 5만원→0.5
 보장금액이 없는 항목은 제외하세요.`;
 
@@ -1578,6 +1625,8 @@ async function handlePDFUpload(event, polId, coName, prodName){
       let pol = COVERAGES[customer].policies.find(p=>p.id===polId);
       if(!pol){pol={id:polId,items:[]};COVERAGES[customer].policies.push(pol);}
       pol.items = parsed.items || [];
+      if(parsed.payPeriod) pol.payPeriod = parsed.payPeriod;
+      if(parsed.covPeriod) pol.covPeriod = parsed.covPeriod;
       saveCoverages();
       renderCovDetail(customer);
       showToast(`✅ ${pol.items.length}개 담보 추출 완료!`);
@@ -1619,6 +1668,36 @@ function showCustomerView(name){
     });
   });
   const cvItems=Object.keys(cvMatrix);
+  const cvTotalPremium = contracts.reduce((s,r)=>s+r.pr,0);
+
+  // 고객 뷰 개요 테이블
+  const cvOverview = contracts.length>0?`
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="background:#1E3A8A">
+          ${['보험사','보험명','월 납입료','납입기간','보험기간'].map(h=>`<th style="padding:8px 10px;text-align:left;color:#fff;font-weight:600;white-space:nowrap">${h}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>
+        ${contracts.map((r,ri)=>{
+          const pol=(cData.policies||[]).find(p=>p.id===r.id)||{};
+          return`<tr style="background:${ri%2===0?'#F8FAFC':'#fff'}">
+            <td style="padding:8px 10px;font-weight:600;color:#374151">${r.co}</td>
+            <td style="padding:8px 10px;color:#374151">${r.n}</td>
+            <td style="padding:8px 10px;color:#1E3A8A;font-weight:600">${wonN(r.pr)}원</td>
+            <td style="padding:8px 10px;color:#374151">${pol.payPeriod||'-'}</td>
+            <td style="padding:8px 10px;color:#374151">${pol.covPeriod||'-'}</td>
+          </tr>`;
+        }).join('')}
+        <tr style="background:#EFF6FF;font-weight:700">
+          <td colspan="2" style="padding:8px 10px;color:#1E3A8A">합계</td>
+          <td style="padding:8px 10px;color:#1E3A8A">${wonN(cvTotalPremium)}원/월</td>
+          <td colspan="2" style="padding:8px 10px;font-size:11px;color:#6B7280">연 ${wonN(cvTotalPremium*12)}원</td>
+        </tr>
+      </tbody>
+    </table></div>`:'';
+
 
   const matrixTableCV = cvItems.length>0?`
     <div style="overflow-x:auto">
@@ -1675,6 +1754,9 @@ function showCustomerView(name){
       <div style="font-size:12px;opacity:.7">담당: 김성래 설계사</div>
     </div>
     <div style="padding:16px 0 0">
+      ${cvTotalPremium>0?`
+      <div style="margin:0 16px 12px;font-size:13px;font-weight:600;color:#374151">📑 보험 개요</div>
+      <div style="margin:0 16px 12px">${cvOverview}</div>`:''}
       ${cvItems.length>0?`
       <div style="margin:0 16px 12px;font-size:13px;font-weight:600;color:#374151">📊 보장 합산 매트릭스</div>
       <div style="margin:0 16px 12px">${matrixTableCV}</div>`:''}
