@@ -139,6 +139,38 @@ input[type=text]:focus,input[type=number]:focus,select.form-sel:focus,textarea:f
 @media(max-width:900px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:600px){.kpi-grid{grid-template-columns:repeat(2,1fr)};.form-grid{grid-template-columns:1fr};.income-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:400px){.kpi-grid{grid-template-columns:1fr}}
+
+.cov-grid{display:grid;grid-template-columns:220px 1fr;gap:16px}
+.cov-left{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;height:fit-content}
+.cov-cust{padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;transition:background .1s;font-size:13px}
+.cov-cust:hover{background:var(--surface2)}
+.cov-cust.on{background:var(--blue-l);color:var(--blue);font-weight:600}
+.cov-cust-cnt{font-size:11px;color:var(--hint)}
+.cov-right{flex:1}
+.cov-policy{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+.cov-policy-hdr{padding:12px 14px;background:var(--surface2);display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
+.cov-item-row{display:grid;grid-template-columns:1fr 100px 80px 32px;gap:6px;padding:6px 14px;border-bottom:1px dashed var(--border);align-items:center;font-size:13px}
+.cov-item-row:last-child{border:none}
+.cov-input{width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);outline:none}
+.cov-input:focus{border-color:var(--blue)}
+.total-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:16px}
+.total-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;border-left:4px solid transparent}
+.total-card .tc-label{font-size:11px;color:var(--muted);margin-bottom:4px}
+.total-card .tc-val{font-size:18px;font-weight:700;color:var(--text)}
+.total-card .tc-sub{font-size:11px;color:var(--hint);margin-top:2px}
+.api-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--amber-l);border:1px solid #FDE68A;border-radius:var(--radius);margin-bottom:14px;font-size:12px}
+@media(max-width:700px){.cov-grid{grid-template-columns:1fr}}
+
+/* 고객 전용 화면 */
+.cv-wrap{max-width:480px;margin:0 auto;padding:0 0 40px}
+.cv-header{background:linear-gradient(135deg,#1E3A8A,#2563EB);color:#fff;padding:24px 20px 28px;text-align:center}
+.cv-policy{background:#fff;border:1px solid #E2E8F0;border-radius:12px;margin:0 16px 12px;overflow:hidden}
+.cv-policy-hdr{padding:12px 14px;background:#F8FAFC;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;gap:8px}
+.cv-item{display:flex;justify-content:space-between;padding:9px 14px;border-bottom:1px dashed #E2E8F0;font-size:13px}
+.cv-item:last-child{border:none}
+.cv-total{background:#fff;border:1px solid #E2E8F0;border-radius:12px;margin:0 16px 12px;padding:16px}
+.cv-total-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed #E2E8F0;font-size:13px}
+.cv-total-row:last-child{border:none;font-weight:700;font-size:14px}
 </style>
 
 <!-- 잠금 화면 -->
@@ -271,11 +303,13 @@ if(sessionStorage.getItem('ins_unlocked')==='1') {
     <button class="tab" onclick="switchTab('그룹별',this)">👥 그룹별</button>
     <button class="tab" onclick="switchTab('고객별',this)">👤 고객별</button>
     <button class="tab" onclick="switchTab('월별',this)">📊 월별 실적</button>
+    <button class="tab" onclick="switchTab('보장분석',this)">📋 보장 분석</button>
   </div>
   <div id="pane-리스트" class="pane on"></div>
   <div id="pane-그룹별" class="pane"></div>
   <div id="pane-고객별" class="pane"></div>
   <div id="pane-월별" class="pane"></div>
+  <div id="pane-보장분석" class="pane"></div>
 </div>
 
 <!-- 계약 추가/수정 모달 -->
@@ -501,7 +535,7 @@ async function loadFromCloud() {
 }
 
 function manualSync() {
-  const all = {contracts:CONTRACTS, monthly:MONTHLY, groups:GROUPS, version:1, savedAt:new Date().toISOString()};
+  const all = {contracts:CONTRACTS, monthly:MONTHLY, groups:GROUPS, coverages:COVERAGES, version:1, savedAt:new Date().toISOString()};
   save('ins_contracts', CONTRACTS);
   save('ins_monthly',   MONTHLY);
   save('ins_groups',    GROUPS);
@@ -532,7 +566,7 @@ function scheduleSave() {
   // 연속 입력 시 1.5초 후 한 번만 저장
   clearTimeout(syncTimer);
   syncTimer = setTimeout(() => {
-    const all = {contracts:CONTRACTS, monthly:MONTHLY, groups:GROUPS, version:1, savedAt:new Date().toISOString()};
+    const all = {contracts:CONTRACTS, monthly:MONTHLY, groups:GROUPS, coverages:COVERAGES, version:1, savedAt:new Date().toISOString()};
     save('ins_contracts', CONTRACTS);
     save('ins_monthly',   MONTHLY);
     save('ins_groups',    GROUPS);
@@ -597,8 +631,11 @@ function renderKPIs() {
 let sortK='d', sortD=-1, sq='';
 let fStatus=new Set(), fGroups=new Set(), fMonths=new Set(), fCos=new Set();
 let filterOpen=false;
-let expandedCustomer=null;
-let expandedMonth=null;
+let COVERAGES = load('ins_coverages', {});
+let GEMINI_KEY = localStorage.getItem('gemini_key') || '';
+let selectedCovCustomer = null;
+
+
 
 function toggleFilter(type, val) {
   const map={status:fStatus,groups:fGroups,months:fMonths,cos:fCos};
@@ -1195,6 +1232,7 @@ function renderTab(name) {
   else if(name==='그룹별') renderGroups();
   else if(name==='고객별') renderCustomers();
   else if(name==='월별') renderMonthly();
+  else if(name==='보장분석') renderCoverageTab();
 }
 // ════════════════════════════════════════════════════════════
 // 백업 / 복원
@@ -1245,18 +1283,311 @@ function importData(event) {
   reader.readAsText(file);
 }
 
+// ════════════════════════════════════════════════════════════
+// 📋 보장 분석
+// ════════════════════════════════════════════════════════════
+function saveCoverages(){
+  save('ins_coverages', COVERAGES);
+  scheduleSave();
+}
+
+function renderCoverageTab(){
+  const customers = [...new Set(CONTRACTS.map(r=>r.c))].sort();
+  if(!selectedCovCustomer && customers.length) selectedCovCustomer = customers[0];
+
+  const apiBar = GEMINI_KEY ? '' : `
+    <div class="api-bar">
+      <span>🔑</span>
+      <span style="flex:1">Gemini API 키를 먼저 설정해야 PDF 자동 분석이 돼요</span>
+      <button class="btn btn-secondary btn-sm" onclick="setGeminiKey()">키 설정</button>
+    </div>`;
+
+  const leftList = customers.map(c=>`
+    <div class="cov-cust ${c===selectedCovCustomer?'on':''}" onclick="selectedCovCustomer='${c.replace(/'/g,"\\'")}';renderCoverageTab()">
+      <span>${c}</span>
+      <span class="cov-cust-cnt">${(COVERAGES[c]?.policies||[]).length}건</span>
+    </div>`).join('');
+
+  document.getElementById('pane-보장분석').innerHTML = `
+    ${apiBar}
+    <div class="cov-grid">
+      <div class="cov-left">
+        <div style="padding:10px 14px;font-size:11px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border)">고객 선택</div>
+        ${leftList}
+      </div>
+      <div class="cov-right" id="cov-detail"></div>
+    </div>`;
+
+  if(selectedCovCustomer) renderCovDetail(selectedCovCustomer);
+}
+
+function renderCovDetail(name){
+  const cData = COVERAGES[name] || {policies:[]};
+  const contracts = CONTRACTS.filter(r=>r.c===name && r.s==='계약완료');
+
+  // 총 보장 합산
+  const totals = {};
+  (cData.policies||[]).forEach(pol=>{
+    (pol.items||[]).forEach(item=>{
+      if(!totals[item.name]) totals[item.name]={amount:0, count:0};
+      totals[item.name].amount += (parseFloat(item.amount)||0);
+      totals[item.name].count++;
+    });
+  });
+
+  const totalCards = Object.entries(totals).map(([name2,v])=>{
+    const icons={'암':'🎗️','뇌':'🧠','심장':'❤️','실손':'🏥','입원':'🛏️','수술':'⚕️','간병':'👩‍⚕️','치매':'🧓','사망':'📋','후유':'♿'};
+    const icon = Object.entries(icons).find(([k])=>name2.includes(k))?.[1]||'📌';
+    return`<div class="total-card" style="border-left-color:var(--blue)">
+      <div class="tc-label">${icon} ${name2}</div>
+      <div class="tc-val">${v.amount>0?wonN(v.amount*10000)+'원':'-'}</div>
+      <div class="tc-sub">${v.count}개 보험 합산</div>
+    </div>`;
+  }).join('');
+
+  const policySections = contracts.map(contract=>{
+    const polId = contract.id;
+    const pol = (cData.policies||[]).find(p=>p.id===polId) || {id:polId, items:[]};
+    const items = pol.items||[];
+    const safeCoName = contract.co.replace(/'/g,"\\'");
+    const safeN = contract.n.replace(/'/g,"\\'");
+
+    return`<div class="cov-policy">
+      <div class="cov-policy-hdr">
+        <div style="font-size:16px">${contract.co.includes('삼성')?'🟠':contract.co.includes('메리츠')?'🔵':contract.co.includes('현대')?'🟢':'🏦'}</div>
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:14px">${contract.co} · ${contract.n}</div>
+          <div style="font-size:12px;color:var(--muted)">월 ${wonN(contract.pr)}원 · ${contract.d}</div>
+        </div>
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;position:relative">
+          📄 PDF 분석
+          <input type="file" accept=".pdf" onchange="handlePDFUpload(event,${polId},'${safeCoName}','${safeN}')" style="display:none">
+        </label>
+      </div>
+      <div id="cov-items-${polId}">
+        <div class="cov-item-row" style="background:var(--surface2);font-weight:600;font-size:11px;color:var(--muted)">
+          <span>담보명</span><span>금액(만원)</span><span>단위</span><span></span>
+        </div>
+        ${items.map((item,idx)=>`
+          <div class="cov-item-row">
+            <input class="cov-input" value="${item.name||''}" onchange="updateCovItem('${name}',${polId},${idx},'name',this.value)" placeholder="담보명">
+            <input class="cov-input" type="number" value="${item.amount||''}" onchange="updateCovItem('${name}',${polId},${idx},'amount',this.value)" placeholder="0">
+            <input class="cov-input" value="${item.unit||'만원'}" onchange="updateCovItem('${name}',${polId},${idx},'unit',this.value)">
+            <button style="border:none;background:none;color:var(--red);cursor:pointer;font-size:14px" onclick="removeCovItem('${name}',${polId},${idx})">✕</button>
+          </div>`).join('')}
+        <div style="padding:8px 14px">
+          <button class="btn btn-secondary btn-sm" onclick="addCovItem('${name}',${polId})">＋ 담보 추가</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const shareUrl = `${location.origin}${location.pathname}#view=${encodeURIComponent(name)}`;
+
+  document.getElementById('cov-detail').innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="font-size:16px;font-weight:700">${name} 님의 보장 분석</div>
+      <button class="btn btn-primary btn-sm" onclick="copyShareLink('${name}')">📤 고객 링크 복사</button>
+    </div>
+
+    ${Object.keys(totals).length>0?`
+    <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px">📊 총 보장 합산</div>
+    <div class="total-cards">${totalCards}</div>
+    `:''}
+
+    <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px">📋 보험별 담보 내역</div>
+    ${policySections || '<div style="text-align:center;padding:30px;color:var(--hint)">계약 완료된 보험이 없어요</div>'}
+  `;
+}
+
+function updateCovItem(customer, polId, idx, field, value){
+  if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
+  let pol = COVERAGES[customer].policies.find(p=>p.id===polId);
+  if(!pol){pol={id:polId,items:[]};COVERAGES[customer].policies.push(pol);}
+  if(!pol.items[idx]) pol.items[idx]={};
+  pol.items[idx][field] = value;
+  saveCoverages();
+}
+
+function addCovItem(customer, polId){
+  if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
+  let pol = COVERAGES[customer].policies.find(p=>p.id===polId);
+  if(!pol){pol={id:polId,items:[]};COVERAGES[customer].policies.push(pol);}
+  pol.items.push({name:'',amount:'',unit:'만원'});
+  saveCoverages();
+  renderCovDetail(customer);
+}
+
+function removeCovItem(customer, polId, idx){
+  const pol = COVERAGES[customer]?.policies?.find(p=>p.id===polId);
+  if(!pol) return;
+  pol.items.splice(idx,1);
+  saveCoverages();
+  renderCovDetail(customer);
+}
+
+function setGeminiKey(){
+  const key = prompt('Gemini API 키를 입력하세요 (AIzaSy...):');
+  if(!key||!key.trim()) return;
+  GEMINI_KEY = key.trim();
+  localStorage.setItem('gemini_key', GEMINI_KEY);
+  showToast('✅ API 키가 저장되었습니다');
+  renderCoverageTab();
+}
+
+async function handlePDFUpload(event, polId, coName, prodName){
+  const file = event.target.files[0];
+  if(!file) return;
+  if(!GEMINI_KEY){ setGeminiKey(); return; }
+
+  showToast('🔄 AI가 제안서를 분석 중이에요...');
+  const customer = selectedCovCustomer;
+
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const base64 = e.target.result.split(',')[1];
+    try {
+      const prompt = `이 보험 제안서에서 보장 담보를 모두 추출해주세요.
+반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만:
+{"items":[{"name":"담보명","amount":숫자(만원단위),"unit":"만원"}]}
+금액은 만원 단위 숫자만. 예) 3000만원→3000, 5만원→0.5
+보장금액이 없는 항목은 제외하세요.`;
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
+        {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            contents:[{parts:[
+              {inline_data:{mime_type:'application/pdf',data:base64}},
+              {text:prompt}
+            ]}],
+            generationConfig:{temperature:0.1}
+          })
+        }
+      );
+      const data = await res.json();
+      if(data.error) throw new Error(data.error.message);
+      const text = data.candidates[0].content.parts[0].text;
+      const clean = text.replace(/```json|```/g,'').trim();
+      const parsed = JSON.parse(clean);
+
+      if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
+      let pol = COVERAGES[customer].policies.find(p=>p.id===polId);
+      if(!pol){pol={id:polId,items:[]};COVERAGES[customer].policies.push(pol);}
+      pol.items = parsed.items || [];
+      saveCoverages();
+      renderCovDetail(customer);
+      showToast(`✅ ${pol.items.length}개 담보 추출 완료!`);
+    } catch(err) {
+      showToast('❌ 분석 실패: ' + err.message);
+    }
+  };
+  reader.readAsDataURL(file);
+  event.target.value='';
+}
+
+function copyShareLink(name){
+  const url = `${location.origin}${location.pathname}#view=${encodeURIComponent(name)}`;
+  navigator.clipboard.writeText(url).then(()=>showToast('📤 고객 링크 복사됐어요!')).catch(()=>{
+    prompt('아래 링크를 복사하세요:', url);
+  });
+}
+
+// ── 고객 전용 보장 뷰 ───────────────────────────────────
+function showCustomerView(name){
+  document.getElementById('lock-screen').style.display='none';
+  document.getElementById('app-wrap').style.display='none';
+
+  const cData = COVERAGES[name] || {policies:[]};
+  const contracts = CONTRACTS.filter(r=>r.c===name && r.s==='계약완료');
+
+  // 총 합산
+  const totals = {};
+  (cData.policies||[]).forEach(pol=>{
+    (pol.items||[]).forEach(item=>{
+      if(!item.name||!item.amount) return;
+      if(!totals[item.name]) totals[item.name]=0;
+      totals[item.name] += parseFloat(item.amount)||0;
+    });
+  });
+
+  const icons={'암':'🎗️','뇌':'🧠','심장':'❤️','실손':'🏥','입원':'🛏️','수술':'⚕️','간병':'👩‍⚕️','치매':'🧓','사망':'📋','후유':'♿'};
+
+  const policySections = contracts.map(contract=>{
+    const pol = (cData.policies||[]).find(p=>p.id===contract.id);
+    const items = pol?.items||[];
+    if(!items.length) return'';
+    return`<div class="cv-policy">
+      <div class="cv-policy-hdr">
+        <div style="font-size:20px">${contract.co.includes('삼성')?'🟠':contract.co.includes('메리츠')?'🔵':contract.co.includes('현대')?'🟢':'🏦'}</div>
+        <div>
+          <div style="font-weight:600;font-size:14px">${contract.co}</div>
+          <div style="font-size:12px;color:var(--muted)">${contract.n} · 월 ${wonN(contract.pr)}원</div>
+        </div>
+      </div>
+      ${items.map(item=>`
+        <div class="cv-item">
+          <span style="color:#374151">${item.name}</span>
+          <span style="font-weight:600;color:#1E3A8A">${wonN(parseFloat(item.amount||0)*10000)}원</span>
+        </div>`).join('')}
+    </div>`;
+  }).join('');
+
+  const totalRows = Object.entries(totals).map(([n,v])=>{
+    const icon=Object.entries(icons).find(([k])=>n.includes(k))?.[1]||'📌';
+    return`<div class="cv-total-row">
+      <span>${icon} ${n}</span>
+      <span style="color:#1E3A8A;font-weight:600">${wonN(v*10000)}원</span>
+    </div>`;
+  }).join('');
+
+  const html=`<div class="cv-wrap">
+    <div class="cv-header">
+      <div style="font-size:14px;opacity:.75;margin-bottom:4px">보험 보장 내역서</div>
+      <div style="font-size:24px;font-weight:800;margin-bottom:4px">${name} 님</div>
+      <div style="font-size:12px;opacity:.7">담당: 김성래 설계사</div>
+    </div>
+    <div style="padding:16px 0 0">
+      ${Object.keys(totals).length?`
+      <div style="margin:0 16px 12px;font-size:13px;font-weight:600;color:var(--muted)">📊 총 보장 합산</div>
+      <div class="cv-total" style="margin:0 16px 12px">${totalRows}</div>`:''}
+      <div style="margin:0 16px 12px;font-size:13px;font-weight:600;color:var(--muted)">📋 보험별 담보 내역</div>
+      ${policySections||'<div style="text-align:center;padding:30px;color:#9CA3AF">보장 데이터가 없습니다</div>'}
+      <div style="text-align:center;margin-top:20px;font-size:12px;color:#9CA3AF">
+        문의: 김성래 설계사 📞
+      </div>
+    </div>
+  </div>`;
+
+  document.body.insertAdjacentHTML('beforeend', `<div id="cv-screen">${html}</div>`);
+}
+
 function renderAll() {
-  renderKPIs();
   renderTab(currentTab);
 }
 
 // ════════════════════════════════════════════════════════════
-// Init — 클라우드에서 먼저 로드, 실패 시 로컬 사용
+// Init — 고객 뷰 모드 or 일반 모드
 // ════════════════════════════════════════════════════════════
 (async function init() {
-  renderAll(); // 우선 로컬 데이터로 먼저 그리기
+  // 고객 전용 링크 감지
+  const hash = window.location.hash;
+  if(hash.startsWith('#view=')) {
+    const customerName = decodeURIComponent(hash.slice(6));
+    try {
+      const res = await fetch(CLOUD_URL + '?t=' + Date.now());
+      const data = await res.json();
+      if(data.contracts){ CONTRACTS=data.contracts; COVERAGES=data.coverages||{}; MONTHLY=data.monthly||MONTHLY; GROUPS=data.groups||GROUPS; }
+    } catch(e){}
+    showCustomerView(customerName);
+    return;
+  }
+  // 일반 모드
+  renderAll();
   const loaded = await loadFromCloud();
-  if(loaded) renderAll(); // 클라우드 데이터로 다시 그리기
+  if(loaded){ COVERAGES=load('ins_coverages',{}); renderAll(); }
 })();
 </script>
 </div><!-- /app-wrap -->
