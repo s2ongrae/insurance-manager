@@ -370,6 +370,16 @@ if(sessionStorage.getItem('ins_unlocked')==='1') {
         </div>
       </div>
     </div>
+    <div class="form-field" style="margin-top:12px">
+      <label>제안서 PDF</label>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
+          📄 PDF 업로드
+          <input type="file" id="f-proposal" accept=".pdf" onchange="handleProposalUpload(event)" style="display:none">
+        </label>
+        <span id="proposal-info" style="font-size:12px;color:var(--muted)">파일 없음</span>
+      </div>
+    </div>
     <div class="form-btns">
       <button class="btn btn-secondary" onclick="closeModal('contract')">취소</button>
       <button class="btn btn-danger btn-sm" id="btn-delete" style="display:none" onclick="deleteContract()">삭제</button>
@@ -466,7 +476,7 @@ const DEFAULT_GROUPS = {
 // ════════════════════════════════════════════════════════════
 // 구글 드라이브 클라우드 연동
 // ════════════════════════════════════════════════════════════
-const CLOUD_URL = 'https://script.google.com/macros/s/AKfycbxIUQtozUvJ7eAsJIXd1zH6T6USwzzU1N5pr_SiI797N5Y0t91QW7268RJ0FYEr2NiF/exec';
+const CLOUD_URL = 'https://script.google.com/macros/s/AKfycbwk3rTz0_G5wo4DTFJoI3nftVAs4iNoL9ywBRHJZVw_MyfywEZ21_gxgltLnj9up2Lyjw/exec';
 
 let cloudStatus = 'idle'; // idle | syncing | ok | error
 let lastSyncedAt = null;
@@ -745,6 +755,7 @@ function renderList() {
         <td style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">${wonN(r.pr)}</td>
         <td>${gbadge(r.g)}</td>
         <td class="td-act" onclick="event.stopPropagation()">
+          ${r.proposalUrl?`<a href="${r.proposalUrl}" target="_blank" class="btn btn-secondary btn-sm" onclick="event.stopPropagation()" title="제안서 보기" style="text-decoration:none">📄</a>`:''}
           <button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.id})">✏️</button>
         </td>
       </tr>`).join(''):`<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--hint)">검색 결과가 없습니다</td></tr>`}</tbody>
@@ -1039,6 +1050,58 @@ function renderMonthly() {
 // ════════════════════════════════════════════════════════════
 // MODAL: 계약 추가/수정
 // ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+// 제안서 PDF 업로드
+// ════════════════════════════════════════════════════════════
+let pendingProposalUrl = null; // 업로드 완료 후 저장 대기 URL
+
+function handleProposalUpload(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  const infoEl = document.getElementById('proposal-info');
+  infoEl.textContent = '⏳ 업로드 중...';
+  infoEl.style.color = 'var(--amber)';
+
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const base64 = e.target.result.split(',')[1];
+    const filename = `제안서_${Date.now()}.pdf`;
+    try {
+      const res = await fetch(CLOUD_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'text/plain'},
+        body: JSON.stringify({action:'uploadFile', base64, filename})
+      });
+      const data = await res.json();
+      if(data.success) {
+        pendingProposalUrl = data.viewUrl;
+        infoEl.innerHTML = `<a href="${data.viewUrl}" target="_blank" style="color:var(--blue);text-decoration:none">✅ ${file.name} (클릭하여 확인)</a>`;
+        showToast('✅ 제안서 업로드 완료! 저장 버튼을 눌러주세요');
+      } else {
+        throw new Error(data.error||'업로드 실패');
+      }
+    } catch(err) {
+      infoEl.textContent = '❌ 업로드 실패: ' + err.message;
+      infoEl.style.color = 'var(--red)';
+    }
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+function resetProposalField(existingUrl) {
+  pendingProposalUrl = null;
+  const infoEl = document.getElementById('proposal-info');
+  if(!infoEl) return;
+  if(existingUrl) {
+    infoEl.innerHTML = `<a href="${existingUrl}" target="_blank" style="color:var(--blue);text-decoration:none;font-size:12px">📄 기존 제안서 보기</a> <span style="color:var(--muted);font-size:11px">| 새 파일 올리면 교체됩니다</span>`;
+  } else {
+    infoEl.textContent = '파일 없음';
+    infoEl.style.color = 'var(--muted)';
+  }
+}
+
+
 function showAddGroupInput() {
   document.getElementById('new-grp-wrap').style.display = 'block';
   setTimeout(()=>document.getElementById('new-grp-name').focus(), 50);
@@ -1079,7 +1142,7 @@ function openAddModal() {
   document.getElementById('btn-delete').style.display = 'none';
   document.getElementById('new-grp-wrap').style.display = 'none';
   document.getElementById('modal-contract').classList.add('on');
-  setTimeout(()=>document.getElementById('f-holder').focus(), 100);
+  setTimeout(()=>{document.getElementById('f-holder').focus(); resetProposalField(null);}, 100);
 }
 
 function openEditModal(id) {
@@ -1098,6 +1161,7 @@ function openEditModal(id) {
   document.getElementById('btn-delete').style.display = 'inline-flex';
   document.getElementById('new-grp-wrap').style.display = 'none';
   document.getElementById('modal-contract').classList.add('on');
+  setTimeout(()=>resetProposalField(r.proposalUrl||null), 100);
 }
 
 function saveContract() {
@@ -1112,6 +1176,8 @@ function saveContract() {
     pr: parseInt(document.getElementById('f-price').value) || 0,
     g:  document.getElementById('f-group').value,
   };
+  if(pendingProposalUrl) data.proposalUrl = pendingProposalUrl;
+  else if(id) { const old=CONTRACTS.find(c=>c.id===parseInt(id)); if(old?.proposalUrl) data.proposalUrl=old.proposalUrl; }
   if(!data.c){showToast('⚠️ 계약자를 입력해주세요');return;}
 
   if(id) {
