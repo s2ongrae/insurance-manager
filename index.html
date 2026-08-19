@@ -1520,7 +1520,7 @@ async function handlePDFUpload(event, polId, coName, prodName){
 보장금액이 없는 항목은 제외하세요.`;
 
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_KEY}`,
         {
           method:'POST',
           headers:{'Content-Type':'application/json'},
