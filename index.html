@@ -838,7 +838,7 @@ function toggleCustomerDetail(name) {
   renderCustomers();
 }
 
-function renderCustomers() {
+function renderCustomers() { try {
   const cm={};
   CONTRACTS.forEach(r=>{
     if(!cm[r.c])cm[r.c]={k:0,amt:0,cancel:0,pending:0,g:r.g,rows:[]};
@@ -903,6 +903,10 @@ function renderCustomers() {
       return summaryRow+detailRow;
     }).join('')}</tbody>
     </table></div>`;
+  } catch(e) {
+    console.error('renderCustomers:', e);
+    document.getElementById('pane-고객별').innerHTML=`<div style="padding:30px;color:var(--red)">⚠️ 오류: ${e.message}</div>`;
+  }
 }
 
 
@@ -915,6 +919,7 @@ function toggleMonthDetail(m) {
 }
 
 function renderMonthly() {
+  try {
   // 빈 달 채우기: 마지막 달 ~ 현재+3개월
   const now2 = new Date();
   const displayMonths = [...MONTHLY];
@@ -1050,6 +1055,10 @@ function renderMonthly() {
         }).join('')}</tbody>
       </table></div>
     </div>`;
+  } catch(e) {
+    console.error('renderMonthly:', e);
+    document.getElementById('pane-월별').innerHTML=`<div style="padding:30px;color:var(--red)">⚠️ 오류: ${e.message}</div>`;
+  }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1363,7 +1372,7 @@ function saveCoverages(){
 }
 
 function renderCoverageTab(){
-  const customers = [...new Set(CONTRACTS.map(r=>r.c))].sort();
+  const customers = [...new Set(CONTRACTS.map(r=>r.p))].sort();
   if(!selectedCovCustomer && customers.length) selectedCovCustomer = customers[0];
 
   const apiBar = GEMINI_KEY ? '' : `
@@ -1402,7 +1411,7 @@ function updatePolMeta(customer, polId, field, value){
 
 function renderCovDetail(name){
   const cData = COVERAGES[name] || {policies:[]};
-  const contracts = CONTRACTS.filter(r=>r.c===name && r.s==='계약완료');
+  const contracts = CONTRACTS.filter(r=>r.p===name && r.s==='계약완료');
 
   // ── 보험 개요 테이블 ───────────────────────────────
   const totalPremium = contracts.reduce((s,r)=>s+r.pr,0);
@@ -1664,7 +1673,7 @@ function showCustomerView(name){
   document.getElementById('app-wrap').style.display='none';
 
   const cData = COVERAGES[name] || {policies:[]};
-  const contracts = CONTRACTS.filter(r=>r.c===name && r.s==='계약완료');
+  const contracts = CONTRACTS.filter(r=>r.p===name && r.s==='계약완료');
 
   // 고객 뷰 — 담보 집계 (normCovName으로 유사항목 합산)
   const agg = {};
@@ -1795,12 +1804,14 @@ function showCustomerView(name){
 // ── 담보명 정규화 (괄호 제거, 유사항목 합산용) ──────────────
 function normCovName(name) {
   if(!name) return '';
-  return name
-    .replace(/\s*[\(（][^)）]*[\)）]/g, '')   // 괄호 내용 제거
-    .replace(/\s*(V?I{1,3}|IV|VI{0,3}IX?)\s*$/, '') // 끝 로마자 제거
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 28) || name.slice(0, 28);
+  try {
+    return name
+      .replace(/\s*\([^)]*\)/g, '')    // 소괄호 제거
+      .replace(/\s*[IVX]+\s*$/i, '')    // 끝 로마자 제거
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 28) || name.slice(0, 28);
+  } catch(e) { return name.slice(0, 28); }
 }
 
 function renderAll() {
