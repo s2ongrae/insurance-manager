@@ -267,7 +267,12 @@ document.addEventListener('keydown', e => {
 });
 
 // 초기 잠금 체크
-if(sessionStorage.getItem('ins_unlocked')==='1') {
+// 고객 링크면 PIN 완전 스킵
+const _viewHash = window.location.hash;
+if(_viewHash.startsWith('#view=')) {
+  document.getElementById('lock-screen').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'none'; // 관리툴 숨기기
+} else if(sessionStorage.getItem('ins_unlocked')==='1') {
   document.getElementById('lock-screen').style.display = 'none';
 } else {
   showLock();
@@ -1405,17 +1410,17 @@ function renderCovDetail(name){
     <div style="overflow-x:auto;margin-bottom:16px">
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead>
-        <tr style="background:var(--navy,#1E3A8A)">
-          ${['보험사','보험명','월 납입료','납입기간','보험기간'].map(h=>`<th style="padding:9px 12px;text-align:left;color:#fff;font-weight:600;white-space:nowrap">${h}</th>`).join('')}
+        <tr style="background:#1E3A8A">
+          ${['보험사','보험명','월 납입료','납입기간','보험기간','갱신여부'].map(h=>`<th style="padding:9px 12px;text-align:left;color:#fff;font-weight:600;white-space:nowrap">${h}</th>`).join('')}
         </tr>
       </thead>
       <tbody>
         ${contracts.map((r,ri)=>{
           const pol=(cData.policies||[]).find(p=>p.id===r.id)||{};
-          return`<tr style="background:${ri%2===0?'var(--surface2)':'#fff'}">
-            <td style="padding:9px 12px;font-weight:600">${r.co}</td>
-            <td style="padding:9px 12px">${r.n}</td>
-            <td style="padding:9px 12px;color:var(--blue);font-weight:600">${wonN(r.pr)}원</td>
+          return`<tr style="background:${ri%2===0?'#F8FAFC':'#fff'}">
+            <td style="padding:9px 12px;font-weight:600;color:#1E3A8A">${r.co}</td>
+            <td style="padding:9px 12px;color:#374151">${r.n}</td>
+            <td style="padding:9px 12px;color:#059669;font-weight:700">${wonN(r.pr)}원/월</td>
             <td style="padding:6px 8px">
               <input class="cov-input" value="${pol.payPeriod||''}" placeholder="예: 20년납"
                 onchange="updatePolMeta('${name}',${r.id},'payPeriod',this.value)">
@@ -1424,14 +1429,20 @@ function renderCovDetail(name){
               <input class="cov-input" value="${pol.covPeriod||''}" placeholder="예: 100세"
                 onchange="updatePolMeta('${name}',${r.id},'covPeriod',this.value)">
             </td>
+            <td style="padding:6px 8px">
+              <input class="cov-input" value="${pol.renewable||''}" placeholder="갱신/비갱신"
+                onchange="updatePolMeta('${name}',${r.id},'renewable',this.value)">
+            </td>
           </tr>`;
         }).join('')}
-        <tr style="background:var(--blue-l);font-weight:700">
-          <td colspan="2" style="padding:9px 12px;color:var(--blue)">합계</td>
-          <td style="padding:9px 12px;color:var(--blue)">${wonN(totalPremium)}원/월</td>
-          <td colspan="2" style="padding:9px 12px;font-size:12px;color:var(--muted)">연 ${wonN(totalPremium*12)}원</td>
-        </tr>
       </tbody>
+      <tfoot>
+        <tr style="background:#1E3A8A">
+          <td colspan="2" style="padding:11px 12px;color:#fff;font-weight:700;font-size:14px">💰 월 합계</td>
+          <td style="padding:11px 12px;color:#FCD34D;font-weight:800;font-size:16px">${wonN(totalPremium)}원</td>
+          <td colspan="3" style="padding:11px 12px;color:rgba(255,255,255,.75);font-size:12px">연 ${wonN(totalPremium*12)}원</td>
+        </tr>
+      </tfoot>
     </table></div>`:'';
 
 
@@ -1509,8 +1520,8 @@ function renderCovDetail(name){
         </label>
       </div>
       <div id="cov-items-${polId}">
-        <div class="cov-item-row" style="background:var(--surface2);font-weight:600;font-size:11px;color:var(--muted)">
-          <span>담보명</span><span>금액(만원)</span><span>단위</span><span></span>
+        <div class="cov-item-row" style="background:var(--surface2);font-weight:600;font-size:11px;color:var(--muted);grid-template-columns:1fr 80px 60px 80px 28px">
+          <span>담보명</span><span>금액(만원)</span><span>단위</span><span>보험료(원)</span><span></span>
         </div>
         ${items.map((item,idx)=>`
           <div class="cov-item-row">
@@ -1597,8 +1608,8 @@ async function handlePDFUpload(event, polId, coName, prodName){
     try {
       const prompt = `이 보험 제안서에서 정보를 추출해주세요.
 반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만:
-{"payPeriod":"납입기간(예:20년납,전기납)","covPeriod":"보험기간(예:100세,80세,30년)","items":[{"name":"담보명","amount":숫자(만원단위),"unit":"만원"}]}
-금액은 만원 단위 숫자만. 예) 3000만원→3000, 5만원→0.5
+{"payPeriod":"납입기간(예:20년납,전기납)","covPeriod":"보험기간(예:100세,80세,30년)","renewable":"갱신여부(갱신형 또는 비갱신형)","items":[{"name":"담보명","amount":숫자(만원단위),"unit":"만원","price":해당담보의보험료(원단위숫자또는0)}]}
+금액은 만원 단위 숫자만. 예) 3000만원→3000
 보장금액이 없는 항목은 제외하세요.`;
 
       const res = await fetch(
@@ -1627,6 +1638,7 @@ async function handlePDFUpload(event, polId, coName, prodName){
       pol.items = parsed.items || [];
       if(parsed.payPeriod) pol.payPeriod = parsed.payPeriod;
       if(parsed.covPeriod) pol.covPeriod = parsed.covPeriod;
+      if(parsed.renewable) pol.renewable = parsed.renewable;
       saveCoverages();
       renderCovDetail(customer);
       showToast(`✅ ${pol.items.length}개 담보 추출 완료!`);
@@ -1676,26 +1688,29 @@ function showCustomerView(name){
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead>
         <tr style="background:#1E3A8A">
-          ${['보험사','보험명','월 납입료','납입기간','보험기간'].map(h=>`<th style="padding:8px 10px;text-align:left;color:#fff;font-weight:600;white-space:nowrap">${h}</th>`).join('')}
+          ${['보험사','보험명','월 납입료','납입기간','보험기간','갱신여부'].map(h=>`<th style="padding:8px 10px;text-align:left;color:#fff;font-weight:600;white-space:nowrap">${h}</th>`).join('')}
         </tr>
       </thead>
       <tbody>
         ${contracts.map((r,ri)=>{
           const pol=(cData.policies||[]).find(p=>p.id===r.id)||{};
           return`<tr style="background:${ri%2===0?'#F8FAFC':'#fff'}">
-            <td style="padding:8px 10px;font-weight:600;color:#374151">${r.co}</td>
+            <td style="padding:8px 10px;font-weight:700;color:#1E3A8A">${r.co}</td>
             <td style="padding:8px 10px;color:#374151">${r.n}</td>
-            <td style="padding:8px 10px;color:#1E3A8A;font-weight:600">${wonN(r.pr)}원</td>
+            <td style="padding:8px 10px;color:#059669;font-weight:700">${wonN(r.pr)}원/월</td>
             <td style="padding:8px 10px;color:#374151">${pol.payPeriod||'-'}</td>
             <td style="padding:8px 10px;color:#374151">${pol.covPeriod||'-'}</td>
+            <td style="padding:8px 10px;color:#374151">${pol.renewable||'-'}</td>
           </tr>`;
         }).join('')}
-        <tr style="background:#EFF6FF;font-weight:700">
-          <td colspan="2" style="padding:8px 10px;color:#1E3A8A">합계</td>
-          <td style="padding:8px 10px;color:#1E3A8A">${wonN(cvTotalPremium)}원/월</td>
-          <td colspan="2" style="padding:8px 10px;font-size:11px;color:#6B7280">연 ${wonN(cvTotalPremium*12)}원</td>
-        </tr>
       </tbody>
+      <tfoot>
+        <tr style="background:#1E3A8A">
+          <td colspan="2" style="padding:10px 10px;color:#fff;font-weight:700">💰 월 합계</td>
+          <td style="padding:10px 10px;color:#FCD34D;font-weight:800;font-size:15px">${wonN(cvTotalPremium)}원</td>
+          <td colspan="3" style="padding:10px 10px;color:rgba(255,255,255,.75);font-size:11px">연 ${wonN(cvTotalPremium*12)}원</td>
+        </tr>
+      </tfoot>
     </table></div>`:'';
 
 
