@@ -271,10 +271,10 @@ document.addEventListener('keydown', e => {
 const _viewHash = window.location.hash;
 if(_viewHash.startsWith('#view=')) {
   document.getElementById('lock-screen').style.display = 'none';
-  document.getElementById('app-wrap').style.display = 'none'; // 관리툴 숨기기
+  // app-wrap은 2번째 스크립트에서 처리
 } else if(sessionStorage.getItem('ins_unlocked')==='1') {
   document.getElementById('lock-screen').style.display = 'none';
-  document.getElementById('app-wrap').style.display = 'block'; // 관리툴 표시
+  // app-wrap은 2번째 스크립트 init에서 처리
 } else {
   showLock();
 }
@@ -1941,9 +1941,12 @@ function renderAll() {
 // Init — 고객 뷰 모드 or 일반 모드
 // ════════════════════════════════════════════════════════════
 (async function init() {
-  // 고객 전용 링크 감지
   const hash = window.location.hash;
+
+  // 고객 전용 링크 감지
   if(hash.startsWith('#view=')) {
+    // app-wrap 숨기고 고객 뷰만 표시
+    document.getElementById('app-wrap').style.display = 'none';
     const customerName = decodeURIComponent(hash.slice(6));
     try {
       const res = await fetch(CLOUD_URL + '?t=' + Date.now());
@@ -1953,8 +1956,11 @@ function renderAll() {
     showCustomerView(customerName);
     return;
   }
-  // 일반 모드
+
+  // 일반 관리 모드 — 먼저 렌더링 후 app-wrap 표시
   renderAll();
+  document.getElementById('app-wrap').style.display = 'block';
+
   const loaded = await loadFromCloud();
   if(loaded){ COVERAGES=load('ins_coverages',{}); renderAll(); }
 })();
