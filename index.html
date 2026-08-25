@@ -274,6 +274,7 @@ if(_viewHash.startsWith('#view=')) {
   document.getElementById('app-wrap').style.display = 'none'; // 관리툴 숨기기
 } else if(sessionStorage.getItem('ins_unlocked')==='1') {
   document.getElementById('lock-screen').style.display = 'none';
+  document.getElementById('app-wrap').style.display = 'block'; // 관리툴 표시
 } else {
   showLock();
 }
@@ -282,7 +283,7 @@ if(_viewHash.startsWith('#view=')) {
 </head>
 <body>
 
-<div id="app-wrap">
+<div id="app-wrap" style="display:none">
 <div class="hdr">
   <div class="hdr-left">
     <div class="hdr-logo">🏦 <span>보험 고객 관리</span></div>
@@ -315,6 +316,28 @@ if(_viewHash.startsWith('#view=')) {
   <div id="pane-고객별" class="pane"></div>
   <div id="pane-월별" class="pane"></div>
   <div id="pane-보장분석" class="pane"></div>
+</div>
+
+<!-- 보장 그룹 편집 모달 -->
+<div class="overlay" id="modal-covgroups">
+<div class="modal" style="max-width:620px">
+  <div class="modal-header">
+    <div class="modal-title">⚙️ 보장 그룹 설정</div>
+    <button class="modal-close" onclick="closeModal('covgroups')">✕</button>
+  </div>
+  <div class="modal-body">
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">그룹 이름·키워드를 수정하거나 순서를 바꿀 수 있어요. 키워드는 쉼표로 구분하세요.</p>
+    <div id="cov-group-list"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-secondary btn-sm" onclick="addCovGroup()">＋ 그룹 추가</button>
+      <button class="btn btn-secondary btn-sm" onclick="resetCovGroups()" style="color:var(--red)">🔄 기본값으로</button>
+    </div>
+    <div class="form-btns">
+      <button class="btn btn-secondary" onclick="closeModal('covgroups')">취소</button>
+      <button class="btn btn-primary" onclick="saveCovGroupsUI()">저장</button>
+    </div>
+  </div>
+</div>
 </div>
 
 <!-- 계약 추가/수정 모달 -->
@@ -1403,6 +1426,52 @@ function renderCoverageTab(){
   if(selectedCovCustomer) renderCovDetail(selectedCovCustomer);
 }
 
+// ════════════════════════════════════════════════════════════
+// 보장 그룹 편집
+// ════════════════════════════════════════════════════════════
+function openModal(name){ document.getElementById('modal-'+name).classList.add('on'); }
+
+function renderCovGroupEditor(){
+  const el = document.getElementById('cov-group-list');
+  el.innerHTML = COV_GROUPS.map((g,i)=>`
+    <div style="display:grid;grid-template-columns:36px 1fr 1fr 28px 28px 28px;gap:6px;align-items:center;margin-bottom:8px;padding:8px;background:var(--surface2);border-radius:8px;border-left:4px solid ${g.color}">
+      <input type="color" value="${g.color}" onchange="COV_GROUPS[${i}].color=this.value;COV_GROUPS[${i}].border=this.value+'99';this.parentElement.style.borderLeftColor=this.value" style="width:30px;height:30px;padding:2px;border:1px solid var(--border);border-radius:6px;cursor:pointer">
+      <input type="text" value="${g.label}" onchange="COV_GROUPS[${i}].label=this.value" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%">
+      <input type="text" value="${g.keys.join(',')}" placeholder="키워드 (쉼표 구분)" onchange="COV_GROUPS[${i}].keys=this.value.split(',').map(k=>k.trim()).filter(Boolean)" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;width:100%">
+      <button onclick="moveCovGroup(${i},-1)" title="위로" style="border:none;background:var(--border);border-radius:4px;cursor:pointer;padding:4px">▲</button>
+      <button onclick="moveCovGroup(${i},1)" title="아래로" style="border:none;background:var(--border);border-radius:4px;cursor:pointer;padding:4px">▼</button>
+      <button onclick="delCovGroup(${i})" title="삭제" style="border:none;background:var(--red-l);color:var(--red);border-radius:4px;cursor:pointer;padding:4px">✕</button>
+    </div>`).join('');
+}
+
+function moveCovGroup(i, dir){
+  const j=i+dir;
+  if(j<0||j>=COV_GROUPS.length) return;
+  [COV_GROUPS[i],COV_GROUPS[j]]=[COV_GROUPS[j],COV_GROUPS[i]];
+  renderCovGroupEditor();
+}
+function delCovGroup(i){
+  if(COV_GROUPS.length<=2){showToast('⚠️ 최소 2개 이상 유지해야 해요');return;}
+  if(!confirm(`'${COV_GROUPS[i].label}' 그룹을 삭제할까요?`)) return;
+  COV_GROUPS.splice(i,1);
+  renderCovGroupEditor();
+}
+function addCovGroup(){
+  COV_GROUPS.splice(COV_GROUPS.length-1,0,{label:'새 그룹',color:'#6366F1',bg:'#EEF2FF',border:'#A5B4FC',keys:[]});
+  renderCovGroupEditor();
+}
+function resetCovGroups(){
+  if(!confirm('그룹을 기본값으로 초기화할까요?')) return;
+  COV_GROUPS = DEFAULT_COV_GROUPS.map(g=>({...g,keys:[...g.keys]}));
+  renderCovGroupEditor();
+}
+function saveCovGroupsUI(){
+  saveCovGroups();
+  closeModal('covgroups');
+  showToast('✅ 그룹 설정이 저장되었습니다');
+  if(selectedCovCustomer) renderCovDetail(selectedCovCustomer);
+}
+
 function updatePolMeta(customer, polId, field, value){
   if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
   let pol = COVERAGES[customer].policies.find(p=>p.id===polId);
@@ -1564,7 +1633,10 @@ function renderCovDetail(name){
   document.getElementById('cov-detail').innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div style="font-size:16px;font-weight:700">${name} 님의 보장 분석</div>
-      <button class="btn btn-primary btn-sm" onclick="copyShareLink('${name}')">📤 고객 링크 복사</button>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-secondary btn-sm" onclick="openModal('covgroups');renderCovGroupEditor()">⚙️ 그룹 설정</button>
+        <button class="btn btn-primary btn-sm" onclick="copyShareLink('${name}')">📤 고객 링크 복사</button>
+      </div>
     </div>
 
     ${contracts.length>0?`
@@ -1839,17 +1911,19 @@ function normCovName(name) {
 }
 
 // ── 보장 카테고리 그룹 정의 ─────────────────────────────
-const COV_GROUPS = [
+const DEFAULT_COV_GROUPS = [
   {label:'🏥 실손의료비',       color:'#0284C7', bg:'#E0F2FE', border:'#0EA5E9', keys:['실손','실비','실손의료']},
+  {label:'💀 사망·장해·후유',   color:'#374151', bg:'#F1F5F9', border:'#94A3B8', keys:['사망보험금','사망','유족','후유장해','후유','장해']},
   {label:'🎗️ 암 관련 보장',    color:'#DC2626', bg:'#FEF2F2', border:'#FCA5A5', keys:['암진단','유사암','소액암','암치료','암수술','암특약','암']},
   {label:'🧠 뇌·심장 관련',    color:'#7C3AED', bg:'#F5F3FF', border:'#C4B5FD', keys:['뇌혈관','뇌졸중','뇌출혈','뇌경색','뇌','심장','심근경색','허혈성','심혈관']},
   {label:'⚕️ 수술비',          color:'#D97706', bg:'#FFFBEB', border:'#FDE68A', keys:['수술비','수술']},
   {label:'🛏️ 입원 관련',       color:'#059669', bg:'#ECFDF5', border:'#6EE7B7', keys:['입원일당','입원료','입원']},
-  {label:'💀 사망·장해·후유',   color:'#374151', bg:'#F1F5F9', border:'#94A3B8', keys:['사망보험금','사망','유족','후유장해','후유','장해']},
   {label:'👵 간병·치매',        color:'#9333EA', bg:'#FAF5FF', border:'#DDD6FE', keys:['간병','치매','요양']},
   {label:'🚗 교통·상해',        color:'#B45309', bg:'#FEFCE8', border:'#FDE047', keys:['교통','상해','재활치료','재활']},
   {label:'📋 기타 보장',        color:'#6B7280', bg:'#F9FAFB', border:'#E5E7EB', keys:[]},
 ];
+let COV_GROUPS = load('ins_cov_groups', null) || DEFAULT_COV_GROUPS.map(g=>({...g,keys:[...g.keys]}));
+function saveCovGroups(){ save('ins_cov_groups', COV_GROUPS); }
 
 function getCovGroup(name) {
   const low = name.toLowerCase();
