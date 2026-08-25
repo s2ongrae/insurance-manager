@@ -673,6 +673,7 @@ let COVERAGES = load('ins_coverages', {});
 let GEMINI_KEY = localStorage.getItem('gemini_key') || '';
 let selectedCovCustomer = null;
 let expandedCustomer = null;
+let covEditMode = false;
 let expandedMonth = null;
 
 
@@ -1472,6 +1473,63 @@ function saveCovGroupsUI(){
   if(selectedCovCustomer) renderCovDetail(selectedCovCustomer);
 }
 
+// ════════════════════════════════════════════════════════════
+// 매트릭스 직접 편집
+// ════════════════════════════════════════════════════════════
+function toggleCovEditMode(){
+  covEditMode = !covEditMode;
+  renderCovDetail(selectedCovCustomer);
+}
+
+function editMatrixCell(td, customer, polId, itemIdx, field){
+  const pol = COVERAGES[customer]?.policies?.find(p=>p.id===polId);
+  const item = pol?.items?.[itemIdx];
+  if(!item) return;
+  const curVal = item[field]||'';
+  td.innerHTML = '<input type="'+(field==='amount'?'number':'text')+'" value="'+curVal+'"'
+    +' style="width:90px;padding:4px 6px;border:1.5px solid var(--blue);border-radius:6px;font-size:12px"'
+    +' onblur="saveMatrixCell(this,\''+customer+'\','+polId+','+itemIdx+',\''+field+'\')"'
+    +' onkeydown="if(event.key===\'Enter\')this.blur()">';
+  const inp = td.querySelector('input');
+  if(inp){inp.focus();inp.select();}
+}
+
+function saveMatrixCell(input, customer, polId, itemIdx, field){
+  if(!COVERAGES[customer]) return;
+  const pol = COVERAGES[customer].policies?.find(p=>p.id===polId);
+  if(!pol?.items?.[itemIdx]) return;
+  pol.items[itemIdx][field] = field==='amount'?(parseFloat(input.value)||0):input.value;
+  saveCoverages();
+  renderCovDetail(customer);
+}
+
+function deleteMatrixRow(customer, normName){
+  if(!confirm("'"+normName+"' 담보를 삭제할까요?")) return;
+  const cData = COVERAGES[customer];
+  if(!cData?.policies) return;
+  cData.policies.forEach(pol=>{
+    pol.items=(pol.items||[]).filter(item=>(normCovName(item.name)||item.name)!==normName);
+  });
+  saveCoverages();
+  renderCovDetail(customer);
+}
+
+function addMatrixItem(customer, groupLabel){
+  const contracts=CONTRACTS.filter(r=>r.p===customer&&r.s==='계약완료');
+  if(!contracts.length){showToast('⚠️ 완료된 계약이 없어요');return;}
+  const cData=COVERAGES[customer]||(COVERAGES[customer]={policies:[]});
+  const c=contracts[0];
+  let pol=cData.policies.find(p=>p.id===c.id);
+  if(!pol){pol={id:c.id,items:[]};cData.policies.push(pol);}
+  const newName=prompt(groupLabel+' 그룹에 추가할 담보명:','');
+  if(!newName?.trim()) return;
+  const amt=parseFloat(prompt('보장금액 (만원 단위, 숫자만):','0'))||0;
+  pol.items.push({name:newName.trim(),amount:amt,unit:'만원',price:0});
+  saveCoverages();
+  renderCovDetail(customer);
+  showToast("✅ '"+newName+"' 담보가 추가되었습니다");
+}
+
 function updatePolMeta(customer, polId, field, value){
   if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
   let pol = COVERAGES[customer].policies.find(p=>p.id===polId);
@@ -1528,6 +1586,7 @@ function renderCovDetail(name){
 
   const policyLabels = []; // 열 헤더
   const matrix = {};       // matrix[담보명][policyLabel] = amount
+  const cellMap = {};      // cellMap[담보명][policyLabel] = [{polId, itemIdx}]
 
   contracts.forEach(contract=>{
     const pol = (cData.policies||[]).find(p=>p.id===contract.id);
@@ -1537,11 +1596,15 @@ function renderCovDetail(name){
     if(!policyLabels.find(p=>p.key===prodLabel)){
       policyLabels.push({key:prodLabel, co:contract.co, n:contract.n});
     }
-    pol.items.forEach(item=>{
+    pol.items.forEach((item,itemIdx)=>{
       if(!item.name) return;
       const norm = normCovName(item.name) || item.name;
       if(!matrix[norm]) matrix[norm]={};
       matrix[norm][prodLabel] = (matrix[norm][prodLabel]||0) + (parseFloat(item.amount)||0);
+      // cellMap: norm → policyKey → [{polId, itemIdx}]
+      if(!cellMap[norm]) cellMap[norm]={};
+      if(!cellMap[norm][prodLabel]) cellMap[norm][prodLabel]=[];
+      cellMap[norm][prodLabel].push({polId:contract.id, itemIdx});
     });
   });
 
@@ -1553,6 +1616,8 @@ function renderCovDetail(name){
     const g=getCovGroup(itemName);
     adminGrouped[g.label].push(itemName);
   });
+
+  const safeC = name.replace(/'/g,"\\'");
 
   const matrixTable = itemNames.length>0 ? `
     <div style="overflow-x:auto;margin-bottom:16px">
@@ -1575,17 +1640,34 @@ function renderCovDetail(name){
           </tr>
           ${adminGrouped[g.label].map(itemName=>{
             const rowTotal=policyLabels.reduce((s,p)=>s+(matrix[itemName][p.key]||0),0);
+            const safeName=itemName.replace(/'/g,"\\'");
             return`<tr style="background:#fff">
-              <td style="padding:8px 12px 8px 20px;font-weight:500;color:var(--text);position:sticky;left:0;background:#fff;border-right:1px solid var(--border)">${itemName}</td>
+              <td style="padding:8px 12px 8px 20px;font-weight:500;color:var(--text);position:sticky;left:0;background:#fff;border-right:1px solid var(--border)">
+                ${covEditMode?`<div style="display:flex;align-items:center;gap:6px">
+                  <span>${itemName}</span>
+                  <button onclick="deleteMatrixRow('${safeC}','${safeName}')" style="border:none;background:none;color:var(--red);cursor:pointer;font-size:13px;padding:0" title="이 담보 삭제">✕</button>
+                </div>`:itemName}
+              </td>
               ${policyLabels.map(p=>{
+                const cells=cellMap[itemName]?.[p.key]||[];
                 const v=matrix[itemName][p.key]||0;
+                if(covEditMode && cells.length>0){
+                  return`<td style="padding:4px 6px;text-align:center" onclick="editMatrixCell(this,'${safeC}',${cells[0].polId},${cells[0].itemIdx},'amount')" title="클릭해서 편집">
+                    <span style="display:inline-block;min-width:70px;padding:4px 6px;background:${v>0?g.bg:'var(--surface2)'};color:${v>0?g.color:'var(--hint)'};border-radius:6px;cursor:pointer;font-weight:${v>0?600:400}">
+                      ${v>0?wonN(v*10000)+'원':'-'}
+                    </span>
+                  </td>`;
+                }
                 return`<td style="padding:8px;text-align:center;color:${v>0?g.color:'var(--hint)'};font-weight:${v>0?600:400}">
                   ${v>0?wonN(v*10000)+'원':'-'}
                 </td>`;
               }).join('')}
               <td style="padding:8px 12px;text-align:right;font-weight:700;color:var(--text);border-left:1px solid var(--border)">${wonN(rowTotal*10000)}원</td>
             </tr>`;
-          }).join('')}`).join('')}
+          }).join('')}
+          ${covEditMode?`<tr><td colspan="${policyLabels.length+2}" style="padding:4px 14px">
+            <button class="btn btn-secondary btn-sm" onclick="addMatrixItem('${safeC}',this.dataset.gl)" data-gl="${g.label}">＋ ${g.label} 담보 추가</button>
+          </td></tr>`:''}`).join('')}
       </tbody>
     </table>
     </div>` : '';
@@ -1634,6 +1716,7 @@ function renderCovDetail(name){
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div style="font-size:16px;font-weight:700">${name} 님의 보장 분석</div>
       <div style="display:flex;gap:6px">
+        <button class="btn ${covEditMode?'btn-primary':'btn-secondary'} btn-sm" onclick="toggleCovEditMode()">${covEditMode?'✅ 편집 완료':'✏️ 담보 편집'}</button>
         <button class="btn btn-secondary btn-sm" onclick="openModal('covgroups');renderCovGroupEditor()">⚙️ 그룹 설정</button>
         <button class="btn btn-primary btn-sm" onclick="copyShareLink('${name}')">📤 고객 링크 복사</button>
       </div>
