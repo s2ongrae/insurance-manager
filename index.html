@@ -1474,61 +1474,93 @@ function saveCovGroupsUI(){
 }
 
 // ════════════════════════════════════════════════════════════
-// 매트릭스 직접 편집
+// 매트릭스 직접 편집 (깔끔한 함수 기반)
 // ════════════════════════════════════════════════════════════
 function toggleCovEditMode(){
   covEditMode = !covEditMode;
   renderCovDetail(selectedCovCustomer);
 }
 
-function editMatrixCell(td, customer, polId, itemIdx, field){
-  const pol = COVERAGES[customer]?.policies?.find(p=>p.id===polId);
-  const item = pol?.items?.[itemIdx];
-  if(!item) return;
-  const curVal = item[field]||'';
-  td.innerHTML = '<input type="'+(field==='amount'?'number':'text')+'" value="'+curVal+'"'
-    +' style="width:90px;padding:4px 6px;border:1.5px solid var(--blue);border-radius:6px;font-size:12px"'
-    +' onblur="saveMatrixCell(this,\''+customer+'\','+polId+','+itemIdx+',\''+field+'\')"'
-    +' onkeydown="if(event.key===\'Enter\')this.blur()">';
-  const inp = td.querySelector('input');
-  if(inp){inp.focus();inp.select();}
-}
+// 편집 모드 전용 테이블 렌더링
+function renderEditTable(customer) {
+  const cData = COVERAGES[customer] || {policies:[]};
+  const contracts = CONTRACTS.filter(r=>r.p===customer && r.s==='계약완료');
 
-function saveMatrixCell(input, customer, polId, itemIdx, field){
-  if(!COVERAGES[customer]) return;
-  const pol = COVERAGES[customer].policies?.find(p=>p.id===polId);
-  if(!pol?.items?.[itemIdx]) return;
-  pol.items[itemIdx][field] = field==='amount'?(parseFloat(input.value)||0):input.value;
-  saveCoverages();
-  renderCovDetail(customer);
-}
-
-function deleteMatrixRow(customer, normName){
-  if(!confirm("'"+normName+"' 담보를 삭제할까요?")) return;
-  const cData = COVERAGES[customer];
-  if(!cData?.policies) return;
-  cData.policies.forEach(pol=>{
-    pol.items=(pol.items||[]).filter(item=>(normCovName(item.name)||item.name)!==normName);
+  const rows = [];
+  contracts.forEach(contract=>{
+    const pol = (cData.policies||[]).find(p=>p.id===contract.id) || {id:contract.id, items:[]};
+    if(!pol.items) pol.items=[];
+    pol.items.forEach((item,idx)=>{
+      rows.push({polId:contract.id, idx, co:contract.co, n:contract.n, item});
+    });
   });
+
+  const policyOptions = contracts.map(r=>`<option value="${r.id}">${r.co} · ${r.n}</option>`).join('');
+
+  return `
+    <div style="overflow-x:auto;margin-bottom:16px">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="background:#1E3A8A">
+          <th style="padding:9px 12px;color:#fff;font-weight:600;text-align:left;min-width:130px">담보명</th>
+          <th style="padding:9px 10px;color:#fff;font-weight:600;text-align:right;min-width:80px">금액(만원)</th>
+          <th style="padding:9px 10px;color:#fff;font-weight:600;text-align:right;min-width:80px">납입료(원)</th>
+          <th style="padding:9px 10px;color:#fff;font-weight:600;text-align:left;min-width:120px">보험</th>
+          <th style="padding:9px 10px;color:#fff;font-weight:600;text-align:center">삭제</th>
+        </tr>
+      </thead>
+      <tbody id="edit-tbody-${customer.replace(/[^a-z0-9]/gi,'_')}">
+        ${rows.map((r,ri)=>`
+          <tr style="background:${ri%2===0?'#F8FAFC':'#fff'};border-bottom:1px solid #E5E7EB">
+            <td style="padding:6px 8px">
+              <input class="cov-input" value="${(r.item.name||'').replace(/"/g,'&quot;')}"
+                onchange="updateCovItem('${customer}',${r.polId},${r.idx},'name',this.value)"
+                style="width:100%;font-weight:500">
+            </td>
+            <td style="padding:6px 8px">
+              <input class="cov-input" type="number" value="${r.item.amount||0}"
+                onchange="updateCovItem('${customer}',${r.polId},${r.idx},'amount',this.value)"
+                style="width:100%;text-align:right">
+            </td>
+            <td style="padding:6px 8px">
+              <input class="cov-input" type="number" value="${r.item.price||0}"
+                onchange="updateCovItem('${customer}',${r.polId},${r.idx},'price',this.value)"
+                style="width:100%;text-align:right">
+            </td>
+            <td style="padding:6px 8px;font-size:12px;color:#64748B">${r.co}<br><span style="opacity:.7">${r.n}</span></td>
+            <td style="padding:6px 8px;text-align:center">
+              <button onclick="removeCovItem('${customer}',${r.polId},${r.idx})"
+                style="border:none;background:var(--red-l);color:var(--red);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px">✕</button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--border)">
+      <span style="font-size:13px;color:var(--muted)">어느 보험에 추가?</span>
+      <select id="add-pol-sel" class="form-sel" style="font-size:13px;padding:6px 10px">
+        ${policyOptions}
+      </select>
+      <input id="add-item-name" class="cov-input" placeholder="담보명" style="width:140px">
+      <input id="add-item-amt" class="cov-input" type="number" placeholder="금액(만원)" style="width:90px">
+      <button class="btn btn-primary btn-sm" onclick="addCovItemFromEdit('${customer}')">＋ 추가</button>
+    </div>`;
+}
+
+function addCovItemFromEdit(customer){
+  const polId = parseInt(document.getElementById('add-pol-sel').value);
+  const name = document.getElementById('add-item-name').value.trim();
+  const amount = parseFloat(document.getElementById('add-item-amt').value)||0;
+  if(!name){ showToast('⚠️ 담보명을 입력해주세요'); return; }
+  if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
+  let pol = COVERAGES[customer].policies.find(p=>p.id===polId);
+  if(!pol){ pol={id:polId,items:[]}; COVERAGES[customer].policies.push(pol); }
+  pol.items.push({name, amount, unit:'만원', price:0});
   saveCoverages();
+  showToast('✅ 담보가 추가되었습니다');
   renderCovDetail(customer);
 }
 
-function addMatrixItem(customer, groupLabel){
-  const contracts=CONTRACTS.filter(r=>r.p===customer&&r.s==='계약완료');
-  if(!contracts.length){showToast('⚠️ 완료된 계약이 없어요');return;}
-  const cData=COVERAGES[customer]||(COVERAGES[customer]={policies:[]});
-  const c=contracts[0];
-  let pol=cData.policies.find(p=>p.id===c.id);
-  if(!pol){pol={id:c.id,items:[]};cData.policies.push(pol);}
-  const newName=prompt(groupLabel+' 그룹에 추가할 담보명:','');
-  if(!newName?.trim()) return;
-  const amt=parseFloat(prompt('보장금액 (만원 단위, 숫자만):','0'))||0;
-  pol.items.push({name:newName.trim(),amount:amt,unit:'만원',price:0});
-  saveCoverages();
-  renderCovDetail(customer);
-  showToast("✅ '"+newName+"' 담보가 추가되었습니다");
-}
 
 function updatePolMeta(customer, polId, field, value){
   if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
@@ -1726,13 +1758,17 @@ function renderCovDetail(name){
     <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px">📑 보험 개요</div>
     ${overviewTable}`:''}
 
+    ${covEditMode ? `
+    <div style="font-size:13px;font-weight:600;color:var(--blue);margin-bottom:10px">✏️ 담보 직접 편집 모드</div>
+    ${renderEditTable(name)}
+    ` : `
     ${itemNames.length>0?`
     <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px">📊 보장 합산 매트릭스</div>
     ${matrixTable}
     `:''}
-
     <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px">📋 보험별 담보 내역</div>
     ${policySections || '<div style="text-align:center;padding:30px;color:var(--hint)">계약 완료된 보험이 없어요</div>'}
+    `}
   `;
 }
 
@@ -2002,7 +2038,7 @@ const DEFAULT_COV_GROUPS = [
   {label:'⚕️ 수술비',          color:'#D97706', bg:'#FFFBEB', border:'#FDE68A', keys:['수술비','수술']},
   {label:'🛏️ 입원 관련',       color:'#059669', bg:'#ECFDF5', border:'#6EE7B7', keys:['입원일당','입원료','입원']},
   {label:'👵 간병·치매',        color:'#9333EA', bg:'#FAF5FF', border:'#DDD6FE', keys:['간병','치매','요양']},
-  {label:'🚗 교통·상해',        color:'#B45309', bg:'#FEFCE8', border:'#FDE047', keys:['교통','상해','재활치료','재활']},
+  {label:'🚗 교통·상해',        color:'#B45309', bg:'#FEFCE8', border:'#FDE047', keys:['교통','상해','재활치료','재활','자동차','운전자','벌금','변호사선임','보복운전','강력범죄','급발진','부상보장','자동차사고']},
   {label:'📋 기타 보장',        color:'#6B7280', bg:'#F9FAFB', border:'#E5E7EB', keys:[]},
 ];
 let COV_GROUPS = load('ins_cov_groups', null) || DEFAULT_COV_GROUPS.map(g=>({...g,keys:[...g.keys]}));
