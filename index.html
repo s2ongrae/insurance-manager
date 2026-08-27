@@ -318,6 +318,132 @@ if(_viewHash.startsWith('#view=')) {
   <div id="pane-보장분석" class="pane"></div>
 </div>
 
+<!-- 청구 서류 안내 모달 -->
+<div class="overlay" id="modal-docguide">
+<div class="modal" style="max-width:540px">
+  <div class="modal-header">
+    <div class="modal-title">📋 보험 청구 서류 안내</div>
+    <button class="modal-close" onclick="closeModal('docguide')">✕</button>
+  </div>
+  <div class="modal-body">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:12px;padding:14px">
+        <div style="font-size:14px;font-weight:700;color:#1E3A8A;margin-bottom:10px">🏥 실손 청구</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${['진료비 세부내역서','진료비 영수증','약봉투','처방전','입금 통장 사본'].map(d=>`<div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="width:6px;height:6px;border-radius:3px;background:#2563EB;flex-shrink:0;display:inline-block"></span>${d}</div>`).join('')}
+        </div>
+      </div>
+      <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:12px;padding:14px">
+        <div style="font-size:14px;font-weight:700;color:#92400E;margin-bottom:10px">⚕️ 수술 청구</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${['초진차트 (상세 내용 기재 요청)','수술확인서 (또는 수술기록지)','진료비 세부내역서','진료비 영수증','입금 통장 사본'].map(d=>`<div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="width:6px;height:6px;border-radius:3px;background:#D97706;flex-shrink:0;display:inline-block"></span>${d}</div>`).join('')}
+        </div>
+      </div>
+      <div style="background:#ECFDF5;border:1px solid #A7F3D0;border-radius:12px;padding:14px">
+        <div style="font-size:14px;font-weight:700;color:#065F46;margin-bottom:8px">💡 서류 비용 절감 팁</div>
+        <div style="font-size:13px;color:#064E3B;line-height:1.7">
+          <strong>진단서 발급은 가급적 피하세요!</strong><br>
+          진단서 대신 <strong>초진차트에 진단명·치료내용을 상세하게 기재</strong>해달라고 요청하면 서류 발급 비용을 크게 줄일 수 있습니다.<br>
+          <span style="color:#059669;font-size:12px">진단서: 약 1~3만원 → 초진차트: 무료 또는 소액</span>
+        </div>
+      </div>
+      <div style="background:#F5F3FF;border:1px solid #DDD6FE;border-radius:12px;padding:14px">
+        <div style="font-size:14px;font-weight:700;color:#4C1D95;margin-bottom:8px">📌 기타 서류</div>
+        <div style="font-size:13px;color:#3C1D9A;line-height:1.7">
+          <strong>입원:</strong> 입퇴원확인서, 진료비 세부내역서, 영수증<br>
+          <strong>골절:</strong> X-ray 결과지 (가능하면), 진료비 세부내역서<br>
+          <strong>교통사고:</strong> 교통사고 확인서 (경찰서 발급)
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 기존 보험 추가 모달 -->
+<div class="overlay" id="modal-otherpol">
+<div class="modal" style="max-width:500px">
+  <div class="modal-header">
+    <div class="modal-title">➕ 기존 보험 추가</div>
+    <button class="modal-close" onclick="closeModal('otherpol')">✕</button>
+  </div>
+  <div class="modal-body">
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">내가 가입시키지 않은 기존 보험도 보장분석에 포함할 수 있어요</p>
+    <div class="form-grid">
+      <div class="form-field">
+        <label>보험회사</label>
+        <input type="text" id="op-co" class="form-sel" placeholder="예: 삼성생명">
+      </div>
+      <div class="form-field">
+        <label>보험명</label>
+        <input type="text" id="op-name" class="form-sel" placeholder="예: 종신보험">
+      </div>
+      <div class="form-field">
+        <label>월 보험료 (원)</label>
+        <input type="number" id="op-price" class="form-sel" placeholder="0">
+      </div>
+      <div class="form-field">
+        <label>납입기간</label>
+        <input type="text" id="op-pay" class="form-sel" placeholder="예: 20년납">
+      </div>
+    </div>
+    <div class="form-btns">
+      <button class="btn btn-secondary" onclick="closeModal('otherpol')">취소</button>
+      <button class="btn btn-primary" onclick="saveOtherPolicy()">추가</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 외부 보험 추가 모달 -->
+<div class="overlay" id="modal-external">
+<div class="modal" style="max-width:480px">
+  <div class="modal-header">
+    <div class="modal-title">＋ 외부 보험 추가</div>
+    <button class="modal-close" onclick="closeModal('external')">✕</button>
+  </div>
+  <div class="modal-body">
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">기존에 가입된 다른 보험의 담보를 직접 입력할 수 있어요</p>
+    <input type="hidden" id="ext-customer">
+    <div class="form-grid">
+      <div class="form-field">
+        <label>보험회사</label>
+        <input type="text" id="ext-co" placeholder="예: 삼성생명">
+      </div>
+      <div class="form-field">
+        <label>보험명</label>
+        <input type="text" id="ext-name" placeholder="예: 종합보험">
+      </div>
+      <div class="form-field">
+        <label>월 보험료 (원)</label>
+        <input type="number" id="ext-pr" placeholder="0">
+      </div>
+      <div class="form-field">
+        <label>납입기간</label>
+        <input type="text" id="ext-pay" placeholder="예: 20년납">
+      </div>
+      <div class="form-field">
+        <label>보험기간</label>
+        <input type="text" id="ext-cov" placeholder="예: 100세">
+      </div>
+      <div class="form-field">
+        <label>갱신여부</label>
+        <input type="text" id="ext-renew" placeholder="비갱신형">
+      </div>
+    </div>
+    <div style="margin-top:10px">
+      <label style="font-size:12px;font-weight:600;color:var(--muted)">담보 항목 (줄바꿈으로 구분)</label>
+      <textarea id="ext-items" rows="4" placeholder="암진단비(일반암) 5000&#10;뇌혈관질환 3000&#10;허혈성심장질환 3000" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:12px;margin-top:6px;resize:vertical;font-family:inherit"></textarea>
+      <div style="font-size:11px;color:var(--hint);margin-top:4px">형식: 담보명 금액(만원) — 예) 암진단비 5000</div>
+    </div>
+    <div class="form-btns">
+      <button class="btn btn-secondary" onclick="closeModal('external')">취소</button>
+      <button class="btn btn-primary" onclick="saveExternalInsurance()">추가</button>
+    </div>
+  </div>
+</div>
+</div>
+
 <!-- 보장 그룹 편집 모달 -->
 <div class="overlay" id="modal-covgroups">
 <div class="modal" style="max-width:620px">
@@ -1429,7 +1555,52 @@ function renderCoverageTab(){
 // ════════════════════════════════════════════════════════════
 // 보장 그룹 편집
 // ════════════════════════════════════════════════════════════
-function openModal(name){ document.getElementById('modal-'+name).classList.add('on'); }
+function openAddExternalModal(customer) {
+  document.getElementById('ext-customer').value = customer;
+  ['ext-co','ext-name','ext-pr','ext-pay','ext-cov','ext-renew','ext-items'].forEach(id=>{
+    document.getElementById(id).value='';
+  });
+  document.getElementById('modal-external').classList.add('on');
+  setTimeout(()=>document.getElementById('ext-co').focus(),100);
+}
+
+function saveExternalInsurance() {
+  const customer = document.getElementById('ext-customer').value;
+  const co = document.getElementById('ext-co').value.trim();
+  const name = document.getElementById('ext-name').value.trim();
+  const pr = parseInt(document.getElementById('ext-pr').value)||0;
+  const payPeriod = document.getElementById('ext-pay').value.trim();
+  const covPeriod = document.getElementById('ext-cov').value.trim();
+  const renewable = document.getElementById('ext-renew').value.trim();
+  const itemsRaw = document.getElementById('ext-items').value.trim();
+
+  if(!co||!name){ showToast('⚠️ 보험회사와 보험명을 입력해주세요'); return; }
+
+  // 외부 보험은 음수 ID 사용 (기존 계약 ID와 충돌 방지)
+  const extId = -(Date.now());
+  const items = itemsRaw.split('\n').map(line=>{
+    const parts = line.trim().split(/\s+/);
+    const amount = parseFloat(parts[parts.length-1]);
+    if(!isNaN(amount) && parts.length>=2){
+      return {name:parts.slice(0,-1).join(' '), amount, unit:'만원', price:0};
+    }
+    return parts[0]?{name:parts.join(' '), amount:0, unit:'만원', price:0}:null;
+  }).filter(Boolean);
+
+  if(!COVERAGES[customer]) COVERAGES[customer]={policies:[], externalPolicies:[]};
+  if(!COVERAGES[customer].externalPolicies) COVERAGES[customer].externalPolicies=[];
+
+  COVERAGES[customer].externalPolicies.push({
+    id:extId, co, n:name, pr, payPeriod, covPeriod, renewable, items
+  });
+
+  saveCoverages();
+  closeModal('external');
+  showToast(`✅ '${co} ${name}' 보험이 추가되었습니다`);
+  renderCovDetail(customer);
+}
+
+
 
 function renderCovGroupEditor(){
   const el = document.getElementById('cov-group-list');
@@ -1478,19 +1649,39 @@ function saveCovGroupsUI(){
 function toggleCovEditMode(){} // deprecated - inline edit now
 
 function inlineEditCell(td) {
-  const {cust, polid, idx, field} = td.dataset;
-  const pol = COVERAGES[cust]?.policies?.find(p=>p.id===parseInt(polid));
-  const item = pol?.items?.[parseInt(idx)];
-  if(!item) return;
-  const curVal = item[field] ?? '';
+  const {cust, polid, idx, field='amount', mode='edit'} = td.dataset;
+  const itemName = td.dataset.iname;
   const inp = document.createElement('input');
-  inp.type = 'number'; inp.value = curVal;
-  inp.style.cssText = 'width:90px;padding:5px 8px;border:2px solid var(--blue);border-radius:8px;font-size:13px;font-weight:600;text-align:right;outline:none';
-  inp.onblur = () => {
-    pol.items[parseInt(idx)][field] = parseFloat(inp.value)||0;
-    saveCoverages();
-    renderCovDetail(cust);
-  };
+  inp.type = 'number'; inp.min = '0';
+  inp.style.cssText = 'width:90px;padding:5px 8px;border:2px solid var(--blue);border-radius:8px;font-size:13px;font-weight:600;text-align:right;outline:none;background:#fff';
+
+  if(mode === 'edit') {
+    const pol = COVERAGES[cust]?.policies?.find(p=>p.id===parseInt(polid));
+    const item = pol?.items?.[parseInt(idx)];
+    if(!item) return;
+    inp.value = item.amount ?? '';
+    inp.onblur = () => {
+      item.amount = parseFloat(inp.value)||0;
+      saveCoverages();
+      renderCovDetail(cust);
+    };
+  } else {
+    // 빈 셀 — 새 항목 추가 (encodeURIComponent로 인코딩된 이름)
+    const dname = decodeURIComponent(td.dataset.ename || '');
+    inp.value = ''; inp.placeholder = '만원 단위';
+    inp.onblur = () => {
+      const amt = parseFloat(inp.value)||0;
+      if(!amt){ renderCovDetail(cust); return; }
+      if(!COVERAGES[cust]) COVERAGES[cust]={policies:[]};
+      let pol = COVERAGES[cust].policies.find(p=>p.id===parseInt(polid));
+      if(!pol){ pol={id:parseInt(polid),items:[]}; COVERAGES[cust].policies.push(pol); }
+      pol.items.push({name:dname, amount:amt, unit:'만원', price:0});
+      saveCoverages();
+      showToast('✅ 담보가 추가되었습니다');
+      renderCovDetail(cust);
+    };
+  }
+
   inp.onkeydown = e => { if(e.key==='Enter') inp.blur(); if(e.key==='Escape') renderCovDetail(cust); };
   td.innerHTML = ''; td.appendChild(inp);
   inp.focus(); inp.select();
@@ -1623,6 +1814,38 @@ function addCovItemFromEdit(customer){
 }
 
 
+// ── 기존 보험 추가 ────────────────────────────────────────
+let otherPolTarget = null;
+
+function openAddOtherPolicy(customer) {
+  otherPolTarget = customer;
+  ['op-co','op-name','op-price','op-pay'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.value = '';
+  });
+  openModal('otherpol');
+  setTimeout(()=>document.getElementById('op-co')?.focus(), 100);
+}
+
+function saveOtherPolicy() {
+  const co    = document.getElementById('op-co')?.value?.trim();
+  const name  = document.getElementById('op-name')?.value?.trim();
+  const price = parseInt(document.getElementById('op-price')?.value)||0;
+  const pay   = document.getElementById('op-pay')?.value?.trim();
+  if(!co||!name){ showToast('⚠️ 보험회사와 보험명을 입력해주세요'); return; }
+
+  const customer = otherPolTarget;
+  if(!COVERAGES[customer]) COVERAGES[customer]={policies:[], otherPolicies:[]};
+  if(!COVERAGES[customer].otherPolicies) COVERAGES[customer].otherPolicies=[];
+
+  const newId = 'ext_' + Date.now();
+  COVERAGES[customer].otherPolicies.push({id:newId, co, name, price, payPeriod:pay, items:[]});
+  saveCoverages();
+  closeModal('otherpol');
+  showToast(`✅ '${co} · ${name}' 보험이 추가되었습니다`);
+  renderCovDetail(customer);
+}
+
 function updatePolMeta(customer, polId, field, value){
   if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
   let pol = COVERAGES[customer].policies.find(p=>p.id===polId);
@@ -1632,11 +1855,18 @@ function updatePolMeta(customer, polId, field, value){
 }
 
 function renderCovDetail(name){
-  const cData = COVERAGES[name] || {policies:[]};
+  const cData = COVERAGES[name] || {policies:[], otherPolicies:[]};
   const contracts = CONTRACTS.filter(r=>r.p===name && r.s==='계약완료');
 
+  // 기존 보험(otherPolicies + externalPolicies)도 가상 계약으로 포함
+  const otherPols = [...(cData.otherPolicies||[]), ...(cData.externalPolicies||[])];
+  const allContracts = [
+    ...contracts,
+    ...otherPols.map(op=>({id:op.id, co:op.co, n:op.n||op.name, pr:op.pr||op.price||0, d:'-', s:'계약완료', _isOther:true, _pol:{...op, items:op.items||[]}}))
+  ];
+
   // ── 보험 개요 테이블 ───────────────────────────────
-  const totalPremium = contracts.reduce((s,r)=>s+r.pr,0);
+  const totalPremium = allContracts.reduce((s,r)=>s+r.pr,0);
   const overviewTable = contracts.length>0?`
     <div style="overflow-x:auto;margin-bottom:16px">
     <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -1646,7 +1876,7 @@ function renderCovDetail(name){
         </tr>
       </thead>
       <tbody>
-        ${contracts.map((r,ri)=>{
+        ${allContracts.map((r,ri)=>{
           const pol=(cData.policies||[]).find(p=>p.id===r.id)||{};
           return`<tr style="background:${ri%2===0?'#F8FAFC':'#fff'}">
             <td style="padding:9px 12px;font-weight:600;color:#1E3A8A">${r.co}</td>
@@ -1681,14 +1911,14 @@ function renderCovDetail(name){
   const matrix = {};       // matrix[담보명][policyLabel] = amount
   const cellMap = {};      // cellMap[담보명][policyLabel] = [{polId, itemIdx}]
 
-  contracts.forEach(contract=>{
-    const pol = (cData.policies||[]).find(p=>p.id===contract.id);
-    if(!pol || !pol.items?.length) return;
-    const label = `${contract.co}`;
+  allContracts.forEach(contract=>{
+    const pol = contract._isOther ? contract._pol : (cData.policies||[]).find(p=>p.id===contract.id);
     const prodLabel = `${contract.co}\n${contract.n}`;
+    // ★ 아이템 없어도 모든 계약을 컬럼에 포함
     if(!policyLabels.find(p=>p.key===prodLabel)){
-      policyLabels.push({key:prodLabel, co:contract.co, n:contract.n});
+      policyLabels.push({key:prodLabel, co:contract.co, n:contract.n, polId:contract.id});
     }
+    if(!pol?.items?.length) return;
     pol.items.forEach((item,itemIdx)=>{
       if(!item.name) return;
       const norm = normCovName(item.name) || item.name;
@@ -1746,14 +1976,19 @@ function renderCovDetail(name){
                 const v=matrix[itemName][p.key]||0;
                 if(cells.length>0){
                   return`<td style="padding:6px 8px;text-align:center;cursor:pointer"
-                    data-cust="${safeC}" data-polid="${cells[0].polId}" data-idx="${cells[0].itemIdx}" data-field="amount"
+                    data-cust="${safeC}" data-polid="${cells[0].polId}" data-idx="${cells[0].itemIdx}" data-field="amount" data-mode="edit"
                     onclick="inlineEditCell(this)" title="클릭하여 편집">
                     <span style="display:inline-block;min-width:72px;padding:4px 8px;border-radius:6px;background:${v>0?g.bg:'transparent'};color:${v>0?g.color:'var(--hint)'};font-weight:${v>0?600:400};transition:background .15s" onmouseover="this.style.background='var(--blue-l)'" onmouseout="this.style.background='${v>0?g.bg:"transparent"}'">
                       ${v>0?wonN(v*10000)+'원':'-'}
                     </span>
                   </td>`;
                 }
-                return`<td style="padding:7px 8px;text-align:center;color:var(--hint)">-</td>`;
+                // 빈 셀 — 클릭하면 새 담보 추가
+                return`<td style="padding:6px 8px;text-align:center;cursor:pointer"
+                  data-cust="${safeC}" data-polid="${p.polId}" data-ename="${encodeURIComponent(itemName)}" data-mode="add"
+                  onclick="inlineEditCell(this)" title="클릭하여 금액 입력">
+                  <span style="display:inline-block;min-width:72px;padding:4px 8px;border-radius:6px;color:#CBD5E1;transition:all .15s" onmouseover="this.style.background='var(--blue-l)';this.style.color='var(--blue)'" onmouseout="this.style.background='transparent';this.style.color='#CBD5E1'">+</span>
+                </td>`;
               }).join('')}
               <td style="padding:7px 12px;text-align:right;font-weight:700;color:var(--text);border-left:1px solid var(--border)">${wonN(rowTotal*10000)}원</td>
             </tr>`;
@@ -1769,7 +2004,7 @@ function renderCovDetail(name){
     </div>` : '';
 
 
-  const policySections = contracts.map(contract=>{
+  const policySections = allContracts.map(contract=>{
     const polId = contract.id;
     const pol = (cData.policies||[]).find(p=>p.id===polId) || {id:polId, items:[]};
     const items = pol.items||[];
@@ -1811,7 +2046,9 @@ function renderCovDetail(name){
   document.getElementById('cov-detail').innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div style="font-size:16px;font-weight:700">${name} 님의 보장 분석</div>
-      <div style="display:flex;gap:6px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-secondary btn-sm" onclick="openModal('docguide')">📋 청구 서류</button>
+        <button class="btn btn-secondary btn-sm" onclick="openAddOtherPolicy('${name}')">➕ 기존 보험 추가</button>
         <button class="btn btn-secondary btn-sm" onclick="openModal('covgroups');renderCovGroupEditor()">⚙️ 그룹 설정</button>
         <button class="btn btn-primary btn-sm" onclick="copyShareLink('${name}')">📤 고객 링크 복사</button>
       </div>
@@ -1826,6 +2063,33 @@ function renderCovDetail(name){
     ${matrixTable}
     `:''}
     <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px">📋 보험별 담보 내역</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:600;color:var(--muted)">📋 보험별 담보 내역</div>
+      <button class="btn btn-secondary btn-sm" onclick="openAddExternalModal('${name}')">＋ 외부 보험 추가</button>
+    </div>
+
+    <details style="margin-bottom:14px;background:var(--amber-l);border:1px solid #FDE68A;border-radius:10px;padding:0">
+      <summary style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--amber)">📄 청구 서류 안내 (클릭하여 펼치기)</summary>
+      <div style="padding:0 14px 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+        <div style="background:#fff;border-radius:8px;padding:12px;border:1px solid #FDE68A">
+          <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">🏥 실손/외래 청구</div>
+          ${['진료비 세부내역서','영수증','약봉투 또는 처방전'].map(d=>`<div style="font-size:12px;padding:3px 0;color:var(--text)">• ${d}</div>`).join('')}
+        </div>
+        <div style="background:#fff;border-radius:8px;padding:12px;border:1px solid #FDE68A">
+          <div style="font-size:12px;font-weight:700;color:#DC2626;margin-bottom:8px">⚕️ 수술 청구</div>
+          ${['초진차트 (상세 기재 요청)','수술확인서','진료비 세부내역서','영수증'].map(d=>`<div style="font-size:12px;padding:3px 0;color:var(--text)">• ${d}</div>`).join('')}
+        </div>
+        <div style="background:#fff;border-radius:8px;padding:12px;border:1px solid #FDE68A">
+          <div style="font-size:12px;font-weight:700;color:#7C3AED;margin-bottom:8px">🎗️ 암/중증 청구</div>
+          ${['조직검사 결과지 또는 진단서','수술확인서 (수술 시)','입원확인서 (입원 시)','진료비 세부내역서'].map(d=>`<div style="font-size:12px;padding:3px 0;color:var(--text)">• ${d}</div>`).join('')}
+        </div>
+        <div style="background:#FEF9C3;border-radius:8px;padding:12px;border:1px solid #FDE68A">
+          <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:6px">💡 비용 절감 팁</div>
+          <div style="font-size:11px;color:#92400E;line-height:1.6">진단서 대신 <strong>초진차트</strong>에 내용을 자세히 기재해 달라고 요청하세요. 진단서 비용(1~3만원)을 아낄 수 있습니다.</div>
+        </div>
+      </div>
+    </details>
+
     ${policySections || '<div style="text-align:center;padding:30px;color:var(--hint)">계약 완료된 보험이 없어요</div>'}
   `;
 }
@@ -2111,12 +2375,16 @@ function normCovName(name) {
   if(!name) return '';
   try {
     return name
-      .replace(/\s*\([^)]*\)/g, '')    // 소괄호 제거
-      .replace(/\s*[IVX]+\s*$/i, '')    // 끝 로마자 제거
+      // 종류 표시(1종,2종,1-5종 등)는 유지, 그 외 부가설명 괄호만 제거
+      .replace(/\s*\(([^)]*)\)/g, (m,inner) => {
+        if(/[0-9]+[-~]?[0-9]*종|종류|형|급/.test(inner)) return ' '+inner.trim();
+        return '';
+      })
+      .replace(/\s*[IVX]{2,}\s*$/i, '')  // 끝 로마자 2자 이상만 제거
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 28) || name.slice(0, 28);
-  } catch(e) { return name.slice(0, 28); }
+      .slice(0, 32) || name.slice(0, 32);
+  } catch(e) { return name.slice(0, 32); }
 }
 
 // ── 보장 카테고리 그룹 정의 ─────────────────────────────
