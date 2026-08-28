@@ -223,7 +223,8 @@ let pinInput = '';
 
 function showLock() {
   document.getElementById('lock-screen').style.display = 'flex';
-  document.getElementById('app-wrap').style.display = 'none';
+  const aw = document.getElementById('app-wrap');
+  if(aw) aw.style.display = 'none';
 }
 function unlock() {
   sessionStorage.setItem('ins_unlocked', '1');
@@ -1789,11 +1790,6 @@ function editMatrixRowName(span) {
   inp.focus(); inp.select();
 }
 
-
-  const customer = btn.dataset.cust;
-  const grpLabel = btn.dataset.grp;
-  const contracts = CONTRACTS.filter(r=>r.p===customer && r.s==='계약완료');
-  if(!contracts.length){ showToast('⚠️ 완료된 계약이 없어요'); return; }
 
 function addMatrixRowBtn(btn) {
   const customer = btn.dataset.cust;
