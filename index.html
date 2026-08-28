@@ -1737,6 +1737,17 @@ function matrixDrop(e, tr) {
 }
 
 
+function changeMatrixGroup(customer, normName, newGroup) {
+  if(!newGroup) return;
+  if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
+  if(!COVERAGES[customer].matrixView) COVERAGES[customer].matrixView={};
+  if(!COVERAGES[customer].matrixView[normName]) COVERAGES[customer].matrixView[normName]={};
+  COVERAGES[customer].matrixView[normName].__group = newGroup;
+  saveCoverages();
+  showToast(`✅ '${normName}' → ${newGroup}`);
+  renderCovDetail(customer);
+}
+
 function deleteMatrixRow(customer, normName) {
   if(!confirm(`'${normName}'을 매트릭스에서 숨길까요?\n(아래 세부 내역의 원본은 유지됩니다)`)) return;
   if(!COVERAGES[customer]) return;
@@ -2138,7 +2149,7 @@ function renderCovDetail(name){
         </tr>
       </thead>
       <tbody>
-        ${COV_GROUPS.filter(g=>adminGrouped[g.label]&&adminGrouped[g.label].length>0).map(g=>`
+        ${COV_GROUPS.map(g=>`
           <tr>
             <td colspan="${policyLabels.length+2}" style="padding:7px 12px;background:${g.bg};color:${g.color};font-weight:700;font-size:12px;border-top:2px solid ${g.border};position:sticky;left:0">${g.label}</td>
           </tr>
@@ -2156,6 +2167,12 @@ function renderCovDetail(name){
               <td style="padding:6px 12px 6px 10px;font-weight:500;color:var(--text);position:sticky;left:0;background:#fff;border-right:1px solid var(--border)">
                 <div style="display:flex;align-items:center;gap:6px">
                   <span style="color:var(--hint);font-size:14px;cursor:grab;flex-shrink:0" title="드래그하여 순서 변경">⠿</span>
+                  <select style="font-size:10px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--muted);cursor:pointer;max-width:80px"
+                    title="그룹 변경"
+                    onchange="changeMatrixGroup('${safeC}','${safeItem}',this.value);this.value=''">
+                    <option value="">📂</option>
+                    ${COV_GROUPS.map(g=>`<option value="${g.label.replace(/"/g,'&quot;')}">${g.label}</option>`).join('')}
+                  </select>
                   <span style="cursor:text;flex:1;border-bottom:1px dashed transparent;transition:border .15s" title="클릭하여 이름 수정"
                     onmouseover="this.style.borderBottomColor='var(--blue)'"
                     onmouseout="this.style.borderBottomColor='transparent'"
