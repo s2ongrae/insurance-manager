@@ -2412,6 +2412,12 @@ function showCustomerView(name){
 
   const cData = COVERAGES[name] || {policies:[]};
   const contracts = CONTRACTS.filter(r=>r.p===name && r.s==='계약완료');
+  // renderCovDetail과 동일하게 externalPolicies 포함
+  const otherPols = [...(cData.otherPolicies||[]), ...(cData.externalPolicies||[])];
+  const allContracts = [
+    ...contracts,
+    ...otherPols.map(op=>({id:op.id, co:op.co, n:op.n||op.name||'', pr:op.pr||op.price||0, d:'-', s:'계약완료', _isOther:true, _pol:{...op, items:op.items||[]}}))
+  ];
 
   // 고객 뷰 — 담보 집계 (normCovName으로 유사항목 합산)
   const agg = {};
