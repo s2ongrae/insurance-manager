@@ -162,7 +162,7 @@ input[type=text]:focus,input[type=number]:focus,select.form-sel:focus,textarea:f
 @media(max-width:700px){.cov-grid{grid-template-columns:1fr}}
 
 /* 고객 전용 화면 */
-.cv-wrap{max-width:480px;margin:0 auto;padding:0 0 40px}
+.cv-wrap{max-width:900px;margin:0 auto;padding:0 0 40px}
 .cv-header{background:linear-gradient(135deg,#1E3A8A,#2563EB);color:#fff;padding:24px 20px 28px;text-align:center}
 .cv-policy{background:#fff;border:1px solid #E2E8F0;border-radius:12px;margin:0 16px 12px;overflow:hidden}
 .cv-policy-hdr{padding:12px 14px;background:#F8FAFC;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;gap:8px}
@@ -1445,6 +1445,7 @@ function saveIncome() {
 // ════════════════════════════════════════════════════════════
 // UTILS
 // ════════════════════════════════════════════════════════════
+function openModal(name) { document.getElementById('modal-'+name).classList.add('on'); }
 function closeModal(name) { document.getElementById('modal-'+name).classList.remove('on'); }
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('on');}));
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.overlay.on').forEach(o=>o.classList.remove('on'));});
@@ -1522,7 +1523,10 @@ function saveCoverages(){
   scheduleSave();
 }
 
-function renderCoverageTab(){
+function renderCoverageTab(subTab){
+  if(!subTab) subTab = window._covSubTab || '보장분석';
+  window._covSubTab = subTab;
+
   const customers = [...new Set(CONTRACTS.map(r=>r.p))].sort();
   if(!selectedCovCustomer && customers.length) selectedCovCustomer = customers[0];
 
@@ -1533,23 +1537,65 @@ function renderCoverageTab(){
       <button class="btn btn-secondary btn-sm" onclick="setGeminiKey()">키 설정</button>
     </div>`;
 
+  // 청구서류 탭 내용
+  const claimGuideHTML = `
+    <div style="max-width:800px">
+      <h3 style="font-size:16px;font-weight:700;color:var(--navy,#1E3A8A);margin-bottom:16px">📄 보험금 청구 서류 안내</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--blue)">
+          <div style="font-size:14px;font-weight:700;color:var(--blue);margin-bottom:10px">🏥 실손 / 외래 청구</div>
+          ${['✅ 진료비 세부내역서','✅ 영수증','✅ 약봉투 또는 처방전','💡 원외처방은 처방전 + 약국영수증'].map(d=>`<div style="font-size:13px;padding:5px 0;border-bottom:1px dashed var(--border);color:${d.startsWith('💡')?'#D97706':'var(--text)'}">${d}</div>`).join('')}
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid #DC2626">
+          <div style="font-size:14px;font-weight:700;color:#DC2626;margin-bottom:10px">⚕️ 수술 청구</div>
+          ${['✅ 초진차트 (상세 기재 요청)','✅ 수술확인서','✅ 진료비 세부내역서','✅ 영수증','💡 마취기록지, 간호기록지 추가요청 권장'].map(d=>`<div style="font-size:13px;padding:5px 0;border-bottom:1px dashed var(--border);color:${d.startsWith('💡')?'#D97706':'var(--text)'}">${d}</div>`).join('')}
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid #7C3AED">
+          <div style="font-size:14px;font-weight:700;color:#7C3AED;margin-bottom:10px">🎗️ 암 / 중증질환</div>
+          ${['✅ 조직검사 결과지 또는 진단서','✅ 수술확인서 (수술 시)','✅ 입원확인서 (입원 시)','✅ 진료비 세부내역서','💡 진단서 최초 1회만 필요 — 추가청구 시 생략 가능'].map(d=>`<div style="font-size:13px;padding:5px 0;border-bottom:1px dashed var(--border);color:${d.startsWith('💡')?'#D97706':'var(--text)'}">${d}</div>`).join('')}
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid #059669">
+          <div style="font-size:14px;font-weight:700;color:#059669;margin-bottom:10px">🚗 자동차사고 / 상해</div>
+          ${['✅ 사고사실확인원 (경찰서)','✅ 진단서 또는 소견서','✅ 진료비 세부내역서','✅ 영수증','💡 사고일자 기재 필수'].map(d=>`<div style="font-size:13px;padding:5px 0;border-bottom:1px dashed var(--border);color:${d.startsWith('💡')?'#D97706':'var(--text)'}">${d}</div>`).join('')}
+        </div>
+      </div>
+      <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:16px">
+        <div style="font-size:14px;font-weight:700;color:#D97706;margin-bottom:8px">💡 비용 절감 핵심 팁</div>
+        <div style="font-size:13px;color:#92400E;line-height:1.8">
+          • 진단서(1~3만원) 대신 <strong>초진차트에 내용을 자세히 기재</strong>해 달라고 요청하세요<br>
+          • 병원 방문 시 미리 "보험 청구 목적으로 차트 상세 기재 부탁드린다"고 말씀하세요<br>
+          • 세부내역서는 항상 <strong>건강보험 + 비급여 모두 포함</strong>된 것으로 요청하세요<br>
+          • 장기입원은 중간에 한 번씩 중간정산 청구도 가능합니다
+        </div>
+      </div>
+    </div>`;
+
   const leftList = customers.map(c=>`
-    <div class="cov-cust ${c===selectedCovCustomer?'on':''}" onclick="selectedCovCustomer='${c.replace(/'/g,"\\'")}';renderCoverageTab()">
+    <div class="cov-cust ${c===selectedCovCustomer?'on':''}" onclick="selectedCovCustomer='${c.replace(/'/g,"\\'")}';window._covSubTab='보장분석';renderCoverageTab('보장분석')">
       <span>${c}</span>
       <span class="cov-cust-cnt">${(COVERAGES[c]?.policies||[]).length}건</span>
     </div>`).join('');
 
+  const subTabs = [
+    {id:'보장분석', icon:'📋', label:'보장 분석'},
+    {id:'청구서류', icon:'📄', label:'청구 서류 안내'},
+  ];
+
   document.getElementById('pane-보장분석').innerHTML = `
     ${apiBar}
+    <div style="display:flex;gap:2px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:4px;margin-bottom:14px;width:fit-content">
+      ${subTabs.map(t=>`<button class="tab ${subTab===t.id?'on':''}" style="font-size:13px" onclick="renderCoverageTab('${t.id}')">${t.icon} ${t.label}</button>`).join('')}
+    </div>
+    ${subTab==='청구서류'?claimGuideHTML:`
     <div class="cov-grid">
       <div class="cov-left">
-        <div style="padding:10px 14px;font-size:11px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border)">고객 선택</div>
+        <div style="padding:10px 14px;font-size:11px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border)">가입자 선택</div>
         ${leftList}
       </div>
       <div class="cov-right" id="cov-detail"></div>
-    </div>`;
+    </div>`}`;
 
-  if(selectedCovCustomer) renderCovDetail(selectedCovCustomer);
+  if(subTab==='보장분석' && selectedCovCustomer) renderCovDetail(selectedCovCustomer);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1648,6 +1694,35 @@ function saveCovGroupsUI(){
 // ════════════════════════════════════════════════════════════
 function toggleCovEditMode(){} // deprecated - inline edit now
 
+function editMatrixRowName(span, customer, normName) {
+  const curName = span.textContent.trim();
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.value = curName;
+  inp.style.cssText = 'width:140px;padding:4px 8px;border:2px solid var(--blue);border-radius:6px;font-size:12px;font-weight:600;outline:none';
+  inp.onblur = () => {
+    const newName = inp.value.trim();
+    if(!newName || newName === curName){ renderCovDetail(customer); return; }
+    const cData = COVERAGES[customer];
+    if(cData?.policies) cData.policies.forEach(pol=>{
+      (pol.items||[]).forEach(item=>{
+        if((normCovName(item.name)||item.name) === normName) item.name = newName;
+      });
+    });
+    if(cData?.otherPolicies) cData.otherPolicies.forEach(pol=>{
+      (pol.items||[]).forEach(item=>{
+        if((normCovName(item.name)||item.name) === normName) item.name = newName;
+      });
+    });
+    saveCoverages();
+    showToast('✅ 담보명이 변경됐어요');
+    renderCovDetail(customer);
+  };
+  inp.onkeydown = e => { if(e.key==='Enter') inp.blur(); if(e.key==='Escape') renderCovDetail(customer); };
+  span.parentElement.insertBefore(inp, span);
+  span.remove();
+  inp.focus(); inp.select();
+}
+
 function inlineEditCell(td) {
   const {cust, polid, idx, field='amount', mode='edit'} = td.dataset;
   const itemName = td.dataset.iname;
@@ -1687,12 +1762,42 @@ function inlineEditCell(td) {
   inp.focus(); inp.select();
 }
 
-function addMatrixRowBtn(btn) {
+function editMatrixRowName(span) {
+  const customer = span.dataset.cust;
+  const normName = span.dataset.norm;
+  const curName = span.textContent.trim();
+  const inp = document.createElement('input');
+  inp.type = 'text'; inp.value = curName;
+  inp.style.cssText = 'width:150px;padding:4px 8px;border:2px solid var(--blue);border-radius:6px;font-size:13px;font-weight:500;outline:none';
+  inp.onblur = () => {
+    const newName = inp.value.trim();
+    if(!newName || newName === curName){ renderCovDetail(customer); return; }
+    // 해당 정규화된 이름과 매칭되는 모든 아이템 이름 변경
+    const cData = COVERAGES[customer];
+    if(cData?.policies){
+      cData.policies.forEach(pol=>{
+        (pol.items||[]).forEach(item=>{
+          if((normCovName(item.name)||item.name) === normName) item.name = newName;
+        });
+      });
+    }
+    saveCoverages();
+    renderCovDetail(customer);
+  };
+  inp.onkeydown = e => { if(e.key==='Enter') inp.blur(); if(e.key==='Escape') renderCovDetail(customer); };
+  span.replaceWith(inp);
+  inp.focus(); inp.select();
+}
+
+
   const customer = btn.dataset.cust;
   const grpLabel = btn.dataset.grp;
   const contracts = CONTRACTS.filter(r=>r.p===customer && r.s==='계약완료');
   if(!contracts.length){ showToast('⚠️ 완료된 계약이 없어요'); return; }
 
+function addMatrixRowBtn(btn) {
+  const customer = btn.dataset.cust;
+  const contracts = CONTRACTS.filter(r=>r.p===customer && r.s==='계약완료');
   // 어느 보험에 추가할지 선택 팝업 대신 인라인으로 보여주기
   const row = btn.closest('tr');
   const sel = contracts.map((r,i)=>`<option value="${r.id}">${r.co} · ${r.n}</option>`).join('');
@@ -1967,7 +2072,11 @@ function renderCovDetail(name){
             return`<tr style="background:#fff" id="row-${safeItem}">
               <td style="padding:7px 12px 7px 20px;font-weight:500;color:var(--text);position:sticky;left:0;background:#fff;border-right:1px solid var(--border)">
                 <div style="display:flex;align-items:center;gap:6px">
-                  <span>${itemName}</span>
+                  <span style="cursor:text;border-bottom:1px dashed transparent;transition:border .15s" title="클릭하여 이름 수정"
+                    onmouseover="this.style.borderBottomColor='var(--blue)'"
+                    onmouseout="this.style.borderBottomColor='transparent'"
+                    data-cust="${safeC}" data-norm="${safeItem}"
+                    onclick="editMatrixRowName(this)">${itemName}</span>
                   <button onclick="deleteMatrixRow('${safeC}','${safeItem}')" style="border:none;background:none;color:var(--hint);cursor:pointer;font-size:11px;padding:0;opacity:.4;transition:opacity .15s" onmouseover="this.style.opacity=1;this.style.color='var(--red)'" onmouseout="this.style.opacity=.4;this.style.color='var(--hint)'" title="삭제">✕</button>
                 </div>
               </td>
