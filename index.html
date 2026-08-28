@@ -1695,24 +1695,47 @@ function saveCovGroupsUI(){
 // ════════════════════════════════════════════════════════════
 function toggleCovEditMode(){} // deprecated - inline edit now
 
-function moveMatrixRow(customer, normName, dir) {
-  if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
-  const cData = COVERAGES[customer];
+let _dragRow = null; // 드래그 중인 행 정보
+
+function matrixDragStart(tr) {
+  _dragRow = {cust: tr.dataset.cust, norm: tr.dataset.norm};
+  tr.style.opacity = '0.4';
+}
+function matrixDragEnd(tr) {
+  tr.style.opacity = '1';
+  document.querySelectorAll('tr[data-norm]').forEach(r=>r.style.background='');
+}
+function matrixDragOver(e, tr) {
+  e.preventDefault();
+  if(_dragRow && tr.dataset.norm !== _dragRow.norm) tr.style.background='var(--blue-l)';
+}
+function matrixDragLeave(tr) {
+  tr.style.background='';
+}
+function matrixDrop(e, tr) {
+  e.preventDefault();
+  if(!_dragRow || tr.dataset.norm===_dragRow.norm) return;
+  const customer = _dragRow.cust;
+  const fromNorm = _dragRow.norm;
+  const toNorm = tr.dataset.norm;
+  const cData = COVERAGES[customer] || (COVERAGES[customer]={policies:[]});
   const allItems = [...new Set(
-    [...(cData.policies||[]), ...(cData.otherPolicies||[]), ...(cData.externalPolicies||[])]
+    [...(cData.policies||[]),...(cData.otherPolicies||[]),...(cData.externalPolicies||[])]
       .flatMap(pol=>(pol.items||[]).map(item=>normCovName(item.name)||item.name))
   )];
   const order = cData.itemOrder ? [...cData.itemOrder] : [...allItems].sort();
   allItems.forEach(n=>{ if(!order.includes(n)) order.push(n); });
-  const idx = order.indexOf(normName);
-  if(idx < 0) return;
-  const newIdx = idx + dir;
-  if(newIdx < 0 || newIdx >= order.length) return;
-  [order[idx], order[newIdx]] = [order[newIdx], order[idx]];
+  const fromIdx = order.indexOf(fromNorm);
+  const toIdx = order.indexOf(toNorm);
+  if(fromIdx<0||toIdx<0) return;
+  order.splice(fromIdx,1);
+  order.splice(toIdx,0,fromNorm);
   cData.itemOrder = order;
+  _dragRow = null;
   saveCoverages();
   renderCovDetail(customer);
 }
+
 
 function deleteMatrixRow(customer, normName) {
   if(!confirm(`'${normName}' 담보를 삭제할까요?`)) return;
@@ -2079,13 +2102,17 @@ function renderCovDetail(name){
           ${adminGrouped[g.label].map(itemName=>{
             const rowTotal=policyLabels.reduce((s,p)=>s+(matrix[itemName][p.key]||0),0);
             const safeItem=itemName.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-            return`<tr style="background:#fff" id="row-${safeItem}">
+            return`<tr draggable="true"
+              data-cust="${safeC}" data-norm="${safeItem}"
+              ondragstart="matrixDragStart(this)"
+              ondragend="matrixDragEnd(this)"
+              ondragover="matrixDragOver(event,this)"
+              ondragleave="matrixDragLeave(this)"
+              ondrop="matrixDrop(event,this)"
+              style="background:#fff;cursor:grab">
               <td style="padding:6px 12px 6px 10px;font-weight:500;color:var(--text);position:sticky;left:0;background:#fff;border-right:1px solid var(--border)">
-                <div style="display:flex;align-items:center;gap:4px">
-                  <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0">
-                    <button onclick="moveMatrixRow('${safeC}','${safeItem}',-1)" style="border:none;background:none;color:var(--hint);cursor:pointer;font-size:9px;padding:0;line-height:1.2;opacity:.5" onmouseover="this.style.opacity=1;this.style.color='var(--blue)'" onmouseout="this.style.opacity=.5;this.style.color='var(--hint)'" title="위로">▲</button>
-                    <button onclick="moveMatrixRow('${safeC}','${safeItem}',1)" style="border:none;background:none;color:var(--hint);cursor:pointer;font-size:9px;padding:0;line-height:1.2;opacity:.5" onmouseover="this.style.opacity=1;this.style.color='var(--blue)'" onmouseout="this.style.opacity=.5;this.style.color='var(--hint)'" title="아래로">▼</button>
-                  </div>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="color:var(--hint);font-size:14px;cursor:grab;flex-shrink:0" title="드래그하여 순서 변경">⠿</span>
                   <span style="cursor:text;flex:1;border-bottom:1px dashed transparent;transition:border .15s" title="클릭하여 이름 수정"
                     onmouseover="this.style.borderBottomColor='var(--blue)'"
                     onmouseout="this.style.borderBottomColor='transparent'"
@@ -2476,6 +2503,35 @@ function showCustomerView(name){
       <div style="font-size:12px;opacity:.7">담당: 김성래 설계사</div>
     </div>
     <div style="padding:16px 0 0">
+
+      <!-- 청구 서류 안내 (맨 위) -->
+      <div style="margin:0 16px 16px">
+        <details style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:12px">
+          <summary style="padding:12px 16px;cursor:pointer;font-size:13px;font-weight:700;color:#1E3A8A;list-style:none;display:flex;align-items:center;gap:8px">
+            <span>📋</span> 보험금 청구 서류 안내
+            <span style="margin-left:auto;font-size:11px;font-weight:400;color:#60A5FA">탭하여 펼치기</span>
+          </summary>
+          <div style="padding:0 14px 14px;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+            <div style="background:#fff;border-radius:8px;padding:12px;border-top:3px solid #0284C7">
+              <div style="font-size:12px;font-weight:700;color:#0284C7;margin-bottom:6px">🏥 실손 / 외래</div>
+              ${['진료비 세부내역서','영수증','약봉투 또는 처방전'].map(d=>`<div style="font-size:11px;padding:3px 0;color:#374151">✅ ${d}</div>`).join('')}
+            </div>
+            <div style="background:#fff;border-radius:8px;padding:12px;border-top:3px solid #DC2626">
+              <div style="font-size:12px;font-weight:700;color:#DC2626;margin-bottom:6px">⚕️ 수술</div>
+              ${['초진차트 (상세 기재)','수술확인서','진료비 세부내역서','영수증'].map(d=>`<div style="font-size:11px;padding:3px 0;color:#374151">✅ ${d}</div>`).join('')}
+            </div>
+            <div style="background:#fff;border-radius:8px;padding:12px;border-top:3px solid #7C3AED">
+              <div style="font-size:12px;font-weight:700;color:#7C3AED;margin-bottom:6px">🎗️ 암 / 중증</div>
+              ${['진단서 또는 조직검사 결과지','수술·입원확인서','진료비 세부내역서'].map(d=>`<div style="font-size:11px;padding:3px 0;color:#374151">✅ ${d}</div>`).join('')}
+            </div>
+            <div style="background:#FFFBEB;border-radius:8px;padding:12px">
+              <div style="font-size:12px;font-weight:700;color:#D97706;margin-bottom:6px">💡 비용 절감 팁</div>
+              <div style="font-size:11px;color:#92400E;line-height:1.6">진단서 대신 <strong>초진차트</strong>에 자세히 기재 요청하면 비용 절감!</div>
+            </div>
+          </div>
+        </details>
+      </div>
+
       ${cvTotalPremium>0?`
       <div style="margin:0 16px 12px;font-size:13px;font-weight:600;color:#374151">📑 보험 개요</div>
       <div style="margin:0 16px 12px">${cvOverview}</div>`:''}
@@ -2487,30 +2543,6 @@ function showCustomerView(name){
       <div style="text-align:center;margin-top:20px;font-size:12px;color:#9CA3AF">
         문의: 김성래 설계사 📞
       </div>
-
-      <!-- 청구 서류 안내 -->
-      <div style="margin:24px 16px 0">
-        <div style="font-size:14px;font-weight:700;color:#1E3A8A;margin-bottom:12px">📋 보험금 청구 서류 안내</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-          <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:14px;border-top:3px solid #0284C7">
-            <div style="font-size:13px;font-weight:700;color:#0284C7;margin-bottom:8px">🏥 실손 / 외래</div>
-            ${['진료비 세부내역서','영수증','약봉투 또는 처방전'].map(d=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px dashed #F1F5F9;color:#374151">✅ ${d}</div>`).join('')}
-          </div>
-          <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:14px;border-top:3px solid #DC2626">
-            <div style="font-size:13px;font-weight:700;color:#DC2626;margin-bottom:8px">⚕️ 수술</div>
-            ${['초진차트 (상세 기재 요청)','수술확인서','진료비 세부내역서','영수증'].map(d=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px dashed #F1F5F9;color:#374151">✅ ${d}</div>`).join('')}
-          </div>
-          <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:14px;border-top:3px solid #7C3AED">
-            <div style="font-size:13px;font-weight:700;color:#7C3AED;margin-bottom:8px">🎗️ 암 / 중증</div>
-            ${['조직검사 결과지 또는 진단서','수술확인서 (수술 시)','입원확인서 (입원 시)','진료비 세부내역서'].map(d=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px dashed #F1F5F9;color:#374151">✅ ${d}</div>`).join('')}
-          </div>
-          <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:14px">
-            <div style="font-size:13px;font-weight:700;color:#D97706;margin-bottom:8px">💡 비용 절감 팁</div>
-            <div style="font-size:11px;color:#92400E;line-height:1.7">진단서 대신 <strong>초진차트에 내용을 자세히 기재</strong>해 달라고 요청하세요. 진단서 비용(1~3만원)을 아낄 수 있어요.</div>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>`;
 
   document.body.insertAdjacentHTML('beforeend', `<div id="cv-screen">${html}</div>`);
