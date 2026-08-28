@@ -752,8 +752,8 @@ let nextId = Math.max(...CONTRACTS.map(c=>c.id||0), 0) + 1;
 // ════════════════════════════════════════════════════════════
 // HELPERS
 // ════════════════════════════════════════════════════════════
-const won = n => (n||0).toLocaleString('ko-KR') + '원';
-const wonN = n => (n||0).toLocaleString('ko-KR');
+const won   = n => (n||0).toLocaleString('ko-KR') + '원';
+const wonN  = n => (n||0).toLocaleString('ko-KR');
 const wonAxis = n => {
   if(n>=10000000) return (n/10000000).toFixed(1)+'천만';
   if(n>=1000000) return (n/10000).toFixed(0)+'만';
