@@ -1825,21 +1825,20 @@ function inlineEditCell(td) {
 
 
 
-let _addRowState = null; // 담보 추가 인라인 폼 상태
+let _addRowState = null;
 
 function addMatrixRowBtn(btn) {
   const customer = btn.dataset.cust;
-  const contracts = [...CONTRACTS.filter(r=>r.p===customer && r.s==='계약완료'),
-    ...(COVERAGES[customer]?.externalPolicies||[]).map(p=>({id:p.id,co:p.co,n:p.n||p.name,_ext:true}))
+  const grpLabel = btn.dataset.grp || '';
+  const contracts = [
+    ...CONTRACTS.filter(r=>r.p===customer && r.s==='계약완료'),
+    ...(COVERAGES[customer]?.externalPolicies||[]).map(p=>({id:p.id,co:p.co,n:p.n||p.name||'',_ext:true}))
   ];
   if(!contracts.length){ showToast('⚠️ 완료된 계약이 없어요'); return; }
-
   document.getElementById('add-row-tmp')?.remove();
-  _addRowState = {customer, contracts};
-
+  _addRowState = {customer, contracts, grpLabel};
   const sel = contracts.map(r=>`<option value="${r.id}">${r.co} · ${r.n}</option>`).join('');
-  const row = btn.closest('tr');
-  row.insertAdjacentHTML('beforebegin', `
+  btn.closest('tr').insertAdjacentHTML('beforebegin', `
     <tr id="add-row-tmp" style="background:var(--blue-l)">
       <td style="padding:6px 10px;position:sticky;left:0;background:var(--blue-l)">
         <input id="tmp-name" placeholder="담보명" style="width:130px;padding:5px 8px;border:1.5px solid var(--blue);border-radius:6px;font-size:12px"
@@ -1864,33 +1863,30 @@ function addMatrixRowBtn(btn) {
 
 function confirmAddMatrixRow() {
   if(!_addRowState) return;
-  const {customer, contracts} = _addRowState;
-  const name = document.getElementById('tmp-name')?.value?.trim();
-  const amt = parseFloat(document.getElementById('tmp-amt')?.value)||0;
+  const {customer, contracts, grpLabel} = _addRowState;
+  const name  = document.getElementById('tmp-name')?.value?.trim();
+  const amt   = parseFloat(document.getElementById('tmp-amt')?.value)||0;
   const polId = parseInt(document.getElementById('tmp-pol')?.value);
+  if(!name){ showToast('⚠️ 담보명을 입력해주세요'); document.getElementById('tmp-name')?.focus(); return; }
 
-  if(!name){ showToast('⚠️ 담보명을 입력해주세요'); return; }
-
-  // matrixView에 저장 (원본 데이터 건드리지 않음)
   if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
-  if(!COVERAGES[customer].matrixView) COVERAGES[customer].matrixView = {};
+  if(!COVERAGES[customer].matrixView) COVERAGES[customer].matrixView={};
+  if(!COVERAGES[customer].matrixView[name]) COVERAGES[customer].matrixView[name]={};
+
   const contract = contracts.find(r=>r.id===polId);
   if(contract) {
-    const polKey = `${contract.co}\n${contract.n||contract.name||''}`;
-    if(!COVERAGES[customer].matrixView[name]) COVERAGES[customer].matrixView[name] = {};
+    const polKey = `${contract.co}\n${contract.n}`;
     COVERAGES[customer].matrixView[name][polKey] = amt;
   }
+  // 그룹 명시적 지정
+  if(grpLabel) COVERAGES[customer].matrixView[name].__group = grpLabel;
 
   document.getElementById('add-row-tmp')?.remove();
   _addRowState = null;
   saveCoverages();
-  showToast(`✅ '${name}' 담보가 매트릭스에 추가됐어요`);
+  showToast(`✅ '${name}'이 ${grpLabel||'기타'} 그룹에 추가됐어요`);
   renderCovDetail(customer);
 }
-
-
-
-
 
 // 편집 모드 전용 테이블 렌더링
 function renderEditTable(customer) {
@@ -2104,7 +2100,10 @@ function renderCovDetail(name){
   });
   // matrixView에서 숨긴 항목 제거
   const hiddenRows = new Set(Object.keys(mv).filter(n=>mv[n].__hidden));
-  
+  // matrixView에만 존재하는 행도 포함 (raw items 없어도 표시)
+  Object.keys(mv).forEach(norm=>{
+    if(!hiddenRows.has(norm) && !matrix[norm]) matrix[norm]={};
+  });
   const allItemNames = Object.keys(matrix).filter(n=>!hiddenRows.has(n));
   const savedOrder = cData.itemOrder || [];
   const itemNames = [
@@ -2115,8 +2114,11 @@ function renderCovDetail(name){
   const adminGrouped = {};
   COV_GROUPS.forEach(g=>{ adminGrouped[g.label]=[]; });
   itemNames.forEach(itemName=>{
-    const g=getCovGroup(itemName);
-    adminGrouped[g.label].push(itemName);
+    // matrixView에 명시적 그룹 지정이 있으면 우선 사용
+    const explicitGrp = mv[itemName]?.__group;
+    const grp = explicitGrp && adminGrouped[explicitGrp] ? explicitGrp : getCovGroup(itemName).label;
+    if(!adminGrouped[grp]) adminGrouped[grp] = [];
+    adminGrouped[grp].push(itemName);
   });
 
   const safeC = name.replace(/'/g,"\\'");
