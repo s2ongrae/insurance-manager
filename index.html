@@ -1738,13 +1738,14 @@ function matrixDrop(e, tr) {
 
 
 function deleteMatrixRow(customer, normName) {
-  if(!confirm(`'${normName}' 담보를 삭제할까요?`)) return;
-  const cData = COVERAGES[customer];
-  if(!cData) return;
-  [...(cData.policies||[]), ...(cData.otherPolicies||[]), ...(cData.externalPolicies||[])].forEach(pol=>{
-    pol.items = (pol.items||[]).filter(item=>(normCovName(item.name)||item.name) !== normName);
-  });
-  if(cData.itemOrder) cData.itemOrder = cData.itemOrder.filter(n=>n!==normName);
+  if(!confirm(`'${normName}'을 매트릭스에서 숨길까요?\n(아래 세부 내역의 원본은 유지됩니다)`)) return;
+  if(!COVERAGES[customer]) return;
+  if(!COVERAGES[customer].matrixView) COVERAGES[customer].matrixView = {};
+  if(!COVERAGES[customer].matrixView[normName]) COVERAGES[customer].matrixView[normName] = {};
+  COVERAGES[customer].matrixView[normName].__hidden = true;
+  if(COVERAGES[customer].itemOrder) {
+    COVERAGES[customer].itemOrder = COVERAGES[customer].itemOrder.filter(n=>n!==normName);
+  }
   saveCoverages();
   renderCovDetail(customer);
 }
@@ -1752,7 +1753,6 @@ function deleteMatrixRow(customer, normName) {
 function editMatrixRowName(span, customer, normName) {
   if(!customer) customer = span.dataset.cust;
   if(!normName) normName = span.dataset.norm;
-
   const curName = span.textContent.trim();
   const inp = document.createElement('input');
   inp.type = 'text'; inp.value = curName;
@@ -1760,19 +1760,11 @@ function editMatrixRowName(span, customer, normName) {
   inp.onblur = () => {
     const newName = inp.value.trim();
     if(!newName || newName === curName){ renderCovDetail(customer); return; }
-    const cData = COVERAGES[customer];
-    if(cData?.policies) cData.policies.forEach(pol=>{
-      (pol.items||[]).forEach(item=>{
-        if((normCovName(item.name)||item.name) === normName) item.name = newName;
-      });
-    });
-    if(cData?.otherPolicies) cData.otherPolicies.forEach(pol=>{
-      (pol.items||[]).forEach(item=>{
-        if((normCovName(item.name)||item.name) === normName) item.name = newName;
-      });
-    });
+    if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
+    if(!COVERAGES[customer].matrixNames) COVERAGES[customer].matrixNames = {};
+    COVERAGES[customer].matrixNames[normName] = newName;
     saveCoverages();
-    showToast('✅ 담보명이 변경됐어요');
+    showToast('✅ 매트릭스 이름 변경 (세부 내역 유지)');
     renderCovDetail(customer);
   };
   inp.onkeydown = e => { if(e.key==='Enter') inp.blur(); if(e.key==='Escape') renderCovDetail(customer); };
@@ -1780,7 +1772,6 @@ function editMatrixRowName(span, customer, normName) {
   span.remove();
   inp.focus(); inp.select();
 }
-
 function inlineEditCell(td) {
   const {cust, polid, idx, field='amount', mode='edit'} = td.dataset;
   const itemName = td.dataset.iname;
@@ -1792,33 +1783,38 @@ function inlineEditCell(td) {
     const pol = COVERAGES[cust]?.policies?.find(p=>p.id===parseInt(polid));
     const item = pol?.items?.[parseInt(idx)];
     if(!item) return;
-    // 현재 합산값 표시 (같은 정규화명 항목이 여러 개일 수 있음)
-    const normTarget = normCovName(item.name)||item.name;
-    const totalVal = (pol.items||[]).filter(it=>(normCovName(it.name)||it.name)===normTarget)
-      .reduce((s,it)=>s+(parseFloat(it.amount)||0), 0);
-    inp.value = totalVal;
+    // 정규화명 + 보험키
+    const norm = decodeURIComponent(td.dataset.norm||'') || normCovName(item.name)||item.name;
+    const polKey = decodeURIComponent(td.dataset.polkey||'');
+    // 현재 표시값 (matrixView 오버라이드 or 원본 합산)
+    const cData = COVERAGES[cust] || {};
+    const mv = cData.matrixView || {};
+    const rawTotal = (pol.items||[]).filter(it=>(normCovName(it.name)||it.name)===norm)
+      .reduce((s,it)=>s+(parseFloat(it.amount)||0),0);
+    inp.value = mv[norm]?.[polKey] !== undefined ? mv[norm][polKey] : rawTotal;
     inp.onblur = () => {
       const newVal = parseFloat(inp.value)||0;
-      // 같은 정규화명 항목 모두 찾아서 → 첫 번째만 새 값, 나머지 0
-      const matches = (pol.items||[]).map((it,i)=>({it,i}))
-        .filter(({it})=>(normCovName(it.name)||it.name)===normTarget);
-      matches.forEach(({it,i},pos)=>{ it.amount = pos===0?newVal:0; });
+      // matrixView에만 저장 (원본 items 건드리지 않음)
+      if(!COVERAGES[cust].matrixView) COVERAGES[cust].matrixView = {};
+      if(!COVERAGES[cust].matrixView[norm]) COVERAGES[cust].matrixView[norm] = {};
+      COVERAGES[cust].matrixView[norm][polKey] = newVal;
       saveCoverages();
       renderCovDetail(cust);
     };
   } else {
-    // 빈 셀 — 새 항목 추가 (encodeURIComponent로 인코딩된 이름)
-    const dname = decodeURIComponent(td.dataset.ename || '');
-    inp.value = ''; inp.placeholder = '만원 단위';
+    // 빈 셀 — matrixView에 값 추가 (원본 items 건드리지 않음)
+    const norm = decodeURIComponent(td.dataset.norm||td.dataset.ename||'');
+    const polKey = decodeURIComponent(td.dataset.polkey||'');
+    inp.value = ''; inp.placeholder = '만원';
     inp.onblur = () => {
       const amt = parseFloat(inp.value)||0;
       if(!amt){ renderCovDetail(cust); return; }
       if(!COVERAGES[cust]) COVERAGES[cust]={policies:[]};
-      let pol = COVERAGES[cust].policies.find(p=>p.id===parseInt(polid));
-      if(!pol){ pol={id:parseInt(polid),items:[]}; COVERAGES[cust].policies.push(pol); }
-      pol.items.push({name:dname, amount:amt, unit:'만원', price:0});
+      if(!COVERAGES[cust].matrixView) COVERAGES[cust].matrixView = {};
+      if(!COVERAGES[cust].matrixView[norm]) COVERAGES[cust].matrixView[norm] = {};
+      COVERAGES[cust].matrixView[norm][polKey] = amt;
       saveCoverages();
-      showToast('✅ 담보가 추가되었습니다');
+      showToast('✅ 매트릭스에 추가됐어요 (세부 내역은 유지)');
       renderCovDetail(cust);
     };
   }
@@ -2063,7 +2059,10 @@ function renderCovDetail(name){
       if(!item.name) return;
       const norm = normCovName(item.name) || item.name;
       if(!matrix[norm]) matrix[norm]={};
-      matrix[norm][prodLabel] = (matrix[norm][prodLabel]||0) + (parseFloat(item.amount)||0);
+      // matrixView 오버라이드 없을 때만 원본값 합산
+      if(!cData.matrixView?.[norm]?.[prodLabel] && cData.matrixView?.[norm]?.[prodLabel] !== 0) {
+        matrix[norm][prodLabel] = (matrix[norm][prodLabel]||0) + (parseFloat(item.amount)||0);
+      }
       // cellMap: norm → policyKey → [{polId, itemIdx}]
       if(!cellMap[norm]) cellMap[norm]={};
       if(!cellMap[norm][prodLabel]) cellMap[norm][prodLabel]=[];
@@ -2072,7 +2071,18 @@ function renderCovDetail(name){
   });
 
   // 사용자 지정 순서 적용 (없으면 가나다 정렬)
-  const allItemNames = Object.keys(matrix);
+  // matrixView 오버라이드 적용 (원본 덮어쓰기)
+  const mv = cData.matrixView || {};
+  Object.entries(mv).forEach(([norm, polMap])=>{
+    if(!matrix[norm]) matrix[norm] = {};
+    Object.entries(polMap).forEach(([polKey, val])=>{
+      matrix[norm][polKey] = val;
+    });
+  });
+  // matrixView에서 숨긴 항목 제거
+  const hiddenRows = new Set(Object.keys(mv).filter(n=>mv[n].__hidden));
+  
+  const allItemNames = Object.keys(matrix).filter(n=>!hiddenRows.has(n));
   const savedOrder = cData.itemOrder || [];
   const itemNames = [
     ...savedOrder.filter(n => allItemNames.includes(n)),
@@ -2125,7 +2135,7 @@ function renderCovDetail(name){
                     onmouseover="this.style.borderBottomColor='var(--blue)'"
                     onmouseout="this.style.borderBottomColor='transparent'"
                     data-cust="${safeC}" data-norm="${safeItem}"
-                    onclick="editMatrixRowName(this)">${itemName}</span>
+                    onclick="editMatrixRowName(this)">${cData.matrixNames?.[itemName]||itemName}</span>
                   <button onclick="deleteMatrixRow('${safeC}','${safeItem}')" style="border:none;background:none;color:var(--hint);cursor:pointer;font-size:11px;padding:0;opacity:.4;transition:opacity .15s" onmouseover="this.style.opacity=1;this.style.color='var(--red)'" onmouseout="this.style.opacity=.4;this.style.color='var(--hint)'" title="삭제">✕</button>
                 </div>
               </td>
@@ -2134,7 +2144,7 @@ function renderCovDetail(name){
                 const v=matrix[itemName][p.key]||0;
                 if(cells.length>0){
                   return`<td style="padding:6px 8px;text-align:center;cursor:pointer"
-                    data-cust="${safeC}" data-polid="${cells[0].polId}" data-idx="${cells[0].itemIdx}" data-field="amount" data-mode="edit"
+                    data-cust="${safeC}" data-polid="${cells[0].polId}" data-idx="${cells[0].itemIdx}" data-norm="${encodeURIComponent(itemName)}" data-polkey="${encodeURIComponent(p.key)}" data-field="amount" data-mode="edit"
                     onclick="inlineEditCell(this)" title="클릭하여 편집">
                     <span style="display:inline-block;min-width:72px;padding:4px 8px;border-radius:6px;background:${v>0?g.bg:'transparent'};color:${v>0?g.color:'var(--hint)'};font-weight:${v>0?600:400};transition:background .15s" onmouseover="this.style.background='var(--blue-l)'" onmouseout="this.style.background='${v>0?g.bg:"transparent"}'">
                       ${v>0?wonN(v*10000)+'원':'-'}
@@ -2143,7 +2153,7 @@ function renderCovDetail(name){
                 }
                 // 빈 셀 — 클릭하면 새 담보 추가
                 return`<td style="padding:6px 8px;text-align:center;cursor:pointer"
-                  data-cust="${safeC}" data-polid="${p.polId}" data-ename="${encodeURIComponent(itemName)}" data-mode="add"
+                  data-cust="${safeC}" data-polid="${p.polId}" data-ename="${encodeURIComponent(itemName)}" data-norm="${encodeURIComponent(itemName)}" data-polkey="${encodeURIComponent(p.key)}" data-mode="add"
                   onclick="inlineEditCell(this)" title="클릭하여 금액 입력">
                   <span style="display:inline-block;min-width:72px;padding:4px 8px;border-radius:6px;color:#CBD5E1;transition:all .15s" onmouseover="this.style.background='var(--blue-l)';this.style.color='var(--blue)'" onmouseout="this.style.background='transparent';this.style.color='#CBD5E1'">+</span>
                 </td>`;
