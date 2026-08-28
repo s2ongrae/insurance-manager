@@ -1695,7 +1695,41 @@ function saveCovGroupsUI(){
 // ════════════════════════════════════════════════════════════
 function toggleCovEditMode(){} // deprecated - inline edit now
 
+function moveMatrixRow(customer, normName, dir) {
+  if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
+  const cData = COVERAGES[customer];
+  const allItems = [...new Set(
+    [...(cData.policies||[]), ...(cData.otherPolicies||[]), ...(cData.externalPolicies||[])]
+      .flatMap(pol=>(pol.items||[]).map(item=>normCovName(item.name)||item.name))
+  )];
+  const order = cData.itemOrder ? [...cData.itemOrder] : [...allItems].sort();
+  allItems.forEach(n=>{ if(!order.includes(n)) order.push(n); });
+  const idx = order.indexOf(normName);
+  if(idx < 0) return;
+  const newIdx = idx + dir;
+  if(newIdx < 0 || newIdx >= order.length) return;
+  [order[idx], order[newIdx]] = [order[newIdx], order[idx]];
+  cData.itemOrder = order;
+  saveCoverages();
+  renderCovDetail(customer);
+}
+
+function deleteMatrixRow(customer, normName) {
+  if(!confirm(`'${normName}' 담보를 삭제할까요?`)) return;
+  const cData = COVERAGES[customer];
+  if(!cData) return;
+  [...(cData.policies||[]), ...(cData.otherPolicies||[]), ...(cData.externalPolicies||[])].forEach(pol=>{
+    pol.items = (pol.items||[]).filter(item=>(normCovName(item.name)||item.name) !== normName);
+  });
+  if(cData.itemOrder) cData.itemOrder = cData.itemOrder.filter(n=>n!==normName);
+  saveCoverages();
+  renderCovDetail(customer);
+}
+
 function editMatrixRowName(span, customer, normName) {
+  if(!customer) customer = span.dataset.cust;
+  if(!normName) normName = span.dataset.norm;
+
   const curName = span.textContent.trim();
   const inp = document.createElement('input');
   inp.type = 'text'; inp.value = curName;
@@ -1763,32 +1797,6 @@ function inlineEditCell(td) {
   inp.focus(); inp.select();
 }
 
-function editMatrixRowName(span) {
-  const customer = span.dataset.cust;
-  const normName = span.dataset.norm;
-  const curName = span.textContent.trim();
-  const inp = document.createElement('input');
-  inp.type = 'text'; inp.value = curName;
-  inp.style.cssText = 'width:150px;padding:4px 8px;border:2px solid var(--blue);border-radius:6px;font-size:13px;font-weight:500;outline:none';
-  inp.onblur = () => {
-    const newName = inp.value.trim();
-    if(!newName || newName === curName){ renderCovDetail(customer); return; }
-    // 해당 정규화된 이름과 매칭되는 모든 아이템 이름 변경
-    const cData = COVERAGES[customer];
-    if(cData?.policies){
-      cData.policies.forEach(pol=>{
-        (pol.items||[]).forEach(item=>{
-          if((normCovName(item.name)||item.name) === normName) item.name = newName;
-        });
-      });
-    }
-    saveCoverages();
-    renderCovDetail(customer);
-  };
-  inp.onkeydown = e => { if(e.key==='Enter') inp.blur(); if(e.key==='Escape') renderCovDetail(customer); };
-  span.replaceWith(inp);
-  inp.focus(); inp.select();
-}
 
 
 function addMatrixRowBtn(btn) {
@@ -2032,7 +2040,13 @@ function renderCovDetail(name){
     });
   });
 
-  const itemNames = Object.keys(matrix).sort();
+  // 사용자 지정 순서 적용 (없으면 가나다 정렬)
+  const allItemNames = Object.keys(matrix);
+  const savedOrder = cData.itemOrder || [];
+  const itemNames = [
+    ...savedOrder.filter(n => allItemNames.includes(n)),
+    ...allItemNames.filter(n => !savedOrder.includes(n)).sort()
+  ];
   // 관리툴 매트릭스도 COV_GROUPS 기반 그룹핑
   const adminGrouped = {};
   COV_GROUPS.forEach(g=>{ adminGrouped[g.label]=[]; });
@@ -2066,9 +2080,13 @@ function renderCovDetail(name){
             const rowTotal=policyLabels.reduce((s,p)=>s+(matrix[itemName][p.key]||0),0);
             const safeItem=itemName.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
             return`<tr style="background:#fff" id="row-${safeItem}">
-              <td style="padding:7px 12px 7px 20px;font-weight:500;color:var(--text);position:sticky;left:0;background:#fff;border-right:1px solid var(--border)">
-                <div style="display:flex;align-items:center;gap:6px">
-                  <span style="cursor:text;border-bottom:1px dashed transparent;transition:border .15s" title="클릭하여 이름 수정"
+              <td style="padding:6px 12px 6px 10px;font-weight:500;color:var(--text);position:sticky;left:0;background:#fff;border-right:1px solid var(--border)">
+                <div style="display:flex;align-items:center;gap:4px">
+                  <div style="display:flex;flex-direction:column;gap:1px;flex-shrink:0">
+                    <button onclick="moveMatrixRow('${safeC}','${safeItem}',-1)" style="border:none;background:none;color:var(--hint);cursor:pointer;font-size:9px;padding:0;line-height:1.2;opacity:.5" onmouseover="this.style.opacity=1;this.style.color='var(--blue)'" onmouseout="this.style.opacity=.5;this.style.color='var(--hint)'" title="위로">▲</button>
+                    <button onclick="moveMatrixRow('${safeC}','${safeItem}',1)" style="border:none;background:none;color:var(--hint);cursor:pointer;font-size:9px;padding:0;line-height:1.2;opacity:.5" onmouseover="this.style.opacity=1;this.style.color='var(--blue)'" onmouseout="this.style.opacity=.5;this.style.color='var(--hint)'" title="아래로">▼</button>
+                  </div>
+                  <span style="cursor:text;flex:1;border-bottom:1px dashed transparent;transition:border .15s" title="클릭하여 이름 수정"
                     onmouseover="this.style.borderBottomColor='var(--blue)'"
                     onmouseout="this.style.borderBottomColor='transparent'"
                     data-cust="${safeC}" data-norm="${safeItem}"
@@ -2468,6 +2486,29 @@ function showCustomerView(name){
       ${policySections||'<div style="text-align:center;padding:30px;color:#9CA3AF">보장 데이터가 없습니다</div>'}
       <div style="text-align:center;margin-top:20px;font-size:12px;color:#9CA3AF">
         문의: 김성래 설계사 📞
+      </div>
+
+      <!-- 청구 서류 안내 -->
+      <div style="margin:24px 16px 0">
+        <div style="font-size:14px;font-weight:700;color:#1E3A8A;margin-bottom:12px">📋 보험금 청구 서류 안내</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:14px;border-top:3px solid #0284C7">
+            <div style="font-size:13px;font-weight:700;color:#0284C7;margin-bottom:8px">🏥 실손 / 외래</div>
+            ${['진료비 세부내역서','영수증','약봉투 또는 처방전'].map(d=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px dashed #F1F5F9;color:#374151">✅ ${d}</div>`).join('')}
+          </div>
+          <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:14px;border-top:3px solid #DC2626">
+            <div style="font-size:13px;font-weight:700;color:#DC2626;margin-bottom:8px">⚕️ 수술</div>
+            ${['초진차트 (상세 기재 요청)','수술확인서','진료비 세부내역서','영수증'].map(d=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px dashed #F1F5F9;color:#374151">✅ ${d}</div>`).join('')}
+          </div>
+          <div style="background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:14px;border-top:3px solid #7C3AED">
+            <div style="font-size:13px;font-weight:700;color:#7C3AED;margin-bottom:8px">🎗️ 암 / 중증</div>
+            ${['조직검사 결과지 또는 진단서','수술확인서 (수술 시)','입원확인서 (입원 시)','진료비 세부내역서'].map(d=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px dashed #F1F5F9;color:#374151">✅ ${d}</div>`).join('')}
+          </div>
+          <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:14px">
+            <div style="font-size:13px;font-weight:700;color:#D97706;margin-bottom:8px">💡 비용 절감 팁</div>
+            <div style="font-size:11px;color:#92400E;line-height:1.7">진단서 대신 <strong>초진차트에 내용을 자세히 기재</strong>해 달라고 요청하세요. 진단서 비용(1~3만원)을 아낄 수 있어요.</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>`;
