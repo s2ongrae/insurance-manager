@@ -1779,22 +1779,21 @@ function inlineEditCell(td) {
   inp.type = 'number'; inp.min = '0';
   inp.style.cssText = 'width:90px;padding:5px 8px;border:2px solid var(--blue);border-radius:8px;font-size:13px;font-weight:600;text-align:right;outline:none;background:#fff';
 
-  if(mode === 'edit') {
-    const pol = COVERAGES[cust]?.policies?.find(p=>p.id===parseInt(polid));
-    const item = pol?.items?.[parseInt(idx)];
-    if(!item) return;
-    // 정규화명 + 보험키
-    const norm = decodeURIComponent(td.dataset.norm||'') || normCovName(item.name)||item.name;
+  if(mode === 'edit' || mode === 'mv-edit') {
+    const norm = decodeURIComponent(td.dataset.norm||'');
     const polKey = decodeURIComponent(td.dataset.polkey||'');
-    // 현재 표시값 (matrixView 오버라이드 or 원본 합산)
     const cData = COVERAGES[cust] || {};
     const mv = cData.matrixView || {};
-    const rawTotal = (pol.items||[]).filter(it=>(normCovName(it.name)||it.name)===norm)
-      .reduce((s,it)=>s+(parseFloat(it.amount)||0),0);
+    // 현재 표시값: matrixView 우선, 없으면 원본 합산
+    let rawTotal = 0;
+    if(mode === 'edit') {
+      const pol = COVERAGES[cust]?.policies?.find(p=>p.id===parseInt(polid));
+      if(pol) rawTotal = (pol.items||[]).filter(it=>(normCovName(it.name)||it.name)===norm)
+        .reduce((s,it)=>s+(parseFloat(it.amount)||0),0);
+    }
     inp.value = mv[norm]?.[polKey] !== undefined ? mv[norm][polKey] : rawTotal;
     inp.onblur = () => {
       const newVal = parseFloat(inp.value)||0;
-      // matrixView에만 저장 (원본 items 건드리지 않음)
       if(!COVERAGES[cust].matrixView) COVERAGES[cust].matrixView = {};
       if(!COVERAGES[cust].matrixView[norm]) COVERAGES[cust].matrixView[norm] = {};
       COVERAGES[cust].matrixView[norm][polKey] = newVal;
@@ -1826,46 +1825,70 @@ function inlineEditCell(td) {
 
 
 
+let _addRowState = null; // 담보 추가 인라인 폼 상태
+
 function addMatrixRowBtn(btn) {
   const customer = btn.dataset.cust;
-  const contracts = CONTRACTS.filter(r=>r.p===customer && r.s==='계약완료');
-  // 어느 보험에 추가할지 선택 팝업 대신 인라인으로 보여주기
+  const contracts = [...CONTRACTS.filter(r=>r.p===customer && r.s==='계약완료'),
+    ...(COVERAGES[customer]?.externalPolicies||[]).map(p=>({id:p.id,co:p.co,n:p.n||p.name,_ext:true}))
+  ];
+  if(!contracts.length){ showToast('⚠️ 완료된 계약이 없어요'); return; }
+
+  document.getElementById('add-row-tmp')?.remove();
+  _addRowState = {customer, contracts};
+
+  const sel = contracts.map(r=>`<option value="${r.id}">${r.co} · ${r.n}</option>`).join('');
   const row = btn.closest('tr');
-  const sel = contracts.map((r,i)=>`<option value="${r.id}">${r.co} · ${r.n}</option>`).join('');
   row.insertAdjacentHTML('beforebegin', `
     <tr id="add-row-tmp" style="background:var(--blue-l)">
       <td style="padding:6px 10px;position:sticky;left:0;background:var(--blue-l)">
-        <input id="tmp-name" placeholder="담보명" style="width:130px;padding:5px 8px;border:1.5px solid var(--blue);border-radius:6px;font-size:12px">
+        <input id="tmp-name" placeholder="담보명" style="width:130px;padding:5px 8px;border:1.5px solid var(--blue);border-radius:6px;font-size:12px"
+          onkeydown="if(event.key==='Enter')confirmAddMatrixRow();if(event.key==='Escape')document.getElementById('add-row-tmp')?.remove()">
       </td>
       <td style="padding:6px 10px">
-        <input id="tmp-amt" type="number" placeholder="금액(만원)" style="width:90px;padding:5px 8px;border:1.5px solid var(--blue);border-radius:6px;font-size:12px;text-align:right">
+        <input id="tmp-amt" type="number" placeholder="금액(만원)" style="width:90px;padding:5px 8px;border:1.5px solid var(--blue);border-radius:6px;font-size:12px;text-align:right"
+          onkeydown="if(event.key==='Enter')confirmAddMatrixRow();if(event.key==='Escape')document.getElementById('add-row-tmp')?.remove()">
       </td>
-      <td style="padding:6px 10px" colspan="${contracts.length}">
+      <td style="padding:6px 10px" colspan="3">
         <select id="tmp-pol" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px">${sel}</select>
       </td>
       <td style="padding:6px 10px">
         <div style="display:flex;gap:4px">
-          <button class="btn btn-primary btn-sm" onclick="confirmAddMatrixRow('${customer}')">추가</button>
+          <button class="btn btn-primary btn-sm" onclick="confirmAddMatrixRow()">추가</button>
           <button class="btn btn-secondary btn-sm" onclick="document.getElementById('add-row-tmp')?.remove()">취소</button>
         </div>
       </td>
     </tr>`);
-  document.getElementById('tmp-name').focus();
+  document.getElementById('tmp-name')?.focus();
 }
 
-function confirmAddMatrixRow(customer) {
+function confirmAddMatrixRow() {
+  if(!_addRowState) return;
+  const {customer, contracts} = _addRowState;
   const name = document.getElementById('tmp-name')?.value?.trim();
   const amt = parseFloat(document.getElementById('tmp-amt')?.value)||0;
   const polId = parseInt(document.getElementById('tmp-pol')?.value);
+
   if(!name){ showToast('⚠️ 담보명을 입력해주세요'); return; }
+
+  // matrixView에 저장 (원본 데이터 건드리지 않음)
   if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
-  let pol = COVERAGES[customer].policies.find(p=>p.id===polId);
-  if(!pol){ pol={id:polId,items:[]}; COVERAGES[customer].policies.push(pol); }
-  pol.items.push({name, amount:amt, unit:'만원', price:0});
+  if(!COVERAGES[customer].matrixView) COVERAGES[customer].matrixView = {};
+  const contract = contracts.find(r=>r.id===polId);
+  if(contract) {
+    const polKey = `${contract.co}\n${contract.n||contract.name||''}`;
+    if(!COVERAGES[customer].matrixView[name]) COVERAGES[customer].matrixView[name] = {};
+    COVERAGES[customer].matrixView[name][polKey] = amt;
+  }
+
+  document.getElementById('add-row-tmp')?.remove();
+  _addRowState = null;
   saveCoverages();
-  showToast(`✅ '${name}' 담보가 추가되었습니다`);
+  showToast(`✅ '${name}' 담보가 매트릭스에 추가됐어요`);
   renderCovDetail(customer);
 }
+
+
 
 
 
@@ -2141,17 +2164,20 @@ function renderCovDetail(name){
               </td>
               ${policyLabels.map(p=>{
                 const cells=cellMap[itemName]?.[p.key]||[];
-                const v=matrix[itemName][p.key]||0;
-                if(cells.length>0){
+                const mvVal = cData.matrixView?.[itemName]?.[p.key];
+                const v = mvVal !== undefined ? mvVal : (matrix[itemName][p.key]||0);
+                const hasVal = v > 0;
+                if(cells.length>0 || mvVal !== undefined){
+                  const editMode = cells.length>0 ? 'edit' : 'mv-edit';
                   return`<td style="padding:6px 8px;text-align:center;cursor:pointer"
-                    data-cust="${safeC}" data-polid="${cells[0].polId}" data-idx="${cells[0].itemIdx}" data-norm="${encodeURIComponent(itemName)}" data-polkey="${encodeURIComponent(p.key)}" data-field="amount" data-mode="edit"
+                    data-cust="${safeC}" data-polid="${cells[0]?.polId||p.polId}" data-idx="${cells[0]?.itemIdx??''}" data-norm="${encodeURIComponent(itemName)}" data-polkey="${encodeURIComponent(p.key)}" data-field="amount" data-mode="${editMode}"
                     onclick="inlineEditCell(this)" title="클릭하여 편집">
-                    <span style="display:inline-block;min-width:72px;padding:4px 8px;border-radius:6px;background:${v>0?g.bg:'transparent'};color:${v>0?g.color:'var(--hint)'};font-weight:${v>0?600:400};transition:background .15s" onmouseover="this.style.background='var(--blue-l)'" onmouseout="this.style.background='${v>0?g.bg:"transparent"}'">
-                      ${v>0?wonN(v*10000)+'원':'-'}
+                    <span style="display:inline-block;min-width:72px;padding:4px 8px;border-radius:6px;background:${hasVal?g.bg:'transparent'};color:${hasVal?g.color:'var(--hint)'};font-weight:${hasVal?600:400};transition:background .15s" onmouseover="this.style.background='var(--blue-l)'" onmouseout="this.style.background='${hasVal?g.bg:"transparent"}'">
+                      ${hasVal?wonN(v*10000)+'원':'-'}
                     </span>
                   </td>`;
                 }
-                // 빈 셀 — 클릭하면 새 담보 추가
+                // 빈 셀 — 클릭하면 matrixView에 값 추가
                 return`<td style="padding:6px 8px;text-align:center;cursor:pointer"
                   data-cust="${safeC}" data-polid="${p.polId}" data-ename="${encodeURIComponent(itemName)}" data-norm="${encodeURIComponent(itemName)}" data-polkey="${encodeURIComponent(p.key)}" data-mode="add"
                   onclick="inlineEditCell(this)" title="클릭하여 금액 입력">
