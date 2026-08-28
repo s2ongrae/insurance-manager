@@ -2454,33 +2454,53 @@ function showCustomerView(name){
     grouped[g.label].push([itemName,v]);
   });
 
-  // 고객 뷰 매트릭스 - 관리툴과 동일한 그룹핑 구조 (read-only)
-  const cvPolicyCols = contracts.filter(r=>{
-    const pol=(cData.policies||[]).find(p=>p.id===r.id);
-    return pol?.items?.length>0;
-  });
+  // 고객 뷰 매트릭스 - 관리툴 matrixView 완전 동일 적용
+  const mv2 = cData.matrixView || {};
+  const hidden2 = new Set(Object.keys(mv2).filter(n=>mv2[n].__hidden));
 
   const cvMatrix2 = {};
-  const cvCellSrc = {};
-  contracts.forEach(contract=>{
-    const pol=(cData.policies||[]).find(p=>p.id===contract.id);
-    (pol?.items||[]).forEach((item,idx)=>{
+  // 1) 원본 items에서 집계 (matrixView 오버라이드 없는 셀만)
+  allContracts.forEach(contract=>{
+    const pol = contract._isOther ? contract._pol : (cData.policies||[]).find(p=>p.id===contract.id);
+    (pol?.items||[]).forEach(item=>{
       if(!item.name) return;
       const norm=normCovName(item.name)||item.name;
-      const label=contract.co+'\n'+contract.n;
-      if(!cvMatrix2[norm]) cvMatrix2[norm]={};
-      cvMatrix2[norm][label]=(cvMatrix2[norm][label]||0)+(parseFloat(item.amount)||0);
+      const label=contract.co+'\n'+(contract.n||'');
+      if(mv2[norm]?.[label]===undefined) {
+        if(!cvMatrix2[norm]) cvMatrix2[norm]={};
+        cvMatrix2[norm][label]=(cvMatrix2[norm][label]||0)+(parseFloat(item.amount)||0);
+      }
     });
   });
+  // 2) matrixView 오버라이드 적용 (관리툴과 동일)
+  Object.entries(mv2).forEach(([norm,polMap])=>{
+    if(!cvMatrix2[norm]) cvMatrix2[norm]={};
+    Object.entries(polMap).forEach(([polKey,val])=>{
+      cvMatrix2[norm][polKey]=val;
+    });
+  });
+  // 3) 숨긴 항목 제거
+  hidden2.forEach(n=>delete cvMatrix2[n]);
 
+  // 4) 그룹핑 (matrixView __group 우선)
   const cvGrouped2={};
   COV_GROUPS.forEach(g=>{ cvGrouped2[g.label]=[]; });
-  Object.keys(cvMatrix2).forEach(itemName=>{
-    const g=getCovGroup(itemName);
-    cvGrouped2[g.label].push(itemName);
+  const cvSavedOrder = cData.itemOrder || [];
+  const cvAllItems = Object.keys(cvMatrix2);
+  const cvItemNames = [
+    ...cvSavedOrder.filter(n=>cvAllItems.includes(n)),
+    ...cvAllItems.filter(n=>!cvSavedOrder.includes(n)).sort()
+  ];
+  cvItemNames.forEach(itemName=>{
+    const explicitGrp = mv2[itemName]?.__group;
+    const grpLabel = explicitGrp && cvGrouped2[explicitGrp]!==undefined ? explicitGrp : getCovGroup(itemName).label;
+    if(!cvGrouped2[grpLabel]) cvGrouped2[grpLabel]=[];
+    cvGrouped2[grpLabel].push(itemName);
   });
 
-  const cvColKeys=cvPolicyCols.map(r=>r.co+'\n'+r.n);
+  // 5) 컬럼 (모든 계약)
+  const cvColKeys=allContracts.map(r=>r.co+'\n'+(r.n||''));
+  const cvPolicyCols=allContracts;
 
   const matrixTableCV = Object.keys(cvMatrix2).length>0?`
     <div style="overflow-x:auto">
@@ -2501,11 +2521,17 @@ function showCustomerView(name){
             <td colspan="${cvPolicyCols.length+2}" style="padding:8px 14px 6px;background:${g.bg};color:${g.color};font-weight:700;font-size:12px;border-top:2px solid ${g.border}">${g.label}</td>
           </tr>
           ${cvGrouped2[g.label].map(itemName=>{
-            const rowTotal=cvColKeys.reduce((s,k)=>s+(cvMatrix2[itemName][k]||0),0);
+            const displayName = (cData.matrixNames||{})[itemName] || itemName;
+            const rowTotal=cvColKeys.reduce((s,k)=>{
+              const mvV=mv2[itemName]?.[k];
+              const v=mvV!==undefined?mvV:(cvMatrix2[itemName]?.[k]||0);
+              return s+v;
+            },0);
             return`<tr style="background:#fff;border-bottom:1px solid #F1F5F9">
-              <td style="padding:8px 14px 8px 20px;font-weight:500;color:#1E293B">${itemName}</td>
+              <td style="padding:8px 14px 8px 20px;font-weight:500;color:#1E293B">${displayName}</td>
               ${cvColKeys.map(k=>{
-                const v=cvMatrix2[itemName][k]||0;
+                const mvV=mv2[itemName]?.[k];
+                const v=mvV!==undefined?mvV:(cvMatrix2[itemName]?.[k]||0);
                 return`<td style="padding:8px;text-align:center;color:${v>0?g.color:'#9CA3AF'};font-weight:${v>0?600:400}">
                   ${v>0?wonN(v*10000)+'원':'-'}
                 </td>`;
