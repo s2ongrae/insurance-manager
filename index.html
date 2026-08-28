@@ -2689,15 +2689,43 @@ function renderAll() {
 
   // 고객 전용 링크 감지
   if(hash.startsWith('#view=')) {
-    // app-wrap 숨기고 고객 뷰만 표시
     document.getElementById('app-wrap').style.display = 'none';
     const customerName = decodeURIComponent(hash.slice(6));
+
+    // 로딩 화면 표시
+    document.body.insertAdjacentHTML('beforeend', `
+      <div id="cv-loading" style="position:fixed;inset:0;background:linear-gradient(135deg,#1E3A8A,#2563EB);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999">
+        <div style="font-size:48px;margin-bottom:20px">🏦</div>
+        <div style="color:#fff;font-size:18px;font-weight:700;margin-bottom:10px">${customerName} 님의 보장 내역</div>
+        <div style="color:rgba(255,255,255,.7);font-size:14px;margin-bottom:30px">잠시만 기다려주세요...</div>
+        <div style="display:flex;gap:8px">
+          <div style="width:8px;height:8px;border-radius:50%;background:#60A5FA;animation:bounce .8s infinite 0s"></div>
+          <div style="width:8px;height:8px;border-radius:50%;background:#60A5FA;animation:bounce .8s infinite .2s"></div>
+          <div style="width:8px;height:8px;border-radius:50%;background:#60A5FA;animation:bounce .8s infinite .4s"></div>
+        </div>
+        <style>@keyframes bounce{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-8px);opacity:1}}</style>
+      </div>`);
+
     try {
       const res = await fetch(CLOUD_URL + '?t=' + Date.now());
       const data = await res.json();
       if(data.contracts){ CONTRACTS=data.contracts; COVERAGES=data.coverages||{}; MONTHLY=data.monthly||MONTHLY; GROUPS=data.groups||GROUPS; }
     } catch(e){}
-    showCustomerView(customerName);
+
+    document.getElementById('cv-loading')?.remove();
+
+    try {
+      showCustomerView(customerName);
+    } catch(err) {
+      console.error('showCustomerView error:', err);
+      document.body.insertAdjacentHTML('beforeend', `
+        <div style="padding:40px;text-align:center;font-family:sans-serif">
+          <div style="font-size:40px;margin-bottom:16px">⚠️</div>
+          <div style="font-size:18px;font-weight:700;color:#1E3A8A;margin-bottom:8px">${customerName} 님의 보장 내역</div>
+          <div style="color:#64748B">데이터를 불러오는 중 오류가 발생했어요.<br>설계사에게 문의해주세요.</div>
+          <div style="font-size:11px;color:#9CA3AF;margin-top:20px">${err.message}</div>
+        </div>`);
+    }
     return;
   }
 
