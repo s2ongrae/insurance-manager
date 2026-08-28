@@ -1792,9 +1792,17 @@ function inlineEditCell(td) {
     const pol = COVERAGES[cust]?.policies?.find(p=>p.id===parseInt(polid));
     const item = pol?.items?.[parseInt(idx)];
     if(!item) return;
-    inp.value = item.amount ?? '';
+    // 현재 합산값 표시 (같은 정규화명 항목이 여러 개일 수 있음)
+    const normTarget = normCovName(item.name)||item.name;
+    const totalVal = (pol.items||[]).filter(it=>(normCovName(it.name)||it.name)===normTarget)
+      .reduce((s,it)=>s+(parseFloat(it.amount)||0), 0);
+    inp.value = totalVal;
     inp.onblur = () => {
-      item.amount = parseFloat(inp.value)||0;
+      const newVal = parseFloat(inp.value)||0;
+      // 같은 정규화명 항목 모두 찾아서 → 첫 번째만 새 값, 나머지 0
+      const matches = (pol.items||[]).map((it,i)=>({it,i}))
+        .filter(({it})=>(normCovName(it.name)||it.name)===normTarget);
+      matches.forEach(({it,i},pos)=>{ it.amount = pos===0?newVal:0; });
       saveCoverages();
       renderCovDetail(cust);
     };
