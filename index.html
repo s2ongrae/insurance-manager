@@ -445,6 +445,24 @@ if(_viewHash.startsWith('#view=')) {
 </div>
 </div>
 
+<!-- 메모 모달 -->
+<div class="overlay" id="modal-memo">
+<div class="modal" style="max-width:420px">
+  <div class="modal-header">
+    <div class="modal-title" id="memo-modal-title">📝 메모</div>
+    <button class="modal-close" onclick="closeModal('memo')">✕</button>
+  </div>
+  <div class="modal-body">
+    <textarea id="memo-textarea" rows="6" placeholder="예) 24개월 납부 후 해지&#10;갱신 예정일: 2027.09&#10;특이사항 등 자유롭게 입력"
+      style="width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:13px;resize:vertical;font-family:inherit;line-height:1.6"></textarea>
+    <div class="form-btns" style="margin-top:12px">
+      <button class="btn btn-secondary" onclick="closeModal('memo')">취소</button>
+      <button class="btn btn-primary" onclick="saveMemo()">저장</button>
+    </div>
+  </div>
+</div>
+</div>
+
 <!-- 보장 그룹 편집 모달 -->
 <div class="overlay" id="modal-covgroups">
 <div class="modal" style="max-width:620px">
@@ -686,10 +704,12 @@ async function loadFromCloud() {
     CONTRACTS = data.contracts;
     MONTHLY   = data.monthly   || MONTHLY;
     GROUPS    = data.groups    || GROUPS;
+    MEMOS     = data.memos     || MEMOS;
     nextId    = Math.max(...CONTRACTS.map(c=>c.id||0), 0) + 1;
     save('ins_contracts', CONTRACTS);
     save('ins_monthly',   MONTHLY);
     save('ins_groups',    GROUPS);
+    save('ins_memos',     MEMOS);
     lastSyncedAt = new Date();
     setSyncStatus('ok', `불러옴 ${lastSyncedAt.toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'})}`);
     return true;
@@ -700,10 +720,11 @@ async function loadFromCloud() {
 }
 
 function manualSync() {
-  const all = {contracts:CONTRACTS, monthly:MONTHLY, groups:GROUPS, coverages:COVERAGES, version:1, savedAt:new Date().toISOString()};
+  const all = {contracts:CONTRACTS, monthly:MONTHLY, groups:GROUPS, coverages:COVERAGES, memos:MEMOS, version:1, savedAt:new Date().toISOString()};
   save('ins_contracts', CONTRACTS);
   save('ins_monthly',   MONTHLY);
   save('ins_groups',    GROUPS);
+  save('ins_memos',     MEMOS);
   setSyncStatus('syncing', '동기화 중...');
   fetch(CLOUD_URL, {
     method:'POST',
@@ -731,10 +752,11 @@ function scheduleSave() {
   // 연속 입력 시 1.5초 후 한 번만 저장
   clearTimeout(syncTimer);
   syncTimer = setTimeout(() => {
-    const all = {contracts:CONTRACTS, monthly:MONTHLY, groups:GROUPS, coverages:COVERAGES, version:1, savedAt:new Date().toISOString()};
+    const all = {contracts:CONTRACTS, monthly:MONTHLY, groups:GROUPS, coverages:COVERAGES, memos:MEMOS, version:1, savedAt:new Date().toISOString()};
     save('ins_contracts', CONTRACTS);
     save('ins_monthly',   MONTHLY);
     save('ins_groups',    GROUPS);
+    save('ins_memos',     MEMOS);
     saveToCloud(all);
   }, 1500);
 }
@@ -745,6 +767,7 @@ function save(key,val){ try{localStorage.setItem(key,JSON.stringify(val));}catch
 
 let CONTRACTS = load('ins_contracts', DEFAULT_CONTRACTS);
 let MONTHLY   = load('ins_monthly',   DEFAULT_MONTHLY);
+let MEMOS     = load('ins_memos',     {});  // 계약별 메모 {contractId: string}
 let GROUPS    = load('ins_groups',    DEFAULT_GROUPS);
 
 // Ensure nextId
@@ -849,7 +872,9 @@ function renderList() {
       <div class="search-w" style="flex:1">
         <span class="search-icon">🔍</span>
         <input type="text" id="sq-inp" placeholder="계약자 · 보험사 · 보험명 · 그룹 검색..." value="${sq.replace(/"/g,'&quot;')}"
-          oninput="sq=this.value;renderList()">
+          oninput="if(!this._composing){sq=this.value;renderList()}"
+          oncompositionstart="this._composing=true"
+          oncompositionend="this._composing=false;sq=this.value;renderList()">
       </div>
       <button onclick="toggleFilterPanel()" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid ${filterOpen||activeCnt?'var(--blue)':'var(--border)'};background:${filterOpen||activeCnt?'var(--blue-l)':'var(--surface)'};color:${filterOpen||activeCnt?'var(--blue)':'var(--muted)'};font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;flex-shrink:0">
         ⚙️ 필터${activeCnt?` <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:var(--blue);color:#fff;border-radius:50%;font-size:10px;font-weight:700">${activeCnt}</span>`:''}
@@ -913,6 +938,9 @@ function renderList() {
         <td>${gbadge(r.g)}</td>
         <td class="td-act" onclick="event.stopPropagation()">
           ${r.proposalUrl?`<a href="${r.proposalUrl}" target="_blank" class="btn btn-secondary btn-sm" onclick="event.stopPropagation()" title="제안서 보기" style="text-decoration:none">📄</a>`:''}
+          <button class="btn btn-secondary btn-sm" onclick="openMemoModal(${r.id})" title="메모" style="position:relative">
+            📝${MEMOS[r.id]?`<span style="position:absolute;top:-3px;right:-3px;width:7px;height:7px;border-radius:50%;background:var(--blue)"></span>`:''}
+          </button>
           <button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.id})">✏️</button>
         </td>
       </tr>`).join(''):`<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--hint)">검색 결과가 없습니다</td></tr>`}</tbody>
@@ -1446,6 +1474,29 @@ function saveIncome() {
 // ════════════════════════════════════════════════════════════
 // UTILS
 // ════════════════════════════════════════════════════════════
+let _memoContractId = null;
+
+function openMemoModal(contractId) {
+  _memoContractId = contractId;
+  const r = CONTRACTS.find(c=>c.id===contractId);
+  document.getElementById('memo-modal-title').textContent = `📝 ${r?.co||''} · ${r?.n||''} 메모`;
+  document.getElementById('memo-textarea').value = MEMOS[contractId] || '';
+  document.getElementById('modal-memo').classList.add('on');
+  setTimeout(()=>document.getElementById('memo-textarea').focus(), 100);
+}
+
+function saveMemo() {
+  if(!_memoContractId) return;
+  const text = document.getElementById('memo-textarea').value.trim();
+  if(text) MEMOS[_memoContractId] = text;
+  else delete MEMOS[_memoContractId];
+  save('ins_memos', MEMOS);
+  scheduleSave();
+  closeModal('memo');
+  renderList();
+  showToast('✅ 메모가 저장됐어요');
+}
+
 function openModal(name) { document.getElementById('modal-'+name).classList.add('on'); }
 function closeModal(name) { document.getElementById('modal-'+name).classList.remove('on'); }
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('on');}));
