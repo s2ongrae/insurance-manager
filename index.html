@@ -553,6 +553,11 @@ if(_viewHash.startsWith('#view=')) {
         <span id="proposal-info" style="font-size:12px;color:var(--muted)">파일 없음</span>
       </div>
     </div>
+    <div class="form-field" style="margin-top:12px">
+      <label style="font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px">📝 메모</label>
+      <textarea id="contract-memo" rows="3" placeholder="예) 24개월 납부 후 해지&#10;갱신 예정일: 2027.09"
+        style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;resize:vertical;font-family:inherit;line-height:1.6"></textarea>
+    </div>
     <div class="form-btns">
       <button class="btn btn-secondary" onclick="closeModal('contract')">취소</button>
       <button class="btn btn-danger btn-sm" id="btn-delete" style="display:none" onclick="deleteContract()">삭제</button>
@@ -821,6 +826,7 @@ let fStatus=new Set(), fGroups=new Set(), fMonths=new Set(), fCos=new Set();
 let filterOpen=false;
 let COVERAGES = load('ins_coverages', {});
 let GEMINI_KEY = localStorage.getItem('gemini_key') || '';
+let _imeComposing = false;
 let selectedCovCustomer = null;
 let expandedCustomer = null;
 let expandedMonth = null;
@@ -837,6 +843,7 @@ function clearAllFilters(){fStatus=new Set();fGroups=new Set();fMonths=new Set()
 function toggleFilterPanel(){filterOpen=!filterOpen;renderList();}
 
 function renderList() {
+  if(_imeComposing) return; // 한글 IME 입력 중엔 렌더링 차단
   const wasSearch = document.activeElement && document.activeElement.id==='sq-inp';
 
   let d = [...CONTRACTS];
@@ -872,9 +879,9 @@ function renderList() {
       <div class="search-w" style="flex:1">
         <span class="search-icon">🔍</span>
         <input type="text" id="sq-inp" placeholder="계약자 · 보험사 · 보험명 · 그룹 검색..." value="${sq.replace(/"/g,'&quot;')}"
-          oninput="if(!this._composing){sq=this.value;renderList()}"
-          oncompositionstart="this._composing=true"
-          oncompositionend="this._composing=false;sq=this.value;renderList()">
+          oninput="if(!_imeComposing){sq=this.value;renderList()}"
+          oncompositionstart="_imeComposing=true"
+          oncompositionend="_imeComposing=false;sq=this.value;renderList()">
       </div>
       <button onclick="toggleFilterPanel()" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid ${filterOpen||activeCnt?'var(--blue)':'var(--border)'};background:${filterOpen||activeCnt?'var(--blue-l)':'var(--surface)'};color:${filterOpen||activeCnt?'var(--blue)':'var(--muted)'};font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;flex-shrink:0">
         ⚙️ 필터${activeCnt?` <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:var(--blue);color:#fff;border-radius:50%;font-size:10px;font-weight:700">${activeCnt}</span>`:''}
@@ -938,7 +945,7 @@ function renderList() {
         <td>${gbadge(r.g)}</td>
         <td class="td-act" onclick="event.stopPropagation()">
           ${r.proposalUrl?`<a href="${r.proposalUrl}" target="_blank" class="btn btn-secondary btn-sm" onclick="event.stopPropagation()" title="제안서 보기" style="text-decoration:none">📄</a>`:''}
-          <button class="btn btn-secondary btn-sm" onclick="openMemoModal(${r.id})" title="메모" style="position:relative">
+          <button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.id})" title="메모" style="position:relative">
             📝${MEMOS[r.id]?`<span style="position:absolute;top:-3px;right:-3px;width:7px;height:7px;border-radius:50%;background:var(--blue)"></span>`:''}
           </button>
           <button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.id})">✏️</button>
@@ -1335,6 +1342,7 @@ function openAddModal() {
   populateGroupDropdown('지인들');
   document.getElementById('btn-delete').style.display = 'none';
   document.getElementById('new-grp-wrap').style.display = 'none';
+  document.getElementById('contract-memo').value = '';
   document.getElementById('modal-contract').classList.add('on');
   setTimeout(()=>{document.getElementById('f-holder').focus(); resetProposalField(null);}, 100);
 }
@@ -1354,6 +1362,7 @@ function openEditModal(id) {
   populateGroupDropdown(r.g);
   document.getElementById('btn-delete').style.display = 'inline-flex';
   document.getElementById('new-grp-wrap').style.display = 'none';
+  document.getElementById('contract-memo').value = MEMOS[id] || '';
   document.getElementById('modal-contract').classList.add('on');
   setTimeout(()=>resetProposalField(r.proposalUrl||null), 100);
 }
@@ -1377,10 +1386,17 @@ function saveContract() {
   if(id) {
     const idx = CONTRACTS.findIndex(c=>c.id===parseInt(id));
     if(idx>=0) CONTRACTS[idx] = {...CONTRACTS[idx],...data};
+    // 메모 저장
+    const memo = document.getElementById('contract-memo').value.trim();
+    if(memo) MEMOS[parseInt(id)] = memo;
+    else delete MEMOS[parseInt(id)];
     showToast('✅ 계약이 수정되었습니다');
   } else {
     data.id = nextId++;
     CONTRACTS.push(data);
+    // 새 계약 메모 저장
+    const memo = document.getElementById('contract-memo').value.trim();
+    if(memo) MEMOS[data.id] = memo;
     // Add month to MONTHLY if new
     const m = data.d.slice(0,5);
     if(m && !MONTHLY.find(x=>x.m===m)) {
@@ -1391,6 +1407,7 @@ function saveContract() {
   }
   save('ins_contracts', CONTRACTS);
   save('ins_monthly', MONTHLY);
+  save('ins_memos', MEMOS);
   closeModal('contract');
   scheduleSave();
   renderAll();
