@@ -56,9 +56,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans
 /* Controls */
 .ctrl{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
 .search-w{position:relative;flex:1;min-width:180px}
-.search-w input{width:100%;padding:8px 12px 8px 34px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);outline:none;transition:border .15s}
+.search-w input{width:100%;padding:8px 12px 8px 40px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);outline:none;transition:border .15s}
 .search-w input:focus{border-color:var(--blue)}
-.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--hint);pointer-events:none}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--hint);pointer-events:none;font-size:15px}
 select{padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);cursor:pointer;outline:none}
 select:focus{border-color:var(--blue)}
 .cnt{font-size:12px;color:var(--muted);margin-bottom:8px}
@@ -312,7 +312,25 @@ if(_viewHash.startsWith('#view=')) {
     <button class="tab" onclick="switchTab('월별',this)">📊 월별 실적</button>
     <button class="tab" onclick="switchTab('보장분석',this)">📋 보장 분석</button>
   </div>
-  <div id="pane-리스트" class="pane on"></div>
+  <div id="pane-리스트" class="pane on">
+    <!-- 검색창 고정 영역 (renderList가 건드리지 않음) -->
+    <div id="list-search-area" style="padding:12px 16px 0">
+      <div style="display:flex;gap:8px;align-items:center">
+        <div class="search-w" style="flex:1">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="sq-inp" placeholder="계약자 · 보험사 · 보험명 · 그룹 검색..."
+            style="padding-left:40px"
+            oninput="sq=this.value;renderListResults()"
+            oncompositionstart="_imeComposing=true"
+            oncompositionend="_imeComposing=false;sq=this.value;renderListResults()">
+        </div>
+        <button class="btn btn-secondary" id="filter-btn" onclick="toggleFilterPanel()">⚙️ 필터</button>
+      </div>
+      <div id="filter-area" style="display:none;margin-top:8px"></div>
+    </div>
+    <!-- 결과 영역만 renderList가 업데이트 -->
+    <div id="list-results"></div>
+  </div>
   <div id="pane-그룹별" class="pane"></div>
   <div id="pane-고객별" class="pane"></div>
   <div id="pane-월별" class="pane"></div>
@@ -497,7 +515,7 @@ if(_viewHash.startsWith('#view=')) {
     <div class="form-grid">
       <div class="form-field">
         <label>상태</label>
-        <select class="form-sel" id="f-status">
+        <select class="form-sel" id="f-status" onchange="document.getElementById('f-enddate-wrap').style.display=this.value==='계약해지'?'block':'none'">
           <option value="계약완료">계약완료</option>
           <option value="가입 예정">가입 예정</option>
           <option value="계약해지">계약해지</option>
@@ -506,6 +524,10 @@ if(_viewHash.startsWith('#view=')) {
       <div class="form-field">
         <label>가입일 (YY.MM.DD)</label>
         <input type="text" id="f-date" placeholder="예: 26.05.20">
+      </div>
+      <div class="form-field" id="f-enddate-wrap" style="display:none">
+        <label>해지일 (YY.MM.DD)</label>
+        <input type="text" id="f-end-date" placeholder="예: 27.03.15">
       </div>
       <div class="form-field">
         <label>계약자</label>
@@ -827,6 +849,11 @@ let filterOpen=false;
 let COVERAGES = load('ins_coverages', {});
 let GEMINI_KEY = localStorage.getItem('gemini_key') || '';
 let _imeComposing = false;
+let _searchTimer = null;
+function scheduleSearch(){
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(()=>{ if(!_imeComposing) renderList(); }, 120);
+}
 let selectedCovCustomer = null;
 let expandedCustomer = null;
 let expandedMonth = null;
@@ -843,7 +870,6 @@ function clearAllFilters(){fStatus=new Set();fGroups=new Set();fMonths=new Set()
 function toggleFilterPanel(){filterOpen=!filterOpen;renderList();}
 
 function renderList() {
-  if(_imeComposing) return; // 한글 IME 입력 중엔 렌더링 차단
   const wasSearch = document.activeElement && document.activeElement.id==='sq-inp';
 
   let d = [...CONTRACTS];
@@ -879,26 +905,17 @@ function renderList() {
       <div class="search-w" style="flex:1">
         <span class="search-icon">🔍</span>
         <input type="text" id="sq-inp" placeholder="계약자 · 보험사 · 보험명 · 그룹 검색..." value="${sq.replace(/"/g,'&quot;')}"
-          oninput="if(!_imeComposing){sq=this.value;renderList()}"
+          oninput="if(!_imeComposing){sq=this.value;scheduleSearch()}"
           oncompositionstart="_imeComposing=true"
-          oncompositionend="_imeComposing=false;sq=this.value;renderList()">
+          oncompositionend="_imeComposing=false;sq=this.value;scheduleSearch()">
       </div>
-      <button onclick="toggleFilterPanel()" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid ${filterOpen||activeCnt?'var(--blue)':'var(--border)'};background:${filterOpen||activeCnt?'var(--blue-l)':'var(--surface)'};color:${filterOpen||activeCnt?'var(--blue)':'var(--muted)'};font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;flex-shrink:0">
-        ⚙️ 필터${activeCnt?` <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:var(--blue);color:#fff;border-radius:50%;font-size:10px;font-weight:700">${activeCnt}</span>`:''}
-      </button>
+      <button onclick="toggleFilterPanel()" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:${filterOpen?'var(--blue)':'var(--surface)'};color:${filterOpen?'#fff':'var(--text)'};font-size:13px;cursor:pointer;white-space:nowrap">⚙️ 필터${activeCnt?` <span style="background:#fff;color:var(--blue);border-radius:999px;font-size:11px;font-weight:700;padding:1px 6px">${activeCnt}</span>`:''}</button>
     </div>
-
-    ${filterOpen?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:10px;animation:fadeIn .15s ease">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <div style="font-size:14px;font-weight:600;color:var(--text)">필터 설정</div>
-        ${activeCnt?`<button onclick="clearAllFilters()" style="font-size:12px;color:var(--red);background:var(--red-l);border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-weight:500">전체 초기화</button>`:''}
-      </div>
+    ${filterOpen?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px">
       ${chipRow('상태',allStatus,'status',fStatus)}
-      ${chipRow('가입 월',allMonths,'months',fMonths)}
-      ${chipRow('보험회사',allCos,'cos',fCos)}
       ${chipRow('그룹',allGrps,'groups',fGroups)}
+      ${chipRow('보험사',[...new Set(CONTRACTS.map(r=>r.co).filter(Boolean))].sort(),'cos',fCos)}
     </div>`:''}
-
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div class="cnt" style="margin-bottom:0">${d.length}건</div>
       ${activeCnt?`<div style="display:flex;flex-wrap:wrap;gap:4px">${
@@ -936,11 +953,16 @@ function renderList() {
       </tr></thead>
       <tbody>${d.length?d.map(r=>`<tr onclick="openEditModal(${r.id})" style="cursor:pointer">
         <td>${sbadge(r.s)}</td>
-        <td style="color:var(--muted);font-size:12px;white-space:nowrap">${r.d}</td>
+        <td style="color:var(--muted);font-size:12px;white-space:nowrap">
+          ${r.d}${r.s==='계약해지'&&r.ed?`<br><span style="color:var(--red);font-size:11px">→ ${r.ed}</span>`:''}
+        </td>
         <td style="font-weight:600;white-space:nowrap">${r.c}</td>
         <td style="color:var(--muted);white-space:nowrap">${r.p}</td>
         <td style="white-space:nowrap">${r.co}</td>
-        <td style="white-space:nowrap">${r.n}</td>
+        <td style="white-space:nowrap">
+          ${r.n}
+          ${MEMOS[r.id]?`<div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px">${MEMOS[r.id].split('\n')[0]}</div>`:''}
+        </td>
         <td style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">${wonN(r.pr)}</td>
         <td>${gbadge(r.g)}</td>
         <td class="td-act" onclick="event.stopPropagation()">
@@ -953,13 +975,7 @@ function renderList() {
       </tr>`).join(''):`<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--hint)">검색 결과가 없습니다</td></tr>`}</tbody>
     </table></div>`;
 
-  // ★ 검색창 포커스 복원 (DOM 재생성 후 focus가 날아가는 버그 수정)
-  if(wasSearch) {
-    setTimeout(()=>{
-      const el=document.getElementById('sq-inp');
-      if(el){el.focus();try{el.setSelectionRange(sq.length,sq.length);}catch(e){}}
-    },0);
-  }
+  if(wasSearch){ const el=document.getElementById('sq-inp'); if(el){ el.focus(); } }
 }
 
 function removeOneFilter(val){
@@ -1334,6 +1350,8 @@ function openAddModal() {
   document.getElementById('edit-id').value = '';
   document.getElementById('f-status').value = '계약완료';
   document.getElementById('f-date').value = '';
+  document.getElementById('f-end-date').value = '';
+  document.getElementById('f-enddate-wrap').style.display = 'none';
   document.getElementById('f-holder').value = '';
   document.getElementById('f-insured').value = '';
   document.getElementById('f-co').value = '';
@@ -1354,6 +1372,8 @@ function openEditModal(id) {
   document.getElementById('edit-id').value = id;
   document.getElementById('f-status').value = r.s;
   document.getElementById('f-date').value = r.d;
+  document.getElementById('f-end-date').value = r.ed || '';
+  document.getElementById('f-enddate-wrap').style.display = r.s==='계약해지'?'block':'none';
   document.getElementById('f-holder').value = r.c;
   document.getElementById('f-insured').value = r.p;
   document.getElementById('f-co').value = r.co;
@@ -1371,6 +1391,7 @@ function saveContract() {
   const id = document.getElementById('edit-id').value;
   const data = {
     s:  document.getElementById('f-status').value,
+    ed: document.getElementById('f-end-date').value.trim(),
     d:  document.getElementById('f-date').value.trim(),
     c:  document.getElementById('f-holder').value.trim(),
     p:  document.getElementById('f-insured').value.trim() || document.getElementById('f-holder').value.trim(),
