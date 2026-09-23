@@ -313,22 +313,22 @@ if(_viewHash.startsWith('#view=')) {
     <button class="tab" onclick="switchTab('보장분석',this)">📋 보장 분석</button>
   </div>
   <div id="pane-리스트" class="pane on">
-    <!-- 검색창 고정 영역 (renderList가 건드리지 않음) -->
     <div id="list-search-area" style="padding:12px 16px 0">
       <div style="display:flex;gap:8px;align-items:center">
-        <div class="search-w" style="flex:1">
-          <span class="search-icon">🔍</span>
-          <input type="text" id="sq-inp" placeholder="계약자 · 보험사 · 보험명 · 그룹 검색..."
-            style="padding-left:40px"
-            oninput="sq=this.value;renderListResults()"
-            oncompositionstart="_imeComposing=true"
-            oncompositionend="_imeComposing=false;sq=this.value;renderListResults()">
+        <div class="search-w" style="flex:1;position:relative">
+          <span class="search-icon" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--hint);pointer-events:none">🔍</span>
+          <input type="text" id="sq-inp" placeholder="계약자 · 보험사 · 보험명 · 그룹 검색 후 Enter..."
+            style="width:100%;padding:8px 12px 8px 40px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);outline:none"
+            onkeydown="if(event.key==='Enter'){sq=this.value;renderList()}"
+            onfocus="this.style.borderColor='var(--blue)'"
+            onblur="this.style.borderColor='var(--border)'">
         </div>
+        <button class="btn btn-primary btn-sm" onclick="sq=document.getElementById('sq-inp').value;renderList()" style="white-space:nowrap">🔍 검색</button>
+        <button class="btn btn-secondary btn-sm" onclick="sq='';document.getElementById('sq-inp').value='';renderList()" title="초기화">✕</button>
         <button class="btn btn-secondary" id="filter-btn" onclick="toggleFilterPanel()">⚙️ 필터</button>
       </div>
       <div id="filter-area" style="display:none;margin-top:8px"></div>
     </div>
-    <!-- 결과 영역만 renderList가 업데이트 -->
     <div id="list-results"></div>
   </div>
   <div id="pane-그룹별" class="pane"></div>
@@ -900,22 +900,7 @@ function renderList() {
       </div>
     </div>`;
 
-  document.getElementById('pane-리스트').innerHTML=`
-    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
-      <div class="search-w" style="flex:1">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="sq-inp" placeholder="계약자 · 보험사 · 보험명 · 그룹 검색..." value="${sq.replace(/"/g,'&quot;')}"
-          oninput="if(!_imeComposing){sq=this.value;scheduleSearch()}"
-          oncompositionstart="_imeComposing=true"
-          oncompositionend="_imeComposing=false;sq=this.value;scheduleSearch()">
-      </div>
-      <button onclick="toggleFilterPanel()" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:${filterOpen?'var(--blue)':'var(--surface)'};color:${filterOpen?'#fff':'var(--text)'};font-size:13px;cursor:pointer;white-space:nowrap">⚙️ 필터${activeCnt?` <span style="background:#fff;color:var(--blue);border-radius:999px;font-size:11px;font-weight:700;padding:1px 6px">${activeCnt}</span>`:''}</button>
-    </div>
-    ${filterOpen?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px">
-      ${chipRow('상태',allStatus,'status',fStatus)}
-      ${chipRow('그룹',allGrps,'groups',fGroups)}
-      ${chipRow('보험사',[...new Set(CONTRACTS.map(r=>r.co).filter(Boolean))].sort(),'cos',fCos)}
-    </div>`:''}
+  document.getElementById('list-results').innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div class="cnt" style="margin-bottom:0">${d.length}건</div>
       ${activeCnt?`<div style="display:flex;flex-wrap:wrap;gap:4px">${
@@ -1087,7 +1072,7 @@ function renderCustomers() { try {
                   <td style="padding:7px 10px;color:var(--muted);white-space:nowrap">${r.d}</td>
                   <td style="padding:7px 10px">${sbadge(r.s)}</td>
                   <td style="padding:7px 10px;white-space:nowrap">${r.co}</td>
-                  <td style="padding:7px 10px;white-space:nowrap;font-weight:500">${r.n}</td>
+                  <td style="padding:7px 10px;font-weight:500">${r.n}${MEMOS[r.id]?`<div style="font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px">${MEMOS[r.id].split("\n")[0]}</div>`:""}</td>
                   <td style="padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">${wonN(r.pr)}원</td>
                   <td style="padding:7px 10px;text-align:right">
                     <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openEditModal(${r.id})">✏️</button>
@@ -1238,7 +1223,7 @@ function renderMonthly() {
                       <td style="padding:7px 10px">${sbadge(r.s)}</td>
                       <td style="padding:7px 10px;font-weight:600;white-space:nowrap">${r.c}</td>
                       <td style="padding:7px 10px;white-space:nowrap">${r.co}</td>
-                      <td style="padding:7px 10px;white-space:nowrap;font-weight:500">${r.n}</td>
+                      <td style="padding:7px 10px;font-weight:500">${r.n}${MEMOS[r.id]?`<div style="font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px">${MEMOS[r.id].split("\n")[0]}</div>`:""}</td>
                       <td style="padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">${wonN(r.pr)}원</td>
                       <td style="padding:7px 10px;text-align:right">
                         <button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.id})">✏️</button>
