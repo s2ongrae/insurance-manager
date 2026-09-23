@@ -732,11 +732,15 @@ async function loadFromCloud() {
     MONTHLY   = data.monthly   || MONTHLY;
     GROUPS    = data.groups    || GROUPS;
     MEMOS     = data.memos     || MEMOS;
+    if(data.coverages && Object.keys(data.coverages).length > 0) {
+      COVERAGES = data.coverages;
+    }
     nextId    = Math.max(...CONTRACTS.map(c=>c.id||0), 0) + 1;
     save('ins_contracts', CONTRACTS);
     save('ins_monthly',   MONTHLY);
     save('ins_groups',    GROUPS);
     save('ins_memos',     MEMOS);
+    save('ins_coverages', COVERAGES);
     lastSyncedAt = new Date();
     setSyncStatus('ok', `불러옴 ${lastSyncedAt.toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'})}`);
     return true;
@@ -2820,7 +2824,7 @@ function renderAll() {
   document.getElementById('app-wrap').style.display = 'block';
 
   const loaded = await loadFromCloud();
-  if(loaded){ COVERAGES=load('ins_coverages',{}); renderAll(); }
+  if(loaded){ renderAll(); }
 })();
 </script>
 </div><!-- /app-wrap -->
