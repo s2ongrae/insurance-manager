@@ -944,9 +944,9 @@ function renderList() {
         <td style="font-weight:600;white-space:nowrap">${r.c}</td>
         <td style="color:var(--muted);white-space:nowrap">${r.p}</td>
         <td style="white-space:nowrap">${r.co}</td>
-        <td style="white-space:nowrap">
-          ${r.n}
-          ${MEMOS[r.id]?`<div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px">${MEMOS[r.id].split('\n')[0]}</div>`:''}
+        <td>
+          <div style="font-weight:500">${r.n}</div>
+          ${MEMOS[r.id]?`<div style="font-size:11px;color:#3B82F6;margin-top:3px;font-weight:400">${MEMOS[r.id].split('\n')[0]}</div>`:''}
         </td>
         <td style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">${wonN(r.pr)}</td>
         <td>${gbadge(r.g)}</td>
@@ -1072,7 +1072,10 @@ function renderCustomers() { try {
                   <td style="padding:7px 10px;color:var(--muted);white-space:nowrap">${r.d}</td>
                   <td style="padding:7px 10px">${sbadge(r.s)}</td>
                   <td style="padding:7px 10px;white-space:nowrap">${r.co}</td>
-                  <td style="padding:7px 10px;font-weight:500">${r.n}${MEMOS[r.id]?`<div style="font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px">${MEMOS[r.id].split("\n")[0]}</div>`:""}</td>
+                  <td style="padding:7px 10px">
+                    <div style="font-weight:500">${r.n}</div>
+                    ${MEMOS[r.id]?`<div style="font-size:11px;color:#3B82F6;margin-top:3px">${MEMOS[r.id].split("\n")[0]}</div>`:""}
+                  </td>
                   <td style="padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">${wonN(r.pr)}원</td>
                   <td style="padding:7px 10px;text-align:right">
                     <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openEditModal(${r.id})">✏️</button>
@@ -1223,7 +1226,10 @@ function renderMonthly() {
                       <td style="padding:7px 10px">${sbadge(r.s)}</td>
                       <td style="padding:7px 10px;font-weight:600;white-space:nowrap">${r.c}</td>
                       <td style="padding:7px 10px;white-space:nowrap">${r.co}</td>
-                      <td style="padding:7px 10px;font-weight:500">${r.n}${MEMOS[r.id]?`<div style="font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px">${MEMOS[r.id].split("\n")[0]}</div>`:""}</td>
+                      <td style="padding:7px 10px">
+                    <div style="font-weight:500">${r.n}</div>
+                    ${MEMOS[r.id]?`<div style="font-size:11px;color:#3B82F6;margin-top:3px">${MEMOS[r.id].split("\n")[0]}</div>`:""}
+                  </td>
                       <td style="padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">${wonN(r.pr)}원</td>
                       <td style="padding:7px 10px;text-align:right">
                         <button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.id})">✏️</button>
