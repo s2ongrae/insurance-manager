@@ -1274,21 +1274,26 @@ function handleProposalUpload(event) {
   infoEl.textContent = '⏳ 업로드 중...';
   infoEl.style.color = 'var(--amber)';
 
+  // 고객명 가져오기 (계약자 + 가입자로 폴더 구성)
+  const holder = document.getElementById('f-holder')?.value?.trim() || '';
+  const person = document.getElementById('f-name')?.value?.trim()  || '';
+  const customerFolder = holder || person || '미분류';
+
   const reader = new FileReader();
   reader.onload = async e => {
-    const base64 = e.target.result.split(',')[1];
-    const filename = `제안서_${Date.now()}.pdf`;
+    const base64   = e.target.result.split(',')[1];
+    const filename = `${file.name.replace(/\.pdf$/i,'')||'제안서'}_${new Date().toISOString().slice(0,10)}.pdf`;
     try {
       const res = await fetch(CLOUD_URL, {
         method: 'POST',
         headers: {'Content-Type': 'text/plain'},
-        body: JSON.stringify({action:'uploadFile', base64, filename})
+        body: JSON.stringify({action:'uploadFile', base64, filename, customerFolder})
       });
       const data = await res.json();
       if(data.success) {
         pendingProposalUrl = data.viewUrl;
         infoEl.innerHTML = `<a href="${data.viewUrl}" target="_blank" style="color:var(--blue);text-decoration:none">✅ ${file.name} (클릭하여 확인)</a>`;
-        showToast('✅ 제안서 업로드 완료! 저장 버튼을 눌러주세요');
+        showToast(`✅ Drive > 보험관리툴 > ${customerFolder} 폴더에 저장됐어요!`);
       } else {
         throw new Error(data.error||'업로드 실패');
       }
