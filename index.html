@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>🏦 보험 고객 관리</title>
@@ -2499,6 +2500,25 @@ async function callGeminiPDF(base64, promptText){
   catch(e){ throw new Error('결과를 JSON으로 읽지 못했어요 (finishReason: '+(cand.finishReason||'?')+') '+clean.slice(0,60)); }
 }
 
+// 페이지 수가 많은 PDF는 구간으로 쪼개서 분석 (서버 부담·응답 잘림 방지)
+async function splitPDFBase64(base64, threshold, chunkSize){
+  if(!window.PDFLib) return null;
+  const bytes = Uint8Array.from(atob(base64), ch=>ch.charCodeAt(0));
+  const src = await PDFLib.PDFDocument.load(bytes, {ignoreEncryption:true});
+  const total = src.getPageCount();
+  if(total <= threshold) return null;
+  const chunks = [];
+  for(let s=0; s<total; s+=chunkSize){
+    const out = await PDFLib.PDFDocument.create();
+    const idx = [];
+    for(let i=s; i<Math.min(s+chunkSize, total); i++) idx.push(i);
+    const pages = await out.copyPages(src, idx);
+    pages.forEach(p=>out.addPage(p));
+    chunks.push(await out.saveAsBase64());
+  }
+  return {chunks, total};
+}
+
 async function handlePDFUpload(event, polId, coName, prodName){
   const file = event.target.files[0];
   if(!file) return;
@@ -2518,7 +2538,29 @@ async function handlePDFUpload(event, polId, coName, prodName){
 금액은 만원 단위 숫자만. 예) 3000만원→3000
 보장금액이 없는 항목은 제외하세요.`;
 
-      const parsed = await callGeminiPDF(base64, prompt);
+      let parsed;
+      const split = await splitPDFBase64(base64, 8, 6).catch(()=>null);
+      if(!split){
+        parsed = await callGeminiPDF(base64, prompt);
+      } else {
+        const chunkPrompt = prompt + '\n※ 이 PDF는 제안서 전체 중 일부 페이지입니다. 이 페이지에 보이는 정보만 추출하고, 담보가 없으면 "items":[] 로 응답하세요. 납입기간·보험기간·갱신여부가 이 페이지에 없으면 빈 문자열("")로 두세요.';
+        const merged = {items:[], payPeriod:'', covPeriod:'', renewable:''};
+        const seen = new Set();
+        for(let i=0; i<split.chunks.length; i++){
+          showToast(`🔄 ${split.total}쪽짜리라 나눠서 분석 중 (${i+1}/${split.chunks.length})`);
+          let part;
+          try { part = await callGeminiPDF(split.chunks[i], chunkPrompt); }
+          catch(e){ throw new Error(`${i+1}/${split.chunks.length}번째 구간 실패 — ${e.message}`); }
+          (part.items||[]).forEach(it=>{
+            const k = [it.name, it.amount, it.price].join('|');
+            if(!seen.has(k)){ seen.add(k); merged.items.push(it); }
+          });
+          if(!merged.payPeriod && part.payPeriod) merged.payPeriod = part.payPeriod;
+          if(!merged.covPeriod && part.covPeriod) merged.covPeriod = part.covPeriod;
+          if(!merged.renewable && part.renewable) merged.renewable = part.renewable;
+        }
+        parsed = merged;
+      }
 
       if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
       let pol = COVERAGES[customer].policies.find(p=>p.id===polId);
