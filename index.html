@@ -853,6 +853,7 @@ let fStatus=new Set(), fGroups=new Set(), fMonths=new Set(), fCos=new Set();
 let filterOpen=false;
 let COVERAGES = load('ins_coverages', {});
 let GEMINI_KEY = localStorage.getItem('gemini_key') || '';
+let GEMINI_MODEL = localStorage.getItem('gemini_model') || 'gemini-3.6-flash';
 let _imeComposing = false;
 let _searchTimer = null;
 function scheduleSearch(){
@@ -1621,7 +1622,12 @@ function renderCoverageTab(subTab){
   const customers = [...new Set(CONTRACTS.map(r=>r.p))].sort();
   if(!selectedCovCustomer && customers.length) selectedCovCustomer = customers[0];
 
-  const apiBar = GEMINI_KEY ? '' : `
+  const apiBar = GEMINI_KEY ? `
+    <div class="api-bar" style="opacity:.85">
+      <span>🤖</span>
+      <span style="flex:1;font-size:12px">AI 모델: <b>${GEMINI_MODEL}</b></span>
+      <button class="btn btn-secondary btn-sm" onclick="selectGeminiModel()">모델 변경</button>
+    </div>` : `
     <div class="api-bar">
       <span>🔑</span>
       <span style="flex:1">Gemini API 키를 먼저 설정해야 PDF 자동 분석이 돼요</span>
@@ -2423,6 +2429,23 @@ function removeCovItem(customer, polId, idx){
   renderCovDetail(customer);
 }
 
+async function selectGeminiModel(){
+  if(!GEMINI_KEY){ setGeminiKey(); return; }
+  showToast('🔄 사용 가능한 모델을 불러오는 중...');
+  let list = [];
+  try{ list = await listFlashModels(); }
+  catch(e){ showToast('❌ 모델 목록을 못 불러왔어요: '+e.message); return; }
+  if(!list.includes(GEMINI_MODEL)) list.unshift(GEMINI_MODEL);
+  const menu = list.map((m,i)=>`${i+1}. ${m}${m===GEMINI_MODEL?'   ← 현재':''}`).join('\n');
+  const ans = window.prompt('사용할 AI 모델 번호를 입력하세요\n(서버가 혼잡하면 다른 모델로 바꿔보세요)\n\n'+menu);
+  const n = parseInt(ans);
+  if(!n || n<1 || n>list.length) return;
+  GEMINI_MODEL = list[n-1];
+  localStorage.setItem('gemini_model', GEMINI_MODEL);
+  showToast('✅ 모델을 '+GEMINI_MODEL+' 로 바꿨어요');
+  renderCoverageTab();
+}
+
 function setGeminiKey(){
   const key = prompt('Gemini API 키를 입력하세요 (AIzaSy...):');
   if(!key||!key.trim()) return;
@@ -2431,8 +2454,6 @@ function setGeminiKey(){
   showToast('✅ API 키가 저장되었습니다');
   renderCoverageTab();
 }
-
-let GEMINI_MODEL = localStorage.getItem('gemini_model') || 'gemini-3.6-flash';
 
 async function listFlashModels(){
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${GEMINI_KEY}`);
@@ -2462,8 +2483,8 @@ async function callGeminiPDF(base64, promptText){
   const isMissing = (res,d) => d.error && (res.status===404 || /not found|not supported/i.test(msgOf(d)));
   const wait = ms => new Promise(r=>setTimeout(r,ms));
 
-  // 1) 같은 모델로 최대 3번 (서버 혼잡 시 간격을 두고 재시도)
-  const delays = [0, 4000, 9000];
+  // 1) 같은 모델로 최대 4번 (혼잡 시 간격을 늘려가며 재시도)
+  const delays = [0, 4000, 10000, 20000];
   let res, data;
   for(let i=0;i<delays.length;i++){
     if(delays[i]){ showToast(`⏳ 서버가 혼잡해요. 재시도 중 (${i+1}/${delays.length})`); await wait(delays[i]); }
@@ -2471,19 +2492,26 @@ async function callGeminiPDF(base64, promptText){
     if(!data.error || !isBusy(res,data)) break;
   }
 
-  // 2) 그래도 혼잡하거나 모델명이 없으면 → 다른 flash 모델로 시도
+  // 2) 그래도 혼잡하거나 모델명이 없으면 → 다른 flash 모델로 시도 (모델당 2번)
   if(data.error && (isBusy(res,data) || isMissing(res,data))){
-    const missing = isMissing(res,data);
     let list = [];
     try{ list = await listFlashModels(); }catch(e){}
     for(const alt of list.filter(n=>n!==GEMINI_MODEL).slice(0,3)){
-      showToast('🔄 '+alt+' 모델로 시도해요');
-      ({res, data} = await run(alt));
-      if(!data.error){
-        if(missing){ GEMINI_MODEL = alt; localStorage.setItem('gemini_model', alt); }
+      let ok = false;
+      for(let t=0;t<2;t++){
+        showToast('🔄 '+alt+' 모델로 시도해요'+(t?' (재시도)':''));
+        if(t) await wait(5000);
+        ({res, data} = await run(alt));
+        if(!data.error){ ok = true; break; }
+        if(!isBusy(res,data)) break;
+      }
+      if(ok){
+        GEMINI_MODEL = alt;
+        localStorage.setItem('gemini_model', alt);
+        showToast('✅ '+alt+' 모델로 성공 — 이후 이 모델을 기본으로 써요');
         break;
       }
-      if(!isBusy(res,data) && !isMissing(res,data)) break;
+      if(data.error && !isBusy(res,data) && !isMissing(res,data)) break;
     }
   }
 
