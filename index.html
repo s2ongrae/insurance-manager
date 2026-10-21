@@ -495,24 +495,6 @@ if(_viewHash.startsWith('#view=')) {
 </div>
 </div>
 
-<!-- 메모 모달 -->
-<div class="overlay" id="modal-memo">
-<div class="modal" style="max-width:420px">
-  <div class="modal-header">
-    <div class="modal-title" id="memo-modal-title">📝 메모</div>
-    <button class="modal-close" onclick="closeModal('memo')">✕</button>
-  </div>
-  <div class="modal-body">
-    <textarea id="memo-textarea" rows="6" placeholder="예) 24개월 납부 후 해지&#10;갱신 예정일: 2027.09&#10;특이사항 등 자유롭게 입력"
-      style="width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;font-size:13px;resize:vertical;font-family:inherit;line-height:1.6"></textarea>
-    <div class="form-btns" style="margin-top:12px">
-      <button class="btn btn-secondary" onclick="closeModal('memo')">취소</button>
-      <button class="btn btn-primary" onclick="saveMemo()">저장</button>
-    </div>
-  </div>
-</div>
-</div>
-
 <!-- 보장 그룹 편집 모달 -->
 <div class="overlay" id="modal-covgroups">
 <div class="modal" style="max-width:620px">
@@ -682,12 +664,10 @@ let SERVER_URL = localStorage.getItem('ins_server_url') || '';
 let SERVER_KEY = localStorage.getItem('ins_server_key') || '';
 let SYNC_BASE  = load('ins_sync_base', null);   // 마지막으로 서버와 맞춘 상태(항목별 해시)
 
-let cloudStatus = 'idle'; // idle | syncing | ok | error
 let lastSyncedAt = null;
 let syncTimer = null;
 
 function setSyncStatus(status, msg) {
-  cloudStatus = status;
   const el = document.getElementById('sync-status');
   if(!el) return;
   const icons = {idle:'☁️', syncing:'🔄', ok:'✅', error:'❌'};
@@ -701,7 +681,7 @@ function setSyncStatus(status, msg) {
 
 // <SYNC_CORE>
 // ── 병합 핵심 (화면·저장소와 무관한 순수 함수) ──────────────
-const SYNC_COLLECTIONS = ['contracts','monthly','groups','coverages','memos','shares'];
+const SYNC_COLLECTIONS = ['contracts','monthly','groups','coverages','memos','shares','settings'];
 const isSafeKey = k => k !== '__proto__' && k !== 'constructor' && k !== 'prototype';
 const isPlain   = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 
@@ -743,7 +723,7 @@ function toMaps(d, strict){
     if(k in m.monthly) k = k + '#' + i;
     m.monthly[k] = x;
   });
-  [['groups','s'],['coverages','o'],['memos','s'],['shares','s']].forEach(([col, t]) => {
+  [['groups','s'],['coverages','o'],['memos','s'],['shares','s'],['settings','o']].forEach(([col, t]) => {
     const src = isPlain(d[col]) ? d[col] : {};
     Object.keys(src).forEach(k => {
       if(!isSafeKey(k)) return;
@@ -760,7 +740,7 @@ function fromMaps(m){
   return {
     contracts: vals('contracts').sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0)),
     monthly:   vals('monthly').sort((a, b) => String(a.m).localeCompare(String(b.m))),
-    groups: obj('groups'), coverages: obj('coverages'), memos: obj('memos'), shares: obj('shares')
+    groups: obj('groups'), coverages: obj('coverages'), memos: obj('memos'), shares: obj('shares'), settings: obj('settings')
   };
 }
 const normalizeData = d => fromMaps(toMaps(d, false));
@@ -868,17 +848,19 @@ async function serverCall(action, payload){
 
 // ── 이 기기의 상태 ────────────────────────────────────────
 function collectLocal(){
-  return {contracts:CONTRACTS, monthly:MONTHLY, groups:GROUPS, coverages:COVERAGES, memos:MEMOS, shares:SHARES, tombstones:TOMBS};
+  return {contracts:CONTRACTS, monthly:MONTHLY, groups:GROUPS, coverages:COVERAGES, memos:MEMOS, shares:SHARES, settings:SETTINGS, tombstones:TOMBS};
 }
 function persistLocal(){
   save('ins_contracts', CONTRACTS); save('ins_monthly', MONTHLY); save('ins_groups', GROUPS);
   save('ins_coverages', COVERAGES); save('ins_memos', MEMOS);   save('ins_shares', SHARES);
-  save('ins_tombs', TOMBS);
+  save('ins_tombs', TOMBS); save('ins_settings', SETTINGS);
 }
 function applyData(d){
   CONTRACTS = d.contracts; MONTHLY = d.monthly; GROUPS = d.groups;
   COVERAGES = d.coverages; MEMOS = d.memos;     SHARES = d.shares;
   TOMBS = normTombs(d.tombstones);
+  SETTINGS = isPlain(d.settings) ? d.settings : {};
+  refreshCovGroups();
   nextId = Math.max(...CONTRACTS.map(c => Number(c.id) || 0), 0) + 1;
   persistLocal();
 }
@@ -1182,16 +1164,9 @@ let filterOpen=false;
 let COVERAGES = load('ins_coverages', {});
 let GEMINI_KEY = localStorage.getItem('gemini_key') || '';
 let GEMINI_MODEL = localStorage.getItem('gemini_model') || 'gemini-3.6-flash';
-let _imeComposing = false;
-let _searchTimer = null;
-function scheduleSearch(){
-  clearTimeout(_searchTimer);
-  _searchTimer = setTimeout(()=>{ if(!_imeComposing) renderList(); }, 120);
-}
 let selectedCovCustomer = null;
 let expandedCustomer = null;
 let expandedMonth = null;
-
 
 
 function toggleFilter(type, val) {
@@ -1204,8 +1179,6 @@ function clearAllFilters(){fStatus=new Set();fGroups=new Set();fMonths=new Set()
 function toggleFilterPanel(){filterOpen=!filterOpen;renderList();}
 
 function renderList() {
-  const wasSearch = document.activeElement && document.activeElement.id==='sq-inp';
-
   let d = [...CONTRACTS];
   if(fStatus.size) d=d.filter(r=>fStatus.has(r.s));
   if(fGroups.size) d=d.filter(r=>fGroups.has(r.g));
@@ -1223,23 +1196,34 @@ function renderList() {
 
   const chipRow=(label,items,type,activeSet)=>`
     <div style="margin-bottom:12px">
-      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${label}</div>
+      <div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${esc(label)}</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         ${items.map(v=>{const on=activeSet.has(v);
-          return`<button onclick="toggleFilter('${type}','${v.replace(/'/g,"\\'")}')"`+
+          return`<button data-t="${type}" data-v="${esc(v)}" onclick="toggleFilter(this.dataset.t,this.dataset.v)"`+
           ` style="padding:5px 12px;border-radius:999px;font-size:12px;font-weight:500;cursor:pointer;`+
           `border:1.5px solid ${on?'var(--blue)':'var(--border)'};background:${on?'var(--blue-l)':'var(--surface)'};`+
-          `color:${on?'var(--blue)':'var(--muted)'};transition:all .15s">${v}</button>`;
+          `color:${on?'var(--blue)':'var(--muted)'};transition:all .15s">${esc(v)}</button>`;
         }).join('')}
       </div>
     </div>`;
 
+  // 필터 패널은 고정 영역(#filter-area)에 그리고, 버튼에는 적용 중인 필터 개수를 표시
+  const fa=document.getElementById('filter-area');
+  if(fa){
+    fa.style.display=filterOpen?'block':'none';
+    fa.innerHTML=filterOpen?`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px">
+      ${chipRow('상태',allStatus,'status',fStatus)}${chipRow('그룹',allGrps,'groups',fGroups)}${chipRow('가입월',allMonths,'months',fMonths)}${chipRow('보험사',allCos,'cos',fCos)}
+    </div>`:'';
+  }
+  const fb=document.getElementById('filter-btn');
+  if(fb) fb.textContent='⚙️ 필터'+(activeCnt?` (${activeCnt})`:'');
+
   document.getElementById('list-results').innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div class="cnt" style="margin-bottom:0">${d.length}건</div>
-      ${activeCnt?`<div style="display:flex;flex-wrap:wrap;gap:4px">${
-        [...fStatus,...fGroups,...fMonths,...fCos].map(v=>`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:var(--blue-l);color:var(--blue);font-size:11px;font-weight:500">${v} <span onclick="removeOneFilter('${v.replace(/'/g,"\\'")}')" style="cursor:pointer;opacity:.7;font-size:13px">×</span></span>`).join('')
-      }</div>`:''}
+      ${activeCnt?`<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">${
+        [...fStatus,...fGroups,...fMonths,...fCos].map(v=>`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:var(--blue-l);color:var(--blue);font-size:11px;font-weight:500">${esc(v)} <span data-v="${esc(v)}" onclick="removeOneFilter(this.dataset.v)" style="cursor:pointer;opacity:.7;font-size:13px">×</span></span>`).join('')
+      }<button class="btn btn-secondary btn-sm" onclick="clearAllFilters()" style="font-size:11px;padding:2px 8px">전체 해제</button></div>`:''}
     </div>
 
     ${(()=>{
@@ -1294,7 +1278,6 @@ function renderList() {
       </tr>`).join(''):`<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--hint)">검색 결과가 없습니다</td></tr>`}</tbody>
     </table></div>`;
 
-  if(wasSearch){ const el=document.getElementById('sq-inp'); if(el){ el.focus(); } }
 }
 
 function removeOneFilter(val){
@@ -1306,7 +1289,6 @@ function srt(k){sortK===k?sortD*=-1:(sortK=k,sortD=-1);renderList();}
 // ════════════════════════════════════════════════════════════
 // TAB: 그룹별
 // ════════════════════════════════════════════════════════════
-let openG = null;
 function renderGroups() {
   const gm = {};
   CONTRACTS.forEach(r=>{
@@ -1770,6 +1752,9 @@ function deleteContract() {
   const r = CONTRACTS.find(c=>c.id===id);
   if(!r || !confirm(`'${r.c} / ${r.n}' 계약을 삭제하시겠습니까?`)) return;
   CONTRACTS = CONTRACTS.filter(c=>c.id!==id);
+  delete MEMOS[id];                                   // 이 계약의 메모·분석 데이터도 함께 정리 (번호가 다시 쓰일 때 남은 내용이 붙지 않도록)
+  const cv = COVERAGES[r.p];
+  if(cv && Array.isArray(cv.policies)) cv.policies = cv.policies.filter(pl=>pl.id!==id);
   save('ins_contracts', CONTRACTS);
   closeModal('contract');
   showToast('🗑️ 계약이 삭제되었습니다');
@@ -1843,28 +1828,7 @@ function saveIncome() {
 // ════════════════════════════════════════════════════════════
 // UTILS
 // ════════════════════════════════════════════════════════════
-let _memoContractId = null;
 
-function openMemoModal(contractId) {
-  _memoContractId = contractId;
-  const r = CONTRACTS.find(c=>c.id===contractId);
-  document.getElementById('memo-modal-title').textContent = `📝 ${r?.co||''} · ${r?.n||''} 메모`;
-  document.getElementById('memo-textarea').value = MEMOS[contractId] || '';
-  document.getElementById('modal-memo').classList.add('on');
-  setTimeout(()=>document.getElementById('memo-textarea').focus(), 100);
-}
-
-function saveMemo() {
-  if(!_memoContractId) return;
-  const text = document.getElementById('memo-textarea').value.trim();
-  if(text) MEMOS[_memoContractId] = text;
-  else delete MEMOS[_memoContractId];
-  save('ins_memos', MEMOS);
-  scheduleSave();
-  closeModal('memo');
-  renderList();
-  showToast('✅ 메모가 저장됐어요');
-}
 
 function openModal(name) { document.getElementById('modal-'+name).classList.add('on'); }
 function closeModal(name) { document.getElementById('modal-'+name).classList.remove('on'); }
@@ -1901,6 +1865,7 @@ function exportData() {
     coverages: COVERAGES,
     memos: MEMOS,
     shares: SHARES,
+    settings: SETTINGS,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
@@ -1932,6 +1897,7 @@ function importData(event) {
         coverages: data.coverages || COVERAGES,
         memos:     data.memos     || MEMOS,
         shares:    data.shares    || SHARES,
+        settings:  data.settings  || SETTINGS,
       }));
       renderAll();
       showToast(`✅ 복원 완료! 계약 ${CONTRACTS.length}건 불러왔습니다`);
@@ -2082,7 +2048,6 @@ function saveExternalInsurance() {
 }
 
 
-
 function renderCovGroupEditor(){
   const el = document.getElementById('cov-group-list');
   el.innerHTML = COV_GROUPS.map((g,i)=>`
@@ -2124,10 +2089,6 @@ function saveCovGroupsUI(){
   if(selectedCovCustomer) renderCovDetail(selectedCovCustomer);
 }
 
-// ════════════════════════════════════════════════════════════
-// 매트릭스 직접 편집 (깔끔한 함수 기반)
-// ════════════════════════════════════════════════════════════
-function toggleCovEditMode(){} // deprecated - inline edit now
 
 let _dragRow = null; // 드래그 중인 행 정보
 
@@ -2269,7 +2230,6 @@ function inlineEditCell(td) {
 }
 
 
-
 let _addRowState = null;
 
 function addMatrixRowBtn(btn) {
@@ -2330,86 +2290,6 @@ function confirmAddMatrixRow() {
   _addRowState = null;
   saveCoverages();
   showToast(`✅ '${name}'이 ${grpLabel||'기타'} 그룹에 추가됐어요`);
-  renderCovDetail(customer);
-}
-
-// 편집 모드 전용 테이블 렌더링
-function renderEditTable(customer) {
-  const cData = COVERAGES[customer] || {policies:[]};
-  const contracts = CONTRACTS.filter(r=>r.p===customer && r.s==='계약완료');
-
-  const rows = [];
-  contracts.forEach(contract=>{
-    const pol = (cData.policies||[]).find(p=>p.id===contract.id) || {id:contract.id, items:[]};
-    if(!pol.items) pol.items=[];
-    pol.items.forEach((item,idx)=>{
-      rows.push({polId:contract.id, idx, co:contract.co, n:contract.n, item});
-    });
-  });
-
-  const policyOptions = contracts.map(r=>`<option value="${r.id}">${r.co} · ${r.n}</option>`).join('');
-
-  return `
-    <div style="overflow-x:auto;margin-bottom:16px">
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <thead>
-        <tr style="background:#1E3A8A">
-          <th style="padding:9px 12px;color:#fff;font-weight:600;text-align:left;min-width:130px">담보명</th>
-          <th style="padding:9px 10px;color:#fff;font-weight:600;text-align:right;min-width:80px">금액(만원)</th>
-          <th style="padding:9px 10px;color:#fff;font-weight:600;text-align:right;min-width:80px">납입료(원)</th>
-          <th style="padding:9px 10px;color:#fff;font-weight:600;text-align:left;min-width:120px">보험</th>
-          <th style="padding:9px 10px;color:#fff;font-weight:600;text-align:center">삭제</th>
-        </tr>
-      </thead>
-      <tbody id="edit-tbody-${customer.replace(/[^a-z0-9]/gi,'_')}">
-        ${rows.map((r,ri)=>`
-          <tr style="background:${ri%2===0?'#F8FAFC':'#fff'};border-bottom:1px solid #E5E7EB">
-            <td style="padding:6px 8px">
-              <input class="cov-input" value="${(r.item.name||'').replace(/"/g,'&quot;')}"
-                onchange="updateCovItem('${customer}',${r.polId},${r.idx},'name',this.value)"
-                style="width:100%;font-weight:500">
-            </td>
-            <td style="padding:6px 8px">
-              <input class="cov-input" type="number" value="${r.item.amount||0}"
-                onchange="updateCovItem('${customer}',${r.polId},${r.idx},'amount',this.value)"
-                style="width:100%;text-align:right">
-            </td>
-            <td style="padding:6px 8px">
-              <input class="cov-input" type="number" value="${r.item.price||0}"
-                onchange="updateCovItem('${customer}',${r.polId},${r.idx},'price',this.value)"
-                style="width:100%;text-align:right">
-            </td>
-            <td style="padding:6px 8px;font-size:12px;color:#64748B">${r.co}<br><span style="opacity:.7">${r.n}</span></td>
-            <td style="padding:6px 8px;text-align:center">
-              <button onclick="removeCovItem('${customer}',${r.polId},${r.idx})"
-                style="border:none;background:var(--red-l);color:var(--red);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px">✕</button>
-            </td>
-          </tr>`).join('')}
-      </tbody>
-    </table>
-    </div>
-    <div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--border)">
-      <span style="font-size:13px;color:var(--muted)">어느 보험에 추가?</span>
-      <select id="add-pol-sel" class="form-sel" style="font-size:13px;padding:6px 10px">
-        ${policyOptions}
-      </select>
-      <input id="add-item-name" class="cov-input" placeholder="담보명" style="width:140px">
-      <input id="add-item-amt" class="cov-input" type="number" placeholder="금액(만원)" style="width:90px">
-      <button class="btn btn-primary btn-sm" onclick="addCovItemFromEdit('${customer}')">＋ 추가</button>
-    </div>`;
-}
-
-function addCovItemFromEdit(customer){
-  const polId = parseInt(document.getElementById('add-pol-sel').value);
-  const name = document.getElementById('add-item-name').value.trim();
-  const amount = parseFloat(document.getElementById('add-item-amt').value)||0;
-  if(!name){ showToast('⚠️ 담보명을 입력해주세요'); return; }
-  if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
-  let pol = COVERAGES[customer].policies.find(p=>p.id===polId);
-  if(!pol){ pol={id:polId,items:[]}; COVERAGES[customer].policies.push(pol); }
-  pol.items.push({name, amount, unit:'만원', price:0});
-  saveCoverages();
-  showToast('✅ 담보가 추가되었습니다');
   renderCovDetail(customer);
 }
 
@@ -3215,8 +3095,38 @@ const DEFAULT_COV_GROUPS = [
   {label:'🚗 교통·상해',        color:'#B45309', bg:'#FEFCE8', border:'#FDE047', keys:['교통','상해','재활치료','재활','자동차','운전자','벌금','변호사선임','보복운전','강력범죄','급발진','부상보장','자동차사고']},
   {label:'📋 기타 보장',        color:'#6B7280', bg:'#F9FAFB', border:'#E5E7EB', keys:[]},
 ];
-let COV_GROUPS = load('ins_cov_groups', null) || DEFAULT_COV_GROUPS.map(g=>({...g,keys:[...g.keys]}));
-function saveCovGroups(){ save('ins_cov_groups', COV_GROUPS); }
+// 담보 그룹 설정은 "설정(SETTINGS)"에 담아 서버 동기화·백업·고객 화면에 함께 반영해요
+function cleanCovGroups(list){
+  if(!Array.isArray(list) || list.length < 2 || list.length > 40) return null;
+  const cs = (v, n) => String(v == null ? '' : v).replace(/[<>"`]/g, '').slice(0, n);
+  const col = (v, d) => /^#[0-9a-fA-F]{3,8}$/.test(String(v)) ? String(v) : d;
+  const out = [];
+  for(const g of list){
+    if(!g || typeof g !== 'object') return null;
+    const label = cs(g.label, 40).trim();
+    if(!label) return null;
+    out.push({label, color: col(g.color, '#6366F1'), bg: col(g.bg, '#EEF2FF'), border: col(g.border, '#A5B4FC'),
+      keys: (Array.isArray(g.keys) ? g.keys : []).slice(0, 80).map(k => cs(k, 40).trim()).filter(Boolean)});
+  }
+  return out;
+}
+let SETTINGS = load('ins_settings', {});
+if(!isPlain(SETTINGS)) SETTINGS = {};
+const _legacyCovGroups = cleanCovGroups(load('ins_cov_groups', null));   // 예전엔 이 기기에만 저장했어요
+let COV_GROUPS = cleanCovGroups(SETTINGS.covGroups && SETTINGS.covGroups.list) || _legacyCovGroups
+  || DEFAULT_COV_GROUPS.map(g=>({...g,keys:[...g.keys]}));
+if(!SETTINGS.covGroups && _legacyCovGroups){ SETTINGS.covGroups = {list: COV_GROUPS}; save('ins_settings', SETTINGS); }   // 예전 설정을 동기화 대상으로 이어받음
+function refreshCovGroups(){
+  const g = cleanCovGroups(SETTINGS.covGroups && SETTINGS.covGroups.list);
+  if(g) COV_GROUPS = g;
+}
+function saveCovGroups(){
+  const g = cleanCovGroups(COV_GROUPS);
+  if(g) COV_GROUPS = g;                               // 이상한 값은 정리해서 저장
+  SETTINGS.covGroups = {list: COV_GROUPS};
+  save('ins_settings', SETTINGS);
+  scheduleSave();                                     // 서버·백업·고객 화면에도 반영
+}
 
 function getCovGroup(name) {
   const low = name.toLowerCase();
@@ -3227,6 +3137,7 @@ function getCovGroup(name) {
 }
 
 function renderAll() {
+  renderKPIs();
   renderTab(currentTab);
 }
 
@@ -3279,6 +3190,7 @@ function renderAll() {
       if(!data || !data.ok) throw new Error('LINK');
       CONTRACTS = Array.isArray(data.contracts) ? data.contracts : [];
       COVERAGES = (data.coverages && typeof data.coverages === 'object') ? data.coverages : {};
+      if(data.settings && data.settings.covGroups){ const g = cleanCovGroups(data.settings.covGroups.list); if(g) COV_GROUPS = g; }   // 관리 화면과 같은 담보 그룹
     } catch(e) {
       if(e && e.message === 'LINK') showCvError('링크를 열 수 없어요', '링크가 바뀌었거나 만료됐어요. 담당 설계사에게 새 링크를 요청해주세요.');
       else showCvError('불러오지 못했어요', '인터넷 연결을 확인하고 링크를 다시 열어주세요.');
