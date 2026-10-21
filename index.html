@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js" integrity="sha384-weMABwrltA6jWR8DDe9Jp5blk+tZQh7ugpCsF3JwSA53WZM9/14PjS5LAJNHNjAI" crossorigin="anonymous"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>🏦 보험 고객 관리</title>
@@ -293,6 +293,7 @@ if(_viewHash.startsWith('#view=')) {
     <span id="sync-status" style="margin-left:4px"><span style="color:var(--muted);font-size:12px">☁️ 연결 중...</span></span>
   </div>
   <div class="hdr-right">
+    <button class="btn btn-secondary" onclick="openServerSettings()" title="서버 주소·비밀 키 설정">⚙️ 서버</button>
     <button class="btn btn-secondary" onclick="manualSync()" title="지금 즉시 저장">🔄 동기화</button>
     <button class="btn btn-secondary" onclick="exportData()" title="데이터 백업">💾 백업</button>
     <label class="btn btn-secondary" title="백업 파일 불러오기" style="cursor:pointer;margin:0">
@@ -410,6 +411,36 @@ if(_viewHash.startsWith('#view=')) {
     <div class="form-btns">
       <button class="btn btn-secondary" onclick="closeModal('otherpol')">취소</button>
       <button class="btn btn-primary" onclick="saveOtherPolicy()">추가</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 서버 설정 모달 -->
+<div class="overlay" id="modal-server">
+<div class="modal" style="max-width:520px">
+  <div class="modal-header">
+    <div class="modal-title">⚙️ 서버 설정</div>
+    <button class="modal-close" onclick="closeModal('server')">✕</button>
+  </div>
+  <div class="modal-body">
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">서버 주소와 비밀 키는 <b>이 기기에만</b> 저장돼요. 코드에는 들어 있지 않아서 PC·폰마다 한 번씩 입력해야 해요. 비밀 키는 다른 사람에게 공유하지 마세요.</p>
+    <div class="form-field">
+      <label>Apps Script 웹 앱 주소</label>
+      <input type="text" id="srv-url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
+    </div>
+    <div class="form-field">
+      <label>비밀 키</label>
+      <input type="password" id="srv-key" autocomplete="new-password">
+    </div>
+    <div id="srv-msg" style="font-size:12px;margin-top:6px;line-height:1.5"></div>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px">🕘 이 기기 체크포인트 <span style="font-weight:400">(합치기·복원 직전 상태, 최대 3개)</span></div>
+      <div id="srv-cps"></div>
+    </div>
+    <div class="form-btns">
+      <button class="btn btn-secondary" onclick="closeModal('server')">닫기</button>
+      <button class="btn btn-primary" onclick="saveServerSettings()">연결 테스트 후 저장</button>
     </div>
   </div>
 </div>
@@ -634,50 +665,22 @@ if(_viewHash.startsWith('#view=')) {
 // ════════════════════════════════════════════════════════════
 // DEFAULT DATA
 // ════════════════════════════════════════════════════════════
-const DEFAULT_CONTRACTS = [{"id":1,"s":"계약완료","d":"24.07.05","c":"강인구","p":"강인구","co":"삼성생명","n":"치아","pr":32700,"g":"지인들"},{"id":2,"s":"계약완료","d":"24.07.05","c":"강인구","p":"강인구","co":"라이나생명","n":"치아","pr":27370,"g":"지인들"},{"id":3,"s":"계약완료","d":"24.07.18","c":"김태원","p":"정진영","co":"삼성생명","n":"치아","pr":34150,"g":"김성래 가족"},{"id":4,"s":"계약완료","d":"24.07.05","c":"정진영","p":"정진영","co":"라이나생명","n":"치아","pr":31430,"g":"김성래 가족"},{"id":5,"s":"계약완료","d":"24.09.10","c":"김성래","p":"김성래","co":"KDB생명","n":"고혈압","pr":21505,"g":"김성래 가족"},{"id":6,"s":"계약완료","d":"24.09.10","c":"김성래","p":"김성래","co":"라이나손해","n":"상해","pr":14550,"g":"김성래 가족"},{"id":7,"s":"계약완료","d":"24.07.29","c":"김성래","p":"김성래","co":"한화생명","n":"용종","pr":30371,"g":"김성래 가족"},{"id":8,"s":"계약완료","d":"24.10.22","c":"김성래","p":"김성래","co":"삼성화재","n":"용종","pr":21490,"g":"김성래 가족"},{"id":9,"s":"계약완료","d":"24.10.31","c":"김성래","p":"김성래(메리)","co":"KB손해","n":"펫보험","pr":39211,"g":"김성래 가족"},{"id":10,"s":"계약완료","d":"24.11.29","c":"김성래","p":"김성래","co":"삼성화재","n":"재활치료","pr":10410,"g":"김성래 가족"},{"id":11,"s":"계약완료","d":"25.06.23","c":"김성래","p":"김성래","co":"흥국화재","n":"용종","pr":10235,"g":"김성래 가족"},{"id":12,"s":"계약완료","d":"24.12.24","c":"김성래","p":"김성래","co":"라이나생명","n":"종신","pr":202290,"g":"김성래 가족"},{"id":13,"s":"계약완료","d":"25.12.24","c":"김성래","p":"김성래","co":"삼성생명","n":"용종","pr":7956,"g":"김성래 가족"},{"id":14,"s":"계약완료","d":"24.12.30","c":"김태순","p":"김태순","co":"메리츠화재","n":"치아","pr":53750,"g":"김성래 가족"},{"id":15,"s":"계약완료","d":"24.12.30","c":"김태순","p":"김태순","co":"삼성화재","n":"종합","pr":108930,"g":"김성래 가족"},{"id":16,"s":"계약완료","d":"25.04.17","c":"김태순","p":"김태순","co":"삼성화재","n":"운전자보험","pr":14832,"g":"김성래 가족"},{"id":17,"s":"계약완료","d":"25.04.17","c":"김태순","p":"김태순","co":"메리츠화재","n":"화재보험","pr":11250,"g":"김성래 가족"},{"id":18,"s":"계약완료","d":"25.09.30","c":"김태순","p":"김태순","co":"메리츠화재","n":"상통치","pr":18160,"g":"김성래 가족"},{"id":19,"s":"계약완료","d":"25.06.17","c":"김아름","p":"조유건","co":"현대해상","n":"상해보험","pr":30980,"g":"김성래 가족"},{"id":20,"s":"계약완료","d":"25.06.30","c":"정현철","p":"정현철","co":"흥국화재","n":"용종","pr":22780,"g":"김성래 가족"},{"id":21,"s":"계약완료","d":"25.10.29","c":"김주형","p":"김주형","co":"메리츠","n":"종합","pr":47990,"g":"김성래 가족"},{"id":22,"s":"계약완료","d":"25.12.31","c":"김금수","p":"김금수","co":"현대해상","n":"운전자","pr":11720,"g":"김성래 가족"},{"id":23,"s":"계약완료","d":"25.12.31","c":"이지형","p":"이지형","co":"현대해상","n":"종합","pr":35220,"g":"김성래 가족"},{"id":24,"s":"계약완료","d":"25.12.30","c":"이지형","p":"이지형","co":"현대해상","n":"운전자","pr":13990,"g":"김성래 가족"},{"id":25,"s":"계약완료","d":"25.12.30","c":"이시형","p":"이시형","co":"현대해상","n":"종합","pr":30880,"g":"김성래 가족"},{"id":26,"s":"계약완료","d":"25.12.30","c":"이시형","p":"이시형","co":"현대해상","n":"운전자","pr":13990,"g":"김성래 가족"},{"id":27,"s":"계약완료","d":"24.07.24","c":"손채련","p":"손채련","co":"흥국생명","n":"종합","pr":115000,"g":"손채련님 가족"},{"id":28,"s":"계약완료","d":"24.07.26","c":"손채련","p":"손채련","co":"메리츠","n":"종합","pr":58310,"g":"손채련님 가족"},{"id":29,"s":"계약완료","d":"24.07.30","c":"손채련","p":"손채련","co":"한화생명","n":"용종","pr":35618,"g":"손채련님 가족"},{"id":30,"s":"계약완료","d":"24.07.29","c":"손채련","p":"손채련","co":"현대해상","n":"용종","pr":20720,"g":"손채련님 가족"},{"id":31,"s":"계약완료","d":"24.08.09","c":"손채련","p":"손채련","co":"삼성생명","n":"용종","pr":22190,"g":"손채련님 가족"},{"id":32,"s":"계약완료","d":"24.08.09","c":"손채련","p":"손채련","co":"ABL생명","n":"용종","pr":10905,"g":"손채련님 가족"},{"id":33,"s":"계약완료","d":"24.08.09","c":"손채련","p":"손채련","co":"라이나생명","n":"용종","pr":30590,"g":"손채련님 가족"},{"id":34,"s":"계약완료","d":"24.08.09","c":"손채련","p":"손채련","co":"미래에셋","n":"용종","pr":22204,"g":"손채련님 가족"},{"id":35,"s":"계약완료","d":"24.08.13","c":"손채련","p":"손채련","co":"동양생명","n":"용종","pr":65325,"g":"손채련님 가족"},{"id":36,"s":"계약완료","d":"24.07.30","c":"손채련","p":"손채련","co":"한화손해","n":"치아","pr":28297,"g":"손채련님 가족"},{"id":37,"s":"계약완료","d":"24.07.29","c":"손채련","p":"손채련","co":"메리츠","n":"치아","pr":29500,"g":"손채련님 가족"},{"id":38,"s":"계약완료","d":"24.08.21","c":"손채련","p":"손채련","co":"ABL생명","n":"치아","pr":26450,"g":"손채련님 가족"},{"id":39,"s":"계약완료","d":"24.09.03","c":"손채련","p":"손채련","co":"삼성생명","n":"치아","pr":34150,"g":"손채련님 가족"},{"id":40,"s":"계약완료","d":"24.09.04","c":"손채련","p":"손채련","co":"라이나생명","n":"치아","pr":35590,"g":"손채련님 가족"},{"id":41,"s":"계약완료","d":"24.08.13","c":"손채련","p":"손채련","co":"DGB(IM)","n":"종신(단기납)","pr":496780,"g":"손채련님 가족"},{"id":42,"s":"계약완료","d":"24.11.05","c":"손채련","p":"손채련","co":"삼성화재","n":"질병/상해종수술","pr":23482,"g":"손채련님 가족"},{"id":43,"s":"계약완료","d":"25.06.23","c":"손채련","p":"손채련","co":"흥국화재","n":"용종","pr":10522,"g":"손채련님 가족"},{"id":44,"s":"계약완료","d":"24.09.10","c":"전상용","p":"전상용","co":"한화손해","n":"치아","pr":31310,"g":"손채련님 가족"},{"id":45,"s":"계약완료","d":"24.09.10","c":"전상용","p":"전상용","co":"메리츠","n":"치아","pr":25780,"g":"손채련님 가족"},{"id":46,"s":"계약완료","d":"24.09.30","c":"전상용","p":"전상용","co":"ABL생명","n":"치아","pr":25320,"g":"손채련님 가족"},{"id":47,"s":"계약완료","d":"24.10.08","c":"전상용","p":"전상용","co":"삼성생명","n":"치아","pr":37090,"g":"손채련님 가족"},{"id":48,"s":"계약완료","d":"24.10.10","c":"전상용","p":"전상용","co":"라이나생명","n":"치아","pr":30670,"g":"손채련님 가족"},{"id":49,"s":"계약완료","d":"24.12.06","c":"전상용","p":"전상용","co":"삼성화재","n":"종합","pr":100041,"g":"손채련님 가족"},{"id":50,"s":"계약완료","d":"24.12.06","c":"전상용","p":"전상용","co":"라이나손해","n":"암진단","pr":25030,"g":"손채련님 가족"},{"id":51,"s":"계약완료","d":"24.12.12","c":"박주향","p":"박주향","co":"현대해상","n":"종합","pr":117080,"g":"손채련님 가족"},{"id":52,"s":"계약완료","d":"24.12.12","c":"박주향","p":"박주향","co":"메리츠","n":"입원일당","pr":30710,"g":"손채련님 가족"},{"id":53,"s":"계약완료","d":"24.12.13","c":"박주향","p":"박주향","co":"메리츠","n":"운전자","pr":14160,"g":"손채련님 가족"},{"id":54,"s":"계약완료","d":"24.12.12","c":"박주향","p":"박주향","co":"라이손해","n":"암진단","pr":45320,"g":"손채련님 가족"},{"id":55,"s":"계약완료","d":"24.08.14","c":"손채련","p":"전새은","co":"메리츠","n":"어린이보험(종합)","pr":59890,"g":"손채련님 가족"},{"id":56,"s":"계약완료","d":"25.12.09","c":"정준식","p":"정준식","co":"메리츠","n":"종합","pr":65150,"g":"이경민님 가족"},{"id":57,"s":"계약완료","d":"25.12.09","c":"정준식","p":"정준식","co":"메리츠","n":"실비","pr":14810,"g":"이경민님 가족"},{"id":58,"s":"계약완료","d":"25.12.09","c":"정준식","p":"정준식","co":"메리츠","n":"운전자","pr":11520,"g":"이경민님 가족"},{"id":59,"s":"계약완료","d":"24.07.24","c":"이경민","p":"이경민","co":"흥국생명","n":"종합","pr":49604,"g":"이경민님 가족"},{"id":60,"s":"계약완료","d":"24.07.24","c":"이경민","p":"이경민","co":"흥국생명","n":"종합","pr":83817,"g":"이경민님 가족"},{"id":61,"s":"계약완료","d":"24.07.25","c":"이경민","p":"이경민","co":"메리츠","n":"종합(간편)","pr":41730,"g":"이경민님 가족"},{"id":62,"s":"계약완료","d":"24.07.29","c":"이경민","p":"이경민","co":"KB손해","n":"용종","pr":28117,"g":"이경민님 가족"},{"id":63,"s":"계약완료","d":"24.07.29","c":"이경민","p":"이경민","co":"한화생명","n":"용종(간편)","pr":37242,"g":"이경민님 가족"},{"id":64,"s":"계약완료","d":"24.08.07","c":"이경민","p":"이경민","co":"DGB(IM)","n":"종신(단기납)","pr":298550,"g":"이경민님 가족"},{"id":65,"s":"계약완료","d":"24.08.08","c":"이경민","p":"이경민","co":"KB손해","n":"운전자(상해)","pr":22183,"g":"이경민님 가족"},{"id":66,"s":"계약완료","d":"24.08.09","c":"이경민","p":"이경민","co":"삼성생명","n":"용종","pr":22650,"g":"이경민님 가족"},{"id":67,"s":"계약완료","d":"24.08.09","c":"이경민","p":"이경민","co":"ABL생명","n":"용종","pr":11325,"g":"이경민님 가족"},{"id":68,"s":"계약완료","d":"24.08.09","c":"이경민","p":"이경민","co":"라이나생명","n":"용종","pr":33730,"g":"이경민님 가족"},{"id":69,"s":"계약완료","d":"24.08.09","c":"이경민","p":"이경민","co":"미래에셋","n":"용종","pr":23019,"g":"이경민님 가족"},{"id":70,"s":"계약완료","d":"24.08.13","c":"이경민","p":"이경민","co":"동양생명","n":"용종(간편)","pr":66164,"g":"이경민님 가족"},{"id":71,"s":"계약완료","d":"24.09.11","c":"이경민","p":"이경민","co":"라이나손해","n":"상해","pr":12400,"g":"이경민님 가족"},{"id":72,"s":"계약완료","d":"24.09.13","c":"이경민","p":"이경민","co":"KDB생명","n":"고혈압/당뇨","pr":21208,"g":"이경민님 가족"},{"id":73,"s":"계약완료","d":"24.11.05","c":"이경민","p":"이경민","co":"삼성화재","n":"상해/질병 종수술","pr":23482,"g":"이경민님 가족"},{"id":74,"s":"계약완료","d":"24.11.05","c":"이경민","p":"이경민","co":"라이나생명","n":"치아","pr":49580,"g":"이경민님 가족"},{"id":75,"s":"계약완료","d":"24.11.29","c":"이경민","p":"이경민","co":"삼성화재","n":"재활치료","pr":10890,"g":"이경민님 가족"},{"id":76,"s":"계약완료","d":"25.06.23","c":"이경민","p":"이경민","co":"흥국화재","n":"용종","pr":10346,"g":"이경민님 가족"},{"id":77,"s":"계약완료","d":"25.10.30","c":"이경민","p":"이경민","co":"메리츠","n":"상통치","pr":15200,"g":"이경민님 가족"},{"id":78,"s":"계약완료","d":"24.12.23","c":"이경민","p":"이상돈","co":"삼성화재","n":"종합","pr":234668,"g":"이경민님 가족"},{"id":79,"s":"계약완료","d":"24.12.30","c":"이연주","p":"이연주","co":"삼성화재","n":"종합","pr":42868,"g":"이경민님 가족"},{"id":80,"s":"계약완료","d":"25.12.24","c":"이규민","p":"이규민","co":"메리츠","n":"운전자","pr":16770,"g":"이경민님 가족"},{"id":81,"s":"계약완료","d":"25.12.23","c":"이규민","p":"이규민","co":"메리츠","n":"종합","pr":45980,"g":"이경민님 가족"},{"id":82,"s":"계약완료","d":"25.12.23","c":"이규민","p":"이규민","co":"메리츠","n":"실비","pr":15550,"g":"이경민님 가족"},{"id":83,"s":"계약완료","d":"24.08.28","c":"강소영","p":"강소영","co":"DGB(IM)","n":"종신(단기납)","pr":204720,"g":"강소영 가족"},{"id":84,"s":"계약완료","d":"25.08.19","c":"강소영","p":"강소영","co":"삼성화재","n":"운전자","pr":10175,"g":"강소영 가족"},{"id":85,"s":"계약완료","d":"26.04.09","c":"강소영","p":"강소영","co":"현대해상","n":"태아 종합","pr":136510,"g":"강소영 가족"},{"id":86,"s":"계약완료","d":"26.04.09","c":"강소영","p":"강소영","co":"현대해상","n":"태아 실비","pr":23870,"g":"강소영 가족"},{"id":87,"s":"계약완료","d":"25.09.11","c":"김영준","p":"김영준","co":"메리츠화재","n":"종합","pr":46620,"g":"강소영 가족"},{"id":88,"s":"계약완료","d":"25.09.15","c":"김영준","p":"김영준","co":"메리츠화재","n":"실비","pr":15430,"g":"강소영 가족"},{"id":89,"s":"계약완료","d":"25.09.15","c":"김영준","p":"김영준","co":"메리츠화재","n":"운전자","pr":11510,"g":"강소영 가족"},{"id":90,"s":"계약완료","d":"26.04.09","c":"김영준","p":"김영준","co":"메트라이프","n":"달러종신","pr":318000,"g":"강소영 가족"},{"id":91,"s":"계약완료","d":"25.08.19","c":"이연수","p":"이연수","co":"삼성화재","n":"운전자","pr":13550,"g":"강소영 가족"},{"id":92,"s":"계약완료","d":"24.08.08","c":"서영찬","p":"서영찬","co":"현대해상","n":"실비","pr":10990,"g":"지인들"},{"id":93,"s":"계약완료","d":"24.08.07","c":"서영찬","p":"서영찬","co":"현대해상","n":"운전자","pr":20210,"g":"지인들"},{"id":94,"s":"계약완료","d":"24.10.31","c":"김슬기","p":"김슬기(뭉이)","co":"KB","n":"펫보험","pr":60224,"g":"브숏즈"},{"id":95,"s":"계약완료","d":"24.11.08","c":"김상윤","p":"김상윤","co":"삼성화재","n":"운전자","pr":10686,"g":"카이 패밀리"},{"id":96,"s":"계약완료","d":"25.04.15","c":"김상윤","p":"김상윤","co":"삼성화재","n":"재활치료","pr":10609,"g":"카이 패밀리"},{"id":97,"s":"계약완료","d":"26.03.13","c":"김상윤","p":"김상윤","co":"메리츠","n":"화재보험","pr":12510,"g":"카이 패밀리"},{"id":98,"s":"계약완료","d":"25.01.25","c":"김상아","p":"김상아","co":"삼성화재","n":"운전자","pr":10765,"g":"카이 패밀리"},{"id":99,"s":"계약완료","d":"25.07.08","c":"최단비","p":"최단비","co":"삼성화재","n":"종합","pr":52505,"g":"카이 패밀리"},{"id":100,"s":"계약완료","d":"25.07.08","c":"최단비","p":"최단비","co":"삼성화재","n":"운전자","pr":10095,"g":"카이 패밀리"},{"id":101,"s":"계약완료","d":"25.04.14","c":"오진우","p":"오진우","co":"DB손해","n":"종합","pr":68001,"g":"카이 패밀리"},{"id":102,"s":"계약완료","d":"25.04.14","c":"오진우","p":"오진우","co":"삼성화재","n":"운전자","pr":10125,"g":"카이 패밀리"},{"id":103,"s":"계약완료","d":"25.04.15","c":"오진우","p":"오진우","co":"삼성화재","n":"재활치료비","pr":10995,"g":"카이 패밀리"},{"id":104,"s":"계약해지","d":"24.11.28","c":"송나은","p":"송나은","co":"한화손해","n":"상질치","pr":26620,"g":"브숏즈"},{"id":105,"s":"계약완료","d":"25.06.02","c":"송나은","p":"송나은","co":"현대해상","n":"태아종합","pr":38430,"g":"브숏즈"},{"id":106,"s":"계약완료","d":"25.06.02","c":"송나은","p":"송나은","co":"현대해상","n":"태아종합","pr":40870,"g":"브숏즈"},{"id":107,"s":"계약해지","d":"25.06.02","c":"송나은","p":"송나은","co":"현대해상","n":"태아실비","pr":19460,"g":"브숏즈"},{"id":108,"s":"계약해지","d":"25.06.02","c":"송나은","p":"송나은","co":"현대해상","n":"태아실비","pr":19460,"g":"브숏즈"},{"id":109,"s":"계약완료","d":"24.11.29","c":"이승환","p":"이승환","co":"삼성화재","n":"화재보험","pr":32987,"g":"지인들"},{"id":110,"s":"계약완료","d":"24.12.30","c":"이승환","p":"이승환","co":"삼성생명","n":"치아","pr":44748,"g":"지인들"},{"id":111,"s":"계약완료","d":"24.12.06","c":"차유미","p":"구름이","co":"KB","n":"펫보험","pr":51924,"g":"브숏즈"},{"id":112,"s":"계약완료","d":"24.12.11","c":"박귀완","p":"박하루","co":"삼성화재","n":"종합","pr":30384,"g":"박귀완 형님 가족"},{"id":113,"s":"계약완료","d":"24.12.11","c":"박귀완","p":"박하루","co":"삼성화재","n":"실비","pr":16039,"g":"박귀완 형님 가족"},{"id":114,"s":"계약완료","d":"24.12.16","c":"김수인","p":"김수인","co":"메리츠","n":"운전자","pr":10830,"g":"박귀완 형님 가족"},{"id":115,"s":"계약완료","d":"25.10.15","c":"박귀완","p":"박귀완","co":"메리츠","n":"종합","pr":27850,"g":"박귀완 형님 가족"},{"id":116,"s":"계약완료","d":"25.04.14","c":"김기옥","p":"김기옥","co":"KB손해","n":"실비","pr":55291,"g":"박귀완 형님 가족"},{"id":117,"s":"계약완료","d":"25.04.14","c":"김기옥","p":"김기옥","co":"KB손해","n":"운전자","pr":12399,"g":"박귀완 형님 가족"},{"id":118,"s":"계약완료","d":"25.04.14","c":"김기옥","p":"김기옥","co":"메리츠화재","n":"간병인","pr":25688,"g":"박귀완 형님 가족"},{"id":119,"s":"계약완료","d":"25.04.16","c":"김기옥","p":"김기옥","co":"메리츠화재","n":"종합","pr":68001,"g":"박귀완 형님 가족"},{"id":120,"s":"계약완료","d":"25.04.18","c":"김완","p":"김완","co":"메리츠","n":"종합","pr":70400,"g":"박귀완 형님 가족"},{"id":121,"s":"계약완료","d":"24.12.21","c":"위선빈","p":"위선빈","co":"현대해상","n":"용종","pr":26650,"g":"위선빈님 가족"},{"id":122,"s":"계약완료","d":"24.12.23","c":"위선빈","p":"위선빈","co":"한화손해","n":"용종","pr":24248,"g":"위선빈님 가족"},{"id":123,"s":"계약완료","d":"24.12.23","c":"위선빈","p":"위선빈","co":"흥국생명","n":"용종","pr":39282,"g":"위선빈님 가족"},{"id":124,"s":"계약완료","d":"24.12.30","c":"위선빈","p":"위선빈","co":"메리츠","n":"용종","pr":20030,"g":"위선빈님 가족"},{"id":125,"s":"계약완료","d":"24.12.23","c":"위선빈","p":"위선빈","co":"미래에셋","n":"용종","pr":22579,"g":"위선빈님 가족"},{"id":126,"s":"계약완료","d":"24.12.27","c":"위선빈","p":"위선빈","co":"ABL생명","n":"용종","pr":17547,"g":"위선빈님 가족"},{"id":127,"s":"계약완료","d":"25.01.24","c":"배동민","p":"배동민","co":"흥국생명","n":"용종","pr":23732,"g":"위선빈님 가족"},{"id":128,"s":"계약완료","d":"25.01.24","c":"배동민","p":"배동민","co":"미래에셋","n":"용종","pr":22689,"g":"위선빈님 가족"},{"id":129,"s":"계약완료","d":"25.01.24","c":"배동민","p":"배동민","co":"현대해상","n":"용종","pr":33585,"g":"위선빈님 가족"},{"id":130,"s":"계약완료","d":"25.02.03","c":"배동민","p":"배동민","co":"ABL생명","n":"용종","pr":26907,"g":"위선빈님 가족"},{"id":131,"s":"계약완료","d":"25.12.03","c":"위인환","p":"위인환","co":"현대해상","n":"세탁소 화재","pr":105110,"g":"위선빈님 가족"},{"id":132,"s":"계약완료","d":"25.12.08","c":"위인환","p":"위인환","co":"메리츠","n":"간병인","pr":11530,"g":"위선빈님 가족"},{"id":133,"s":"계약완료","d":"25.12.08","c":"위인환","p":"위인환","co":"메리츠","n":"운전자","pr":28200,"g":"위선빈님 가족"},{"id":134,"s":"계약완료","d":"25.12.03","c":"위인환","p":"위인환","co":"삼성화재","n":"주택 화재","pr":14343,"g":"위선빈님 가족"},{"id":135,"s":"계약완료","d":"25.12.08","c":"서삼숙","p":"서삼숙","co":"메리츠","n":"운전자","pr":10810,"g":"위선빈님 가족"},{"id":136,"s":"계약완료","d":"25.04.07","c":"김상태","p":"김상태","co":"삼성화재","n":"종합","pr":54531,"g":"지인들"},{"id":137,"s":"계약완료","d":"25.04.07","c":"이유림","p":"이유림","co":"삼성화재","n":"운전자","pr":10035,"g":"이유림님 가족"},{"id":138,"s":"계약완료","d":"26.03.18","c":"이유림","p":"이유림","co":"메리츠","n":"종합","pr":112810,"g":"이유림님 가족"},{"id":139,"s":"계약완료","d":"26.03.18","c":"이유림","p":"이유림","co":"메리츠","n":"암통치","pr":10070,"g":"이유림님 가족"},{"id":140,"s":"계약완료","d":"25.04.08","c":"우말남","p":"우말남","co":"삼성화재","n":"운전자","pr":10773,"g":"이유림님 가족"},{"id":141,"s":"계약완료","d":"25.07.10","c":"박아연","p":"박아연","co":"삼성화재","n":"종합","pr":52678,"g":"박지연님 가족"},{"id":142,"s":"계약완료","d":"25.07.10","c":"박아연","p":"박아연","co":"삼성화재","n":"운전자","pr":10244,"g":"박지연님 가족"},{"id":143,"s":"계약완료","d":"25.08.08","c":"구본학","p":"구본학","co":"삼성화재","n":"종합","pr":51660,"g":"박지연님 가족"},{"id":144,"s":"계약완료","d":"25.08.08","c":"구본학","p":"구본학","co":"삼성화재","n":"운전자","pr":14302,"g":"박지연님 가족"},{"id":145,"s":"계약완료","d":"25.12.09","c":"박봉우","p":"박봉우","co":"메리츠","n":"상통치","pr":10980,"g":"박지연님 가족"},{"id":146,"s":"계약완료","d":"25.12.19","c":"박봉우","p":"박봉우","co":"흥국생명","n":"재가","pr":67649,"g":"박지연님 가족"},{"id":147,"s":"계약완료","d":"25.12.09","c":"정희선","p":"정희선","co":"메리츠","n":"상통칭","pr":16060,"g":"박지연님 가족"},{"id":148,"s":"계약완료","d":"26.04.16","c":"박지연","p":"박지연","co":"현대해상","n":"종합","pr":50400,"g":"박지연님 가족"},{"id":149,"s":"계약완료","d":"26.04.16","c":"박지연","p":"박지연","co":"현대해상","n":"실비","pr":23200,"g":"박지연님 가족"},{"id":150,"s":"계약완료","d":"26.05.08","c":"박천환","p":"박천환","co":"메리츠화재","n":"종합","pr":33390,"g":"박지연님 가족"},{"id":151,"s":"계약완료","d":"26.05.08","c":"박천환","p":"박천환","co":"메리츠화재","n":"운전자","pr":12240,"g":"박지연님 가족"},{"id":152,"s":"계약완료","d":"25.08.19","c":"안세희","p":"안세희","co":"삼성화재","n":"운전자","pr":10702,"g":"대전세종 커뮤니티"},{"id":153,"s":"계약완료","d":"25.09.19","c":"윤나리","p":"윤나리","co":"메리츠","n":"주택화재","pr":10750,"g":"대전세종 커뮤니티"},{"id":154,"s":"계약완료","d":"25.09.25","c":"임서준","p":"임서준","co":"메리츠","n":"운전자","pr":13470,"g":"지인들"},{"id":155,"s":"계약완료","d":"25.10.29","c":"한규상","p":"한규상","co":"메리츠","n":"상통치","pr":10100,"g":"지인들"},{"id":156,"s":"계약완료","d":"25.12.10","c":"한규상","p":"한규상","co":"한화손해","n":"종합","pr":31668,"g":"지인들"},{"id":157,"s":"계약완료","d":"25.12.24","c":"한규상","p":"한규상","co":"메리츠","n":"운전자","pr":15170,"g":"지인들"},{"id":158,"s":"계약완료","d":"25.12.04","c":"장하람","p":"장하람","co":"메리츠","n":"운전자","pr":13480,"g":"지인들"},{"id":159,"s":"계약완료","d":"25.12.08","c":"조영애","p":"조영애","co":"한화","n":"운전자","pr":11502,"g":"윤지현 가족"},{"id":160,"s":"계약완료","d":"26.02.11","c":"조영애","p":"조영애","co":"메리츠","n":"상통치","pr":17270,"g":"윤지현 가족"},{"id":161,"s":"계약완료","d":"25.12.09","c":"김다혜","p":"김다혜","co":"메리츠","n":"종합","pr":43750,"g":"에이원(메리츠)"},{"id":162,"s":"계약완료","d":"25.12.09","c":"김다혜","p":"김다혜","co":"메리츠","n":"운전자","pr":10810,"g":"에이원(메리츠)"},{"id":163,"s":"계약완료","d":"25.12.30","c":"정의철","p":"정의철","co":"현대해상","n":"운전자","pr":13920,"g":"정의철 가족"},{"id":164,"s":"계약완료","d":"25.12.30","c":"이윤예","p":"이윤예","co":"현대해상","n":"운전자","pr":11790,"g":"정의철 가족"},{"id":165,"s":"계약완료","d":"25.12.31","c":"김민석","p":"김민석","co":"현대해상","n":"운전자","pr":13670,"g":"지인들"},{"id":166,"s":"계약완료","d":"26.03.03","c":"전석일","p":"전석일","co":"흥국생명","n":"종합","pr":28940,"g":"전진영 가족"},{"id":167,"s":"계약완료","d":"26.03.03","c":"이인숙","p":"이인숙","co":"흥국생명","n":"종합","pr":22910,"g":"전진영 가족"},{"id":168,"s":"계약완료","d":"26.03.04","c":"이인숙","p":"이인숙","co":"메리츠화재","n":"운전자","pr":11360,"g":"전진영 가족"},{"id":169,"s":"계약완료","d":"26.05.06","c":"임규현","p":"임규현","co":"메리츠","n":"운전자","pr":13990,"g":"규찬 가족"},{"id":170,"s":"계약완료","d":"26.05.08","c":"이자희","p":"이자희","co":"메리츠화재","n":"종합","pr":41250,"g":"지인들"},{"id":171,"s":"계약완료","d":"26.05.08","c":"김백천","p":"김백천","co":"메리츠화재","n":"종합","pr":30710,"g":"지인들"},{"id":172,"s":"계약완료","d":"26.05.08","c":"김백천","p":"김백천","co":"메리츠화재","n":"종합","pr":12240,"g":"지인들"},{"id":173,"s":"계약완료","d":"26.05.08","c":"김백천","p":"김백천","co":"메리츠화재","n":"주택화재","pr":10010,"g":"지인들"},{"id":174,"s":"계약완료","d":"26.05.15","c":"조민석","p":"조민석","co":"메리츠화재","n":"종합","pr":107730,"g":"지인들"},{"id":175,"s":"계약완료","d":"26.05.15","c":"조민석","p":"조민석","co":"현대해상","n":"운전자","pr":11360,"g":"지인들"}];
-
-const DEFAULT_MONTHLY = [
-  {m:"24.07",k:16,before:0,after:0,tax:0,memo:""},
-  {m:"24.08",k:18,before:1850331,after:1549911,tax:0,memo:""},
-  {m:"24.09",k:9,before:5400940,after:5168050,tax:0,memo:""},
-  {m:"24.10",k:5,before:2255430,after:2128150,tax:0,memo:""},
-  {m:"24.11",k:7,before:1206703,after:1138983,tax:0,memo:""},
-  {m:"24.12",k:22,before:1292771,after:1227001,tax:0,memo:""},
-  {m:"25.01",k:4,before:3102663,after:2976993,tax:0,memo:""},
-  {m:"25.02",k:1,before:8294517,after:8380849,tax:0,memo:"연말정산 포함"},
-  {m:"25.03",k:0,before:1680226,after:1548946,tax:0,memo:""},
-  {m:"25.04",k:14,before:86765,after:59815,tax:0,memo:""},
-  {m:"25.05",k:0,before:1121107,after:1073947,tax:0,memo:""},
-  {m:"25.06",k:7,before:3861035,after:3710685,tax:0,memo:""},
-  {m:"25.07",k:4,before:1494292,after:1404352,tax:0,memo:""},
-  {m:"25.08",k:5,before:2013181,after:1923051,tax:0,memo:""},
-  {m:"25.09",k:6,before:2158261,after:2061081,tax:0,memo:""},
-  {m:"25.10",k:4,before:3972984,after:3814764,tax:0,memo:""},
-  {m:"25.11",k:0,before:1994540,after:1887200,tax:0,memo:""},
-  {m:"25.12",k:29,before:1576488,after:1498658,tax:0,memo:""},
-  {m:"26.01",k:0,before:2102659,after:2009409,tax:0,memo:""},
-  {m:"26.02",k:1,before:5618546,after:6153423,tax:0,memo:""},
-  {m:"26.03",k:5,before:1588854,after:1481831,tax:0,memo:""},
-  {m:"26.04",k:5,before:852958,after:829058,tax:23900,memo:""},
-  {m:"26.05",k:9,before:0,after:0,tax:0,memo:"입력 예정"},
-];
-
-const DEFAULT_GROUPS = {
-  "김성래 가족":"#3B5BDB","손채련님 가족":"#C2255C","이경민님 가족":"#0CA678",
-  "강소영 가족":"#E8590C","카이 패밀리":"#7048E8","박귀완 형님 가족":"#2F9E44",
-  "위선빈님 가족":"#1971C2","이유림님 가족":"#C92A2A","박지연님 가족":"#0C8599",
-  "정의철 가족":"#495057","전진영 가족":"#5C940D","규찬 가족":"#F59F00",
-  "윤지현 가족":"#9C36B5","브숏즈":"#E64980","대전세종 커뮤니티":"#1098AD",
-  "에이원(메리츠)":"#D9480F","지인들":"#868E96"
-};
+// 고객·수입 데이터는 코드에 넣지 않아요 (서버에서만 불러와요)
+const DEFAULT_CONTRACTS = [];
+const DEFAULT_MONTHLY   = [];
+const DEFAULT_GROUPS    = {"지인들":"#868E96"};
 
 // ════════════════════════════════════════════════════════════
 // STATE (localStorage)
 // ════════════════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════
-// 구글 드라이브 클라우드 연동
+// 구글 드라이브 클라우드 연동 (보안 강화판)
+//  · 서버 주소·비밀 키는 이 기기의 ⚙️ 서버 설정에서 입력 (코드에 박지 않음)
+//  · 동기화는 "통째 교체"가 아니라 항목(id) 단위 3-way 병합
 // ════════════════════════════════════════════════════════════
-const CLOUD_URL = 'https://script.google.com/macros/s/AKfycbwk3rTz0_G5wo4DTFJoI3nftVAs4iNoL9ywBRHJZVw_MyfywEZ21_gxgltLnj9up2Lyjw/exec';
+let SERVER_URL = localStorage.getItem('ins_server_url') || '';
+let SERVER_KEY = localStorage.getItem('ins_server_key') || '';
+let SYNC_BASE  = load('ins_sync_base', null);   // 마지막으로 서버와 맞춘 상태(항목별 해시)
 
 let cloudStatus = 'idle'; // idle | syncing | ok | error
 let lastSyncedAt = null;
@@ -689,117 +692,442 @@ function setSyncStatus(status, msg) {
   if(!el) return;
   const icons = {idle:'☁️', syncing:'🔄', ok:'✅', error:'❌'};
   const colors = {idle:'var(--muted)', syncing:'var(--amber)', ok:'var(--green)', error:'var(--red)'};
-  el.innerHTML = `<span style="color:${colors[status]};font-size:12px;font-weight:500">${icons[status]} ${msg}</span>`;
+  const sp = document.createElement('span');
+  sp.style.cssText = `color:${colors[status]};font-size:12px;font-weight:500`;
+  sp.textContent = `${icons[status]} ${msg}`;       // 텍스트로만 넣음 (HTML 해석 안 함)
+  el.textContent = '';
+  el.appendChild(sp);
 }
 
-async function saveToCloud(data) {
-  setSyncStatus('syncing', '저장 중...');
-  try {
-    const res = await fetch(CLOUD_URL, {
-      method: 'POST',
-      headers: {'Content-Type': 'text/plain'},
-      body: JSON.stringify(data),
+// <SYNC_CORE>
+// ── 병합 핵심 (화면·저장소와 무관한 순수 함수) ──────────────
+const SYNC_COLLECTIONS = ['contracts','monthly','groups','coverages','memos','shares'];
+const isSafeKey = k => k !== '__proto__' && k !== 'constructor' && k !== 'prototype';
+const isPlain   = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+function stableStringify(v){
+  if(v === null || typeof v !== 'object'){ const s = JSON.stringify(v); return s === undefined ? 'null' : s; }
+  if(Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']';
+  return '{' + Object.keys(v).filter(k => v[k] !== undefined).sort()
+    .map(k => JSON.stringify(k) + ':' + stableStringify(v[k])).join(',') + '}';
+}
+function hash53(str){
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for(let i = 0, ch; i < str.length; i++){
+    ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+const itemHash = v => hash53(stableStringify(v));
+
+// 데이터 → 항목 맵. strict=true 는 서버에서 온 데이터(모양이 이상한 항목은 건너뜀)
+function toMaps(d, strict){
+  d = d || {};
+  const m = {};
+  SYNC_COLLECTIONS.forEach(c => { m[c] = Object.create(null); });
+  (Array.isArray(d.contracts) ? d.contracts : []).forEach((c, i) => {
+    if(!isPlain(c)) return;
+    if(strict && (c.id == null || typeof c.id === 'object')) return;
+    let k = c.id != null ? String(c.id) : '#' + i;
+    if(!isSafeKey(k)) return;
+    if(k in m.contracts) k = k + '#' + i;           // 같은 id가 겹쳐도 지우지 않고 둘 다 유지
+    m.contracts[k] = c;
+  });
+  (Array.isArray(d.monthly) ? d.monthly : []).forEach((x, i) => {
+    if(!isPlain(x)) return;
+    let k = x.m != null ? String(x.m) : '#' + i;
+    if(!isSafeKey(k)) return;
+    if(k in m.monthly) k = k + '#' + i;
+    m.monthly[k] = x;
+  });
+  [['groups','s'],['coverages','o'],['memos','s'],['shares','s']].forEach(([col, t]) => {
+    const src = isPlain(d[col]) ? d[col] : {};
+    Object.keys(src).forEach(k => {
+      if(!isSafeKey(k)) return;
+      const v = src[k];
+      if(strict && (t === 's' ? typeof v !== 'string' : !isPlain(v))) return;
+      m[col][k] = v;
     });
-    const json = await res.json();
-    if(json.success) {
-      lastSyncedAt = new Date();
-      setSyncStatus('ok', `저장됨 ${lastSyncedAt.toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'})}`);
-    } else {
-      setSyncStatus('error', '저장 실패');
+  });
+  return m;
+}
+function fromMaps(m){
+  const vals = c => Object.keys(m[c]).map(k => m[c][k]);
+  const obj  = c => { const o = {}; Object.keys(m[c]).forEach(k => { o[k] = m[c][k]; }); return o; };
+  return {
+    contracts: vals('contracts').sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0)),
+    monthly:   vals('monthly').sort((a, b) => String(a.m).localeCompare(String(b.m))),
+    groups: obj('groups'), coverages: obj('coverages'), memos: obj('memos'), shares: obj('shares')
+  };
+}
+const normalizeData = d => fromMaps(toMaps(d, false));
+const sameData = (a, b) => stableStringify(normalizeData(a)) === stableStringify(normalizeData(b));
+
+function makeBase(d){                                // 항목별 해시 스냅샷
+  const m = toMaps(d, false), b = {};
+  SYNC_COLLECTIONS.forEach(c => { b[c] = {}; Object.keys(m[c]).forEach(k => { b[c][k] = itemHash(m[c][k]); }); });
+  return b;
+}
+
+// 삭제 기록(tombstone): "일부러 지웠다"는 표시. 서버가 통째로 비어서 항목이 없는 것과 구분해요.
+const TOMB_KEEP_MS = 60 * 86400000;
+const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+function normTombs(t){
+  const o = {};
+  if(!isPlain(t)) return o;
+  SYNC_COLLECTIONS.forEach(c => {
+    if(!isPlain(t[c])) return;
+    Object.keys(t[c]).forEach(k => {
+      if(!isSafeKey(k) || typeof t[c][k] !== 'string') return;
+      (o[c] = o[c] || {})[k] = t[c][k];
+    });
+  });
+  return o;
+}
+function mergeTombs(a, b){
+  const A = normTombs(a), B = normTombs(b), o = {};
+  SYNC_COLLECTIONS.forEach(c => {
+    const m = Object.assign({}, A[c] || {});
+    Object.keys(B[c] || {}).forEach(k => { if(!hasOwn(m, k) || B[c][k] > m[k]) m[k] = B[c][k]; });
+    if(Object.keys(m).length) o[c] = m;
+  });
+  return o;
+}
+
+// 한 컬렉션의 3-way 병합.
+//  이 기기만 바꿈→내 값 / 서버만 바꿈→서버 값 / 새로 만든 건 항상 유지 /
+//  한쪽이 지우고 다른 쪽이 고쳤으면 고친 쪽 / 둘 다 바꿈→이 기기 값 /
+//  기준(base)이 없으면 서버 값(이 기기 이전 값은 체크포인트에 보관) /
+//  서버에 없는 항목은 지우지 않고 유지 — 단, 다른 기기가 "지웠다"는 삭제 기록이 있고
+//  이 기기에서 안 고친 항목이면 함께 삭제
+function merge3(baseH, L, S, hasBase, tomb){
+  const map = Object.create(null), deleted = []; let conflicts = 0;
+  tomb = tomb || {};
+  const keys = new Set([...Object.keys(L), ...Object.keys(S)]);
+  keys.forEach(k => {
+    if(!isSafeKey(k)) return;
+    const l = L[k], s = S[k];
+    const hl = l === undefined ? null : itemHash(l);
+    const hs = s === undefined ? null : itemHash(s);
+    const hb = (hasBase && baseH && baseH[k] !== undefined) ? baseH[k] : null;
+    if(l === undefined){                              // 서버에만 있음
+      if(hb !== null && hs === hb){ deleted.push(k); return; }   // 이 기기에서 지웠고 서버는 그대로 → 삭제 유지
+      map[k] = s; return;
     }
+    if(s === undefined){                              // 이 기기에만 있음
+      if(hb !== null && hl === hb && hasOwn(tomb, k)) return;    // 다른 기기에서 지운 항목 → 여기서도 삭제
+      map[k] = l; return;
+    }
+    if(hl === hs){ map[k] = l; return; }
+    if(hb === null){ map[k] = s; conflicts++; return; }
+    if(hl === hb){ map[k] = s; return; }              // 서버만 바뀜
+    if(hs === hb){ map[k] = l; return; }              // 이 기기만 바뀜
+    map[k] = l; conflicts++;                          // 둘 다 바뀜
+  });
+  return { map, conflicts, deleted };
+}
+function mergeAll(baseMaps, local, server){
+  const L = toMaps(local, false), S = toMaps(server, true), out = {};
+  const tombs = mergeTombs(local && local.tombstones, server && server.tombstones);
+  const now = new Date().toISOString(), limit = Date.now() - TOMB_KEEP_MS;
+  let conflicts = 0;
+  SYNC_COLLECTIONS.forEach(c => {
+    const r = merge3(baseMaps ? baseMaps[c] : null, L[c], S[c], !!baseMaps, tombs[c]);
+    out[c] = r.map; conflicts += r.conflicts;
+    r.deleted.forEach(k => { (tombs[c] = tombs[c] || {})[k] = now; });
+    if(tombs[c]){
+      Object.keys(tombs[c]).forEach(k => {
+        if(hasOwn(r.map, k) || Date.parse(tombs[c][k]) < limit) delete tombs[c][k];   // 다시 생겼거나 오래된 기록은 정리
+      });
+      if(!Object.keys(tombs[c]).length) delete tombs[c];
+    }
+  });
+  const data = fromMaps(out); data.tombstones = tombs;
+  return { data, conflicts };
+}
+// </SYNC_CORE>
+
+// ── 서버 통신 (모든 요청에 비밀 키가 실림) ───────────────────
+function serverConfigured(){ return !!(SERVER_URL && SERVER_KEY); }
+
+async function serverCall(action, payload){
+  if(!serverConfigured()){ const e = new Error('서버 설정이 없어요'); e.code = 'noconfig'; throw e; }
+  const res = await fetch(SERVER_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'text/plain'},
+    body: JSON.stringify(Object.assign({}, payload, {action: action, key: SERVER_KEY}))
+  });
+  let d;
+  try { d = await res.json(); } catch(_) { throw new Error('서버 응답을 읽을 수 없어요'); }
+  if(d && d.error === 'unauthorized'){ const e = new Error('비밀 키가 맞지 않아요'); e.code = 'unauthorized'; throw e; }
+  return d;
+}
+
+// ── 이 기기의 상태 ────────────────────────────────────────
+function collectLocal(){
+  return {contracts:CONTRACTS, monthly:MONTHLY, groups:GROUPS, coverages:COVERAGES, memos:MEMOS, shares:SHARES, tombstones:TOMBS};
+}
+function persistLocal(){
+  save('ins_contracts', CONTRACTS); save('ins_monthly', MONTHLY); save('ins_groups', GROUPS);
+  save('ins_coverages', COVERAGES); save('ins_memos', MEMOS);   save('ins_shares', SHARES);
+  save('ins_tombs', TOMBS);
+}
+function applyData(d){
+  CONTRACTS = d.contracts; MONTHLY = d.monthly; GROUPS = d.groups;
+  COVERAGES = d.coverages; MEMOS = d.memos;     SHARES = d.shares;
+  TOMBS = normTombs(d.tombstones);
+  nextId = Math.max(...CONTRACTS.map(c => Number(c.id) || 0), 0) + 1;
+  persistLocal();
+}
+function commitBase(maps, rev){
+  SYNC_BASE = {rev: rev, maps: maps, at: new Date().toISOString()};
+  save('ins_sync_base', SYNC_BASE);
+}
+
+// 체크포인트: 병합·복원 직전의 이 기기 상태를 최대 3개까지 보관
+function saveCheckpoint(label){
+  try {
+    const snap = JSON.stringify({label: label, at: new Date().toISOString(), data: collectLocal()});
+    if(snap.length > 1500000) return;
+    const idx = load('ins_cp_index', []);
+    const id = 'ins_cp_' + Date.now();
+    localStorage.setItem(id, snap);
+    idx.push(id);
+    while(idx.length > 3){ localStorage.removeItem(idx.shift()); }
+    save('ins_cp_index', idx);
+  } catch(e) { /* 저장 공간이 부족하면 건너뜀 */ }
+}
+function listCheckpoints(){
+  return load('ins_cp_index', []).map(id => {
+    try { const o = JSON.parse(localStorage.getItem(id)); return {id: id, label: o.label, at: o.at, n: (o.data.contracts||[]).length}; }
+    catch(e) { return null; }
+  }).filter(Boolean).reverse();
+}
+
+// ── 동기화 (요청이 겹치면 순서대로 하나씩) ─────────────────
+let _syncQueue = Promise.resolve();
+function syncNow(opts){
+  const p = _syncQueue.then(() => _syncOnce(opts || {}));
+  _syncQueue = p.catch(() => {});
+  return p;
+}
+
+async function _syncOnce(opts){
+  const res = {ok:false, changedLocal:false, conflicts:0};
+  if(!serverConfigured()){ setSyncStatus('idle', '서버 설정 필요 (⚙️)'); res.reason = 'noconfig'; return res; }
+  setSyncStatus('syncing', opts.label || '동기화 중...');
+  try {
+    for(let attempt = 0; attempt < 4; attempt++){
+      const r = await serverCall('load');
+      if(!r || !r.ok) throw new Error((r && r.error) || '불러오기 실패');
+      const base  = SYNC_BASE && SYNC_BASE.maps ? SYNC_BASE.maps : null;
+      const local = collectLocal();                     // await 이후의 최신 이 기기 상태
+      const merged = mergeAll(base, local, r.data);
+      res.conflicts += merged.conflicts;
+      const dataChanged = !sameData(merged.data, local);
+      const tombChanged = stableStringify(normTombs(merged.data.tombstones)) !== stableStringify(normTombs(local.tombstones));
+      if(dataChanged){ saveCheckpoint('병합 전'); res.changedLocal = true; }
+      if(dataChanged || tombChanged) applyData(merged.data);
+      const sentBase = makeBase(merged.data);           // 보내는 순간의 상태 (이후에 고친 건 구분됨)
+      if(sameData(merged.data, r.data)){ commitBase(sentBase, r.rev); res.ok = true; break; }
+      const w = await serverCall('save', {data: merged.data, baseRev: r.rev});
+      if(w.ok){ commitBase(sentBase, w.rev); res.ok = true; break; }
+      if(w.conflict) continue;                          // 그 사이 다른 기기가 저장 → 다시 병합
+      if(w.error === 'shrink'){
+        res.reason = 'shrink';
+        throw new Error('저장을 멈췄어요: 서버보다 데이터가 크게 줄어 있어요 (📂 복원으로 복구하세요)');
+      }
+      throw new Error(w.error || '저장 실패');
+    }
+    if(!res.ok) throw new Error('다른 기기와 동시에 저장 중이라 끝내지 못했어요. 잠시 후 다시 시도해주세요');
+    lastSyncedAt = new Date();
+    const t = lastSyncedAt.toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
+    setSyncStatus('ok', `동기화됨 ${t}`);
+    return res;
   } catch(e) {
-    setSyncStatus('error', '연결 오류');
+    res.error = e.message; res.reason = res.reason || e.code || 'error';
+    if(e.code === 'unauthorized') setSyncStatus('error', '비밀 키 오류 — ⚙️ 서버 설정');
+    else setSyncStatus('error', '동기화 실패 — ' + String(e.message || '').slice(0, 40));
+    return res;
   }
 }
 
-async function loadFromCloud() {
-  setSyncStatus('syncing', '불러오는 중...');
+// 복원처럼 "서버를 이 상태로 바꾸겠다"는 의도가 분명할 때만 (서버는 직전 상태를 백업)
+function forcePushLocal(label){
+  const p = _syncQueue.then(() => _forcePush(label));
+  _syncQueue = p.catch(() => {});
+  return p;
+}
+async function _forcePush(label){
+  if(!serverConfigured()){ showToast('이 기기에는 복원했어요. ⚙️ 서버 설정 후 동기화하면 서버에 반영돼요'); return false; }
+  setSyncStatus('syncing', (label || '복원') + ' 저장 중...');
   try {
-    const res = await fetch(CLOUD_URL + '?t=' + Date.now());
-    const data = await res.json();
-    if(data.error || !data.contracts) {
-      setSyncStatus('idle', '로컬 데이터 사용 중');
-      return false;
-    }
-    if(data.contracts.length === 0 && CONTRACTS.length > 0) {
-      // 클라우드가 비어있으면 로컬 데이터 업로드
-      const all = {contracts:CONTRACTS,monthly:MONTHLY,groups:GROUPS,version:1};
-      saveToCloud(all);
-      setSyncStatus('ok', '초기 업로드 완료');
-      return false;
-    }
-    // 클라우드 데이터로 교체
-    CONTRACTS = data.contracts;
-    MONTHLY   = data.monthly   || MONTHLY;
-    GROUPS    = data.groups    || GROUPS;
-    MEMOS     = data.memos     || MEMOS;
-    if(data.coverages && Object.keys(data.coverages).length > 0) {
-      COVERAGES = data.coverages;
-    }
-    nextId    = Math.max(...CONTRACTS.map(c=>c.id||0), 0) + 1;
-    save('ins_contracts', CONTRACTS);
-    save('ins_monthly',   MONTHLY);
-    save('ins_groups',    GROUPS);
-    save('ins_memos',     MEMOS);
-    save('ins_coverages', COVERAGES);
-    lastSyncedAt = new Date();
-    setSyncStatus('ok', `불러옴 ${lastSyncedAt.toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'})}`);
+    const sentBase = makeBase(collectLocal());
+    const w = await serverCall('save', {data: collectLocal(), force: true});
+    if(!w.ok) throw new Error(w.error || '저장 실패');
+    commitBase(sentBase, w.rev);
+    setSyncStatus('ok', '서버에 저장됨');
     return true;
   } catch(e) {
-    setSyncStatus('error', '연결 실패 — 로컬 사용 중');
+    setSyncStatus('error', '서버 저장 실패');
+    showToast('❌ 서버에 반영하지 못했어요: ' + e.message);
     return false;
   }
 }
 
-function manualSync() {
-  const all = {contracts:CONTRACTS, monthly:MONTHLY, groups:GROUPS, coverages:COVERAGES, memos:MEMOS, version:1, savedAt:new Date().toISOString()};
-  save('ins_contracts', CONTRACTS);
-  save('ins_monthly',   MONTHLY);
-  save('ins_groups',    GROUPS);
-  save('ins_memos',     MEMOS);
-  setSyncStatus('syncing', '동기화 중...');
-  fetch(CLOUD_URL, {
-    method:'POST',
-    headers:{'Content-Type':'text/plain'},
-    body:JSON.stringify(all),
-  })
-  .then(r=>r.json())
-  .then(json=>{
-    if(json.success){
-      const t=new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-      setSyncStatus('ok','저장됨 '+t);
-      showToast('✅ 동기화 완료! 구글 드라이브에 저장됐어요');
+async function loadFromCloud(){
+  const r = await syncNow({label: '불러오는 중...'});
+  return !!(r && r.ok && r.changedLocal);
+}
+
+function manualSync(){
+  if(!serverConfigured()){ showToast('⚙️ 먼저 서버 설정을 해주세요'); openServerSettings(); return; }
+  syncNow({label: '동기화 중...'}).then(r => {
+    if(r.ok){
+      if(r.changedLocal) renderAll();
+      showToast('✅ 동기화 완료' + (r.conflicts ? ` (충돌 ${r.conflicts}건은 규칙대로 합쳤어요)` : ''));
     } else {
-      setSyncStatus('error','동기화 실패');
-      showToast('❌ 동기화 실패 — 다시 시도해주세요');
+      showToast('❌ 동기화 실패 — ' + (r.error || '다시 시도해주세요'));
     }
-  })
-  .catch(()=>{
-    setSyncStatus('error','연결 오류');
-    showToast('❌ 연결 오류 — 인터넷을 확인해주세요');
   });
 }
 
 function scheduleSave() {
-  // 연속 입력 시 1.5초 후 한 번만 저장
+  // 이 기기에는 바로 저장하고, 연속 입력은 1.5초 뒤 한 번만 서버와 동기화
+  persistLocal();
   clearTimeout(syncTimer);
   syncTimer = setTimeout(() => {
-    const all = {contracts:CONTRACTS, monthly:MONTHLY, groups:GROUPS, coverages:COVERAGES, memos:MEMOS, version:1, savedAt:new Date().toISOString()};
-    save('ins_contracts', CONTRACTS);
-    save('ins_monthly',   MONTHLY);
-    save('ins_groups',    GROUPS);
-    save('ins_memos',     MEMOS);
-    saveToCloud(all);
+    syncNow().then(r => {
+      if(r && r.ok && r.changedLocal){
+        const t = document.activeElement && document.activeElement.tagName;
+        if(!['INPUT','TEXTAREA','SELECT'].includes(t)) renderAll();   // 입력 중이면 화면을 새로 그리지 않음
+      }
+    });
   }, 1500);
+}
+window.addEventListener('online', () => { if(serverConfigured()) syncNow(); });
+
+// ── ⚙️ 서버 설정 ────────────────────────────────────────
+function openServerSettings(){
+  document.getElementById('srv-url').value = SERVER_URL;
+  const k = document.getElementById('srv-key');
+  k.value = '';
+  k.placeholder = SERVER_KEY ? '(저장돼 있어요 — 바꿀 때만 입력)' : 'createSecretKey() 실행 로그의 64자 키';
+  document.getElementById('srv-msg').textContent = '';
+  renderCheckpointList();
+  document.getElementById('modal-server').classList.add('on');
+}
+function renderCheckpointList(){
+  const box = document.getElementById('srv-cps');
+  const list = listCheckpoints();
+  box.textContent = '';
+  if(!list.length){
+    const d = document.createElement('div');
+    d.style.cssText = 'font-size:12px;color:var(--hint)';
+    d.textContent = '아직 없어요 (다른 기기 내용을 합치거나 복원할 때 자동으로 만들어져요)';
+    box.appendChild(d); return;
+  }
+  list.forEach(cp => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:12px;padding:5px 0';
+    const txt = document.createElement('span');
+    txt.style.flex = '1';
+    txt.textContent = `${new Date(cp.at).toLocaleString('ko-KR')} · ${cp.label} · 계약 ${cp.n}건`;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-secondary btn-sm';
+    btn.textContent = '이 상태로 복원';
+    btn.dataset.id = cp.id;
+    btn.onclick = () => restoreCheckpoint(btn.dataset.id);
+    row.appendChild(txt); row.appendChild(btn); box.appendChild(row);
+  });
+}
+async function saveServerSettings(){
+  const msg = document.getElementById('srv-msg');
+  const url = document.getElementById('srv-url').value.trim();
+  let key = document.getElementById('srv-key').value.trim();
+  if(!key) key = SERVER_KEY;
+  const setMsg = (t, c) => { msg.textContent = t; msg.style.color = c || 'var(--muted)'; };
+  if(!/^https:\/\/script\.google\.com\/(?:a\/[^\/]+\/)?macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(url)){
+    setMsg('웹 앱 주소 형식이 아니에요 (https://script.google.com/macros/s/…/exec)', 'var(--red)'); return;
+  }
+  if(key.length < 32){ setMsg('비밀 키는 32자 이상이에요', 'var(--red)'); return; }
+  const prev = {url: SERVER_URL, key: SERVER_KEY};
+  SERVER_URL = url; SERVER_KEY = key;
+  setMsg('연결 테스트 중...');
+  try {
+    const r = await serverCall('ping');
+    if(!r || !r.ok) throw new Error((r && r.error) || '연결 실패');
+    localStorage.setItem('ins_server_url', SERVER_URL);
+    localStorage.setItem('ins_server_key', SERVER_KEY);
+    SYNC_BASE = null; save('ins_sync_base', null);      // 서버가 바뀌었을 수 있으니 기준 상태 초기화
+    closeModal('server');
+    showToast('✅ 연결됐어요. 동기화합니다...');
+    const s = await syncNow({label: '동기화 중...'});
+    if(s.changedLocal) renderAll();
+    if(!s.ok) showToast('❌ 동기화 실패 — ' + (s.error || ''));
+  } catch(e) {
+    SERVER_URL = prev.url; SERVER_KEY = prev.key;        // 실패하면 이전 설정으로 복원
+    setMsg('연결 테스트 실패 — 이전 설정으로 되돌렸어요 (' + (e.message || '') + ')', 'var(--red)');
+  }
+}
+async function restoreCheckpoint(id){
+  let o = null;
+  try { o = JSON.parse(localStorage.getItem(id)); } catch(e) {}
+  if(!o || !o.data){ showToast('⚠️ 체크포인트를 읽을 수 없어요'); return; }
+  const n = (o.data.contracts || []).length;
+  if(!confirm(`이 기기의 체크포인트로 되돌립니다.\n\n🕐 ${new Date(o.at).toLocaleString('ko-KR')}\n📋 계약 ${n}건\n\n서버도 이 상태로 바뀌어요 (서버는 직전 상태를 백업해둬요). 계속할까요?`)) return;
+  saveCheckpoint('복원 전');
+  applyData(normalizeData(o.data));
+  renderAll();
+  closeModal('server');
+  await forcePushLocal('체크포인트 복원');
+}
+
+// ── 고객 링크: 고객별 토큰 (이 링크로는 그 고객 정보만 열려요) ──
+function randomToken(){
+  const a = new Uint8Array(24);
+  crypto.getRandomValues(a);
+  return Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
+}
+function serverIdFromUrl(){
+  const m = SERVER_URL.match(/\/macros\/s\/([A-Za-z0-9_-]+)\/exec$/);
+  return m ? m[1] : '';
+}
+function buildShareLink(name, renew){
+  if(renew || !SHARES[name]){ SHARES[name] = randomToken(); persistLocal(); }
+  return `${location.origin}${location.pathname}#view=${encodeURIComponent(name)}&t=${SHARES[name]}&s=${serverIdFromUrl()}`;
+}
+async function copyShareLink(name, renew){
+  if(!serverConfigured()){ showToast('⚙️ 먼저 서버 설정을 해주세요'); openServerSettings(); return; }
+  if(renew && !confirm(`${name} 님의 링크를 새로 만들면 이전에 보낸 링크는 더 이상 열리지 않아요.\n계속할까요?`)) return;
+  const url = buildShareLink(name, !!renew);
+  showToast('🔄 링크를 서버에 등록하는 중...');
+  const r = await syncNow({label: '링크 등록 중...'});     // 서버에 토큰이 올라간 뒤에 링크를 쓰도록
+  if(!r.ok){ showToast('❌ 서버에 링크를 등록하지 못했어요 — ' + (r.error || '')); return; }
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast(renew ? '🔄 새 링크를 복사했어요 (이전 링크는 무효)' : '📤 고객 링크 복사됐어요!');
+  } catch(e) {
+    prompt('아래 링크를 복사하세요:', url);
+  }
 }
 
 function load(key, def){ try{const v=localStorage.getItem(key);return v?JSON.parse(v):def;}catch(e){return def;} }
 function save(key,val){ try{localStorage.setItem(key,JSON.stringify(val));}catch(e){} }
+// HTML에 글자를 넣을 때 쓰는 이스케이프
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+// AI(제안서 PDF)에서 나온 글자는 태그·따옴표를 무력화해서 저장
+function cleanAI(v, n){ return String(v==null?'':v).replace(/[<>"`]/g, ch=>({'<':'＜','>':'＞','"':'”','`':'’'}[ch])).slice(0, n||120); }
 
 
 let CONTRACTS = load('ins_contracts', DEFAULT_CONTRACTS);
 let MONTHLY   = load('ins_monthly',   DEFAULT_MONTHLY);
 let MEMOS     = load('ins_memos',     {});  // 계약별 메모 {contractId: string}
+let SHARES    = load('ins_shares',    {});  // 고객 링크 토큰 {고객이름: 토큰}
+let TOMBS     = load('ins_tombs',     {});  // 삭제 기록 {컬렉션: {키: 시각}}
 let GROUPS    = load('ins_groups',    DEFAULT_GROUPS);
 
 // Ensure nextId
@@ -952,7 +1280,7 @@ function renderList() {
         <td style="white-space:nowrap">${r.co}</td>
         <td>
           <div style="font-weight:500">${r.n}</div>
-          ${MEMOS[r.id]?`<div style="font-size:11px;color:#3B82F6;margin-top:3px;font-weight:400">${MEMOS[r.id].split('\n')[0]}</div>`:''}
+          ${MEMOS[r.id]?`<div style="font-size:11px;color:#3B82F6;margin-top:3px;font-weight:400">${esc(MEMOS[r.id].split('\n')[0])}</div>`:''}
         </td>
         <td style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">${wonN(r.pr)}</td>
         <td>${gbadge(r.g)}</td>
@@ -1080,7 +1408,7 @@ function renderCustomers() { try {
                   <td style="padding:7px 10px;white-space:nowrap">${r.co}</td>
                   <td style="padding:7px 10px">
                     <div style="font-weight:500">${r.n}</div>
-                    ${MEMOS[r.id]?`<div style="font-size:11px;color:#3B82F6;margin-top:3px">${MEMOS[r.id].split("\n")[0]}</div>`:""}
+                    ${MEMOS[r.id]?`<div style="font-size:11px;color:#3B82F6;margin-top:3px">${esc(MEMOS[r.id].split("\n")[0])}</div>`:""}
                   </td>
                   <td style="padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">${wonN(r.pr)}원</td>
                   <td style="padding:7px 10px;text-align:right">
@@ -1183,7 +1511,7 @@ function renderMonthly() {
   const totalAfter=MONTHLY.reduce((s,m)=>s+m.after,0);
   const avgAfter=incl.length>0?Math.round(incl.reduce((s,m)=>s+m.after,0)/incl.length):0;
   const maxIncM=incl.length>0?incl.reduce((a,b)=>b.after>a.after?b:a):{m:'-',after:0};
-  const maxKM=MONTHLY.reduce((a,b)=>(kByMonth[b.m]||b.k)>(kByMonth[a.m]||a.k)?b:a,MONTHLY[0]);
+  const maxKM=MONTHLY.reduce((a,b)=>(kByMonth[b.m]||b.k)>(kByMonth[a.m]||a.k)?b:a,MONTHLY[0]||{m:'-',k:0,before:0,after:0,tax:0});
 
   document.getElementById('pane-월별').innerHTML=`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
@@ -1234,7 +1562,7 @@ function renderMonthly() {
                       <td style="padding:7px 10px;white-space:nowrap">${r.co}</td>
                       <td style="padding:7px 10px">
                     <div style="font-weight:500">${r.n}</div>
-                    ${MEMOS[r.id]?`<div style="font-size:11px;color:#3B82F6;margin-top:3px">${MEMOS[r.id].split("\n")[0]}</div>`:""}
+                    ${MEMOS[r.id]?`<div style="font-size:11px;color:#3B82F6;margin-top:3px">${esc(MEMOS[r.id].split("\n")[0])}</div>`:""}
                   </td>
                       <td style="padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">${wonN(r.pr)}원</td>
                       <td style="padding:7px 10px;text-align:right">
@@ -1286,15 +1614,16 @@ function handleProposalUpload(event) {
     const base64   = e.target.result.split(',')[1];
     const filename = `${file.name.replace(/\.pdf$/i,'')||'제안서'}_${new Date().toISOString().slice(0,10)}.pdf`;
     try {
-      const res = await fetch(CLOUD_URL, {
-        method: 'POST',
-        headers: {'Content-Type': 'text/plain'},
-        body: JSON.stringify({action:'uploadFile', base64, filename, customerFolder})
-      });
-      const data = await res.json();
-      if(data.success) {
-        pendingProposalUrl = data.viewUrl;
-        infoEl.innerHTML = `<a href="${data.viewUrl}" target="_blank" style="color:var(--blue);text-decoration:none">✅ ${file.name} (클릭하여 확인)</a>`;
+      const data = await serverCall('uploadFile', {base64, filename, customerFolder});
+      if(data.ok) {
+        const safeUrl = /^https:\/\/drive\.google\.com\//.test(data.viewUrl || '') ? data.viewUrl : '';
+        if(!safeUrl) throw new Error('올바르지 않은 파일 주소가 돌아왔어요');
+        pendingProposalUrl = safeUrl;
+        const a = document.createElement('a');
+        a.href = safeUrl; a.target = '_blank'; a.rel = 'noopener';
+        a.style.cssText = 'color:var(--blue);text-decoration:none';
+        a.textContent = `✅ ${file.name} (클릭하여 확인)`;
+        infoEl.textContent = ''; infoEl.appendChild(a);
         showToast(`✅ Drive > 보험관리툴 > ${customerFolder} 폴더에 저장됐어요!`);
       } else {
         throw new Error(data.error||'업로드 실패');
@@ -1562,12 +1891,16 @@ function renderTab(name) {
 // 백업 / 복원
 // ════════════════════════════════════════════════════════════
 function exportData() {
+  // 서버 백업과 같은 "전체 데이터"로 내보냄 (보장분석·메모·고객 링크 토큰 포함)
   const data = {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     contracts: CONTRACTS,
     monthly: MONTHLY,
     groups: GROUPS,
+    coverages: COVERAGES,
+    memos: MEMOS,
+    shares: SHARES,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
@@ -1576,28 +1909,33 @@ function exportData() {
   const ds = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
   a.href = url; a.download = `보험관리툴_백업_${ds}.json`; a.click();
   URL.revokeObjectURL(url);
-  showToast('💾 백업 파일이 다운로드되었습니다');
+  showToast('💾 전체 백업 파일이 다운로드되었습니다');
 }
 
 function importData(event) {
   const file = event.target.files[0];
   if(!file) return;
   const reader = new FileReader();
-  reader.onload = e => {
+  reader.onload = async e => {
     try {
       const data = JSON.parse(e.target.result);
-      if(!data.contracts || !data.monthly) { showToast('⚠️ 올바른 백업 파일이 아닙니다'); return; }
+      if(!Array.isArray(data.contracts) || !Array.isArray(data.monthly)) { showToast('⚠️ 올바른 백업 파일이 아닙니다'); return; }
       const exportDate = data.exportedAt ? new Date(data.exportedAt).toLocaleString('ko-KR') : '알 수 없음';
-      if(!confirm(`백업 파일을 복원하면 현재 데이터가 교체됩니다.\n\n📋 계약: ${data.contracts.length}건\n📅 월 데이터: ${data.monthly.length}개월\n👥 그룹: ${Object.keys(data.groups||{}).length}개\n🕐 백업 일시: ${exportDate}\n\n계속하시겠습니까?`)) return;
-      CONTRACTS = data.contracts;
-      MONTHLY   = data.monthly;
-      GROUPS    = data.groups || DEFAULT_GROUPS;
-      nextId    = Math.max(...CONTRACTS.map(c=>c.id||0), 0) + 1;
-      save('ins_contracts', CONTRACTS);
-      save('ins_monthly',   MONTHLY);
-      save('ins_groups',    GROUPS);
+      const covLine = data.coverages ? `${Object.keys(data.coverages).length}명` : '파일에 없음 (현재 값 유지)';
+      const memoLine = data.memos ? `${Object.keys(data.memos).length}개` : '파일에 없음 (현재 값 유지)';
+      if(!confirm(`백업 파일을 복원하면 현재 데이터가 교체됩니다.\n\n📋 계약: ${data.contracts.length}건\n📅 월 데이터: ${data.monthly.length}개월\n👥 그룹: ${Object.keys(data.groups||{}).length}개\n🧾 보장분석: ${covLine}\n🗒️ 메모: ${memoLine}\n🕐 백업 일시: ${exportDate}\n\n서버에도 이 상태로 저장돼요 (서버는 직전 상태를 백업해둬요).`)) return;
+      saveCheckpoint('복원 전');
+      applyData(normalizeData({
+        contracts: data.contracts,
+        monthly:   data.monthly,
+        groups:    data.groups    || GROUPS,
+        coverages: data.coverages || COVERAGES,
+        memos:     data.memos     || MEMOS,
+        shares:    data.shares    || SHARES,
+      }));
       renderAll();
       showToast(`✅ 복원 완료! 계약 ${CONTRACTS.length}건 불러왔습니다`);
+      await forcePushLocal('복원');
     } catch(err) {
       showToast('⚠️ 파일을 읽는 중 오류가 발생했습니다');
     } finally {
@@ -2350,8 +2688,6 @@ function renderCovDetail(name){
     </div>`;
   }).join('');
 
-  const shareUrl = `${location.origin}${location.pathname}#view=${encodeURIComponent(name)}`;
-
   document.getElementById('cov-detail').innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div style="font-size:16px;font-weight:700">${name} 님의 보장 분석</div>
@@ -2359,7 +2695,8 @@ function renderCovDetail(name){
         <button class="btn btn-secondary btn-sm" onclick="openModal('docguide')">📋 청구 서류</button>
         <button class="btn btn-secondary btn-sm" onclick="openAddOtherPolicy('${name}')">➕ 기존 보험 추가</button>
         <button class="btn btn-secondary btn-sm" onclick="openModal('covgroups');renderCovGroupEditor()">⚙️ 그룹 설정</button>
-        <button class="btn btn-primary btn-sm" onclick="copyShareLink('${name}')">📤 고객 링크 복사</button>
+        <button class="btn btn-primary btn-sm" data-name="${esc(name)}" onclick="copyShareLink(this.dataset.name)">📤 고객 링크 복사</button>
+        <button class="btn btn-secondary btn-sm" data-name="${esc(name)}" onclick="copyShareLink(this.dataset.name, true)" title="이전 링크를 무효로 하고 새 링크 만들기">🔄 링크 재발급</button>
       </div>
     </div>
 
@@ -2593,10 +2930,12 @@ async function handlePDFUpload(event, polId, coName, prodName){
       if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
       let pol = COVERAGES[customer].policies.find(p=>p.id===polId);
       if(!pol){pol={id:polId,items:[]};COVERAGES[customer].policies.push(pol);}
-      pol.items = parsed.items || [];
-      if(parsed.payPeriod) pol.payPeriod = parsed.payPeriod;
-      if(parsed.covPeriod) pol.covPeriod = parsed.covPeriod;
-      if(parsed.renewable) pol.renewable = parsed.renewable;
+      pol.items = (Array.isArray(parsed.items) ? parsed.items : []).filter(it=>it && typeof it==='object').slice(0,300).map(it=>({
+        name: cleanAI(it.name), amount: Number(it.amount)||0, unit: cleanAI(it.unit||'만원', 10), price: Number(it.price)||0
+      }));
+      if(parsed.payPeriod) pol.payPeriod = cleanAI(parsed.payPeriod, 40);
+      if(parsed.covPeriod) pol.covPeriod = cleanAI(parsed.covPeriod, 40);
+      if(parsed.renewable) pol.renewable = cleanAI(parsed.renewable, 40);
       saveCoverages();
       renderCovDetail(customer);
       showToast(`✅ ${pol.items.length}개 담보 추출 완료!`);
@@ -2607,13 +2946,6 @@ async function handlePDFUpload(event, polId, coName, prodName){
   };
   reader.readAsDataURL(file);
   event.target.value='';
-}
-
-function copyShareLink(name){
-  const url = `${location.origin}${location.pathname}#view=${encodeURIComponent(name)}`;
-  navigator.clipboard.writeText(url).then(()=>showToast('📤 고객 링크 복사됐어요!')).catch(()=>{
-    prompt('아래 링크를 복사하세요:', url);
-  });
 }
 
 // ── 고객 전용 보장 뷰 ───────────────────────────────────
@@ -2904,16 +3236,19 @@ function renderAll() {
 (async function init() {
   const hash = window.location.hash;
 
-  // 고객 전용 링크 감지
+  // 고객 전용 링크 감지 (#view=이름&t=토큰&s=서버ID) — 토큰이 맞아야 그 고객 정보만 열려요
   if(hash.startsWith('#view=')) {
     document.getElementById('app-wrap').style.display = 'none';
-    const customerName = decodeURIComponent(hash.slice(6));
+    const params = new URLSearchParams(hash.slice(1));
+    const customerName = params.get('view') || '';
+    const token = params.get('t') || '';
+    const sid = params.get('s') || '';
+    const nameH = esc(customerName);
 
-    // 로딩 화면 표시
     document.body.insertAdjacentHTML('beforeend', `
       <div id="cv-loading" style="position:fixed;inset:0;background:linear-gradient(135deg,#1E3A8A,#2563EB);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999">
         <div style="font-size:48px;margin-bottom:20px">🏦</div>
-        <div style="color:#fff;font-size:18px;font-weight:700;margin-bottom:10px">${customerName} 님의 보장 내역</div>
+        <div style="color:#fff;font-size:18px;font-weight:700;margin-bottom:10px">${nameH} 님의 보장 내역</div>
         <div style="color:rgba(255,255,255,.7);font-size:14px;margin-bottom:30px">잠시만 기다려주세요...</div>
         <div style="display:flex;gap:8px">
           <div style="width:8px;height:8px;border-radius:50%;background:#60A5FA;animation:bounce .8s infinite 0s"></div>
@@ -2923,11 +3258,32 @@ function renderAll() {
         <style>@keyframes bounce{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-8px);opacity:1}}</style>
       </div>`);
 
+    const showCvError = (title, msg) => {
+      document.getElementById('cv-loading')?.remove();
+      document.body.insertAdjacentHTML('beforeend', `
+        <div style="padding:40px;text-align:center;font-family:sans-serif">
+          <div style="font-size:40px;margin-bottom:16px">⚠️</div>
+          <div style="font-size:18px;font-weight:700;color:#1E3A8A;margin-bottom:8px">${esc(title)}</div>
+          <div style="color:#64748B;line-height:1.7">${esc(msg)}</div>
+        </div>`);
+    };
+
     try {
-      const res = await fetch(CLOUD_URL + '?t=' + Date.now());
+      if(!customerName || !token || !/^[A-Za-z0-9_-]{20,200}$/.test(sid)) throw new Error('LINK');
+      const res = await fetch(`https://script.google.com/macros/s/${sid}/exec`, {
+        method: 'POST',
+        headers: {'Content-Type': 'text/plain'},
+        body: JSON.stringify({action:'getCustomerView', name:customerName, token:token})
+      });
       const data = await res.json();
-      if(data.contracts){ CONTRACTS=data.contracts; COVERAGES=data.coverages||{}; MONTHLY=data.monthly||MONTHLY; GROUPS=data.groups||GROUPS; }
-    } catch(e){}
+      if(!data || !data.ok) throw new Error('LINK');
+      CONTRACTS = Array.isArray(data.contracts) ? data.contracts : [];
+      COVERAGES = (data.coverages && typeof data.coverages === 'object') ? data.coverages : {};
+    } catch(e) {
+      if(e && e.message === 'LINK') showCvError('링크를 열 수 없어요', '링크가 바뀌었거나 만료됐어요. 담당 설계사에게 새 링크를 요청해주세요.');
+      else showCvError('불러오지 못했어요', '인터넷 연결을 확인하고 링크를 다시 열어주세요.');
+      return;
+    }
 
     document.getElementById('cv-loading')?.remove();
 
@@ -2935,13 +3291,7 @@ function renderAll() {
       showCustomerView(customerName);
     } catch(err) {
       console.error('showCustomerView error:', err);
-      document.body.insertAdjacentHTML('beforeend', `
-        <div style="padding:40px;text-align:center;font-family:sans-serif">
-          <div style="font-size:40px;margin-bottom:16px">⚠️</div>
-          <div style="font-size:18px;font-weight:700;color:#1E3A8A;margin-bottom:8px">${customerName} 님의 보장 내역</div>
-          <div style="color:#64748B">데이터를 불러오는 중 오류가 발생했어요.<br>설계사에게 문의해주세요.</div>
-          <div style="font-size:11px;color:#9CA3AF;margin-top:20px">${err.message}</div>
-        </div>`);
+      showCvError(customerName + ' 님의 보장 내역', '화면을 그리는 중 오류가 발생했어요. 담당 설계사에게 문의해주세요.');
     }
     return;
   }
@@ -2950,6 +3300,7 @@ function renderAll() {
   renderAll();
   document.getElementById('app-wrap').style.display = 'block';
 
+  if(!serverConfigured()){ setSyncStatus('idle', '서버 설정 필요 (⚙️)'); openServerSettings(); return; }
   const loaded = await loadFromCloud();
   if(loaded){ renderAll(); }
 })();
