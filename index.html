@@ -826,7 +826,59 @@ function mergeAll(baseMaps, local, server){
     }
   });
   const data = fromMaps(out); data.tombstones = tombs;
+  migratePeopleData(data);                              // 합친 결과가 항상 번호 기준이 되도록
   return { data, conflicts };
+}
+
+// ── 가입자(사람) 고유 번호 ──────────────────────────────
+// 보장분석·고객 링크를 이름 글자가 아니라 번호로 이어줘요 → 동명이인도 따로, 이름을 바꿔도 그대로
+const isPid = k => typeof k === 'string' && /^pid_[a-z0-9_]+$/.test(k);
+const legacyPid = name => 'pid_n_' + hash53(String(name == null ? '' : name));   // 예전 데이터용: 이름이 같으면 같은 번호
+const cpid = r => (r && isPid(r.pid)) ? r.pid : legacyPid(r && r.p);
+
+// 같은 사람의 보장분석 기록 두 개를 하나로 (같은 항목은 a 우선, 계약별 분석·외부 보험은 합집합)
+function mergeCoverageRecords(a, b){
+  a = isPlain(a) ? a : {}; b = isPlain(b) ? b : {};
+  const out = Object.assign({}, b, a);
+  ['policies','otherPolicies','externalPolicies'].forEach(f => {
+    const A = Array.isArray(a[f]) ? a[f] : [], B = Array.isArray(b[f]) ? b[f] : [];
+    if(A.length || B.length){
+      const ids = new Set(A.map(x => x && x.id));
+      out[f] = A.concat(B.filter(x => !(x && ids.has(x.id))));
+    }
+  });
+  ['matrixView','matrixNames'].forEach(f => {
+    if(isPlain(a[f]) || isPlain(b[f])) out[f] = Object.assign({}, b[f], a[f]);
+  });
+  if(Array.isArray(a.itemOrder) || Array.isArray(b.itemOrder)){
+    out.itemOrder = [...new Set([...(a.itemOrder || []), ...(b.itemOrder || [])])];
+  }
+  return out;
+}
+
+// 이름만 있던 예전 데이터에 번호를 붙여요. 같은 이름 = 같은 번호라서 기기마다 따로 해도 결과가 같고,
+// 지금까지 묶여 있던 그대로 시작해요. 이미 번호가 있으면 아무것도 안 해요(여러 번 해도 안전).
+// 계약 객체는 건드리지 않고 새로 만들어요(다른 쪽 데이터와 객체를 같이 쓰고 있을 수 있어서).
+function migratePeopleData(d){
+  let changed = false;
+  if(Array.isArray(d.contracts)){
+    d.contracts = d.contracts.map(r => {
+      if(isPlain(r) && !isPid(r.pid)){ changed = true; return Object.assign({}, r, {pid: legacyPid(r.p)}); }
+      return r;
+    });
+  }
+  [['coverages', true], ['shares', false]].forEach(([col, isRecord]) => {
+    const m = d[col];
+    if(!isPlain(m)) return;
+    Object.keys(m).forEach(k => {
+      if(isPid(k) || !isSafeKey(k)) return;
+      const t = legacyPid(k);                              // 이름으로 저장돼 있던 것 → 번호로 옮김
+      if(isRecord) m[t] = (hasOwn(m, t) && isPlain(m[t])) ? mergeCoverageRecords(m[t], m[k]) : m[k];
+      else if(!hasOwn(m, t)) m[t] = m[k];
+      delete m[k]; changed = true;
+    });
+  });
+  return changed;
 }
 // </SYNC_CORE>
 
@@ -861,6 +913,8 @@ function applyData(d){
   TOMBS = normTombs(d.tombstones);
   SETTINGS = isPlain(d.settings) ? d.settings : {};
   refreshCovGroups();
+  { const pd = {contracts:CONTRACTS, coverages:COVERAGES, shares:SHARES}; migratePeopleData(pd);
+    CONTRACTS = pd.contracts; COVERAGES = pd.coverages; SHARES = pd.shares; }   // 예전 형식이 들어와도 번호 기준으로
   nextId = Math.max(...CONTRACTS.map(c => Number(c.id) || 0), 0) + 1;
   persistLocal();
 }
@@ -1078,14 +1132,15 @@ function serverIdFromUrl(){
   const m = SERVER_URL.match(/\/macros\/s\/([A-Za-z0-9_-]+)\/exec$/);
   return m ? m[1] : '';
 }
-function buildShareLink(name, renew){
-  if(renew || !SHARES[name]){ SHARES[name] = randomToken(); persistLocal(); }
-  return `${location.origin}${location.pathname}#view=${encodeURIComponent(name)}&t=${SHARES[name]}&s=${serverIdFromUrl()}`;
+function buildShareLink(pid, renew){
+  if(renew || !SHARES[pid]){ SHARES[pid] = randomToken(); persistLocal(); }
+  // 링크의 이름은 화면 표시용이에요. 이름을 바꿔도 링크는 그대로 열려요(토큰이 그 사람을 정해요)
+  return `${location.origin}${location.pathname}#view=${encodeURIComponent(personName(pid))}&t=${SHARES[pid]}&s=${serverIdFromUrl()}`;
 }
-async function copyShareLink(name, renew){
+async function copyShareLink(pid, renew){
   if(!serverConfigured()){ showToast('⚙️ 먼저 서버 설정을 해주세요'); openServerSettings(); return; }
-  if(renew && !confirm(`${name} 님의 링크를 새로 만들면 이전에 보낸 링크는 더 이상 열리지 않아요.\n계속할까요?`)) return;
-  const url = buildShareLink(name, !!renew);
+  if(renew && !confirm(`${personName(pid)} 님의 링크를 새로 만들면 이전에 보낸 링크는 더 이상 열리지 않아요.\n계속할까요?`)) return;
+  const url = buildShareLink(pid, !!renew);
   showToast('🔄 링크를 서버에 등록하는 중...');
   const r = await syncNow({label: '링크 등록 중...'});     // 서버에 토큰이 올라간 뒤에 링크를 쓰도록
   if(!r.ok){ showToast('❌ 서버에 링크를 등록하지 못했어요 — ' + (r.error || '')); return; }
@@ -1095,6 +1150,147 @@ async function copyShareLink(name, renew){
   } catch(e) {
     prompt('아래 링크를 복사하세요:', url);
   }
+}
+
+// ── 가입자(사람) 관리: 고유 번호로 구분 ──────────────────
+function newPid(){
+  const a = new Uint8Array(8); crypto.getRandomValues(a);
+  return 'pid_' + Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
+}
+function personNameOfContracts(cs){                    // 가장 많이 쓰인 이름 (동률이면 최근 계약의 이름)
+  const cnt = {};
+  cs.forEach(r => { cnt[r.p] = (cnt[r.p] || 0) + 1; });
+  let best = null;
+  [...cs].sort((a, b) => (b.id || 0) - (a.id || 0)).forEach(r => { if(best === null || cnt[r.p] > cnt[best]) best = r.p; });
+  return best == null ? '' : best;
+}
+// 사람 목록: [{pid, name, label, cs}]. 이름이 같은 사람이 여럿이면 계약자나 번호로 구분해서 보여줘요
+function peopleList(){
+  const m = new Map();
+  CONTRACTS.forEach(r => { const k = cpid(r); if(!m.has(k)) m.set(k, {pid: k, cs: []}); m.get(k).cs.push(r); });
+  const arr = [...m.values()];
+  arr.forEach(p => { p.name = personNameOfContracts(p.cs); });
+  const byName = {};
+  arr.forEach(p => { (byName[p.name] = byName[p.name] || []).push(p); });
+  Object.keys(byName).forEach(n => {
+    const g = byName[n];
+    if(g.length === 1){ g[0].label = n; return; }
+    g.sort((a, b) => Math.min(...a.cs.map(r => r.id || 0)) - Math.min(...b.cs.map(r => r.id || 0)));
+    const holders = g.map(p => [...new Set(p.cs.map(r => r.c))].join('/'));
+    const distinct = new Set(holders).size === g.length;
+    g.forEach((p, i) => { p.label = distinct ? `${n} (계약자 ${holders[i]})` : `${n} #${i + 1}`; });
+  });
+  return arr.sort((a, b) => a.label.localeCompare(b.label, 'ko'));
+}
+const personLabel = pid => (peopleList().find(p => p.pid === pid) || {}).label || '(이름 없음)';
+const personName  = pid => (peopleList().find(p => p.pid === pid) || {}).name  || '(이름 없음)';
+function describePerson(p){ return `계약 ${p.cs.length}건 · 계약자 ${[...new Set(p.cs.map(r => r.c))].join('/')}`; }
+
+// 같은 이름이 이미 있을 때 같은 사람인지 물어요. 반환: {pid} (pid=null 이면 새 사람) / undefined(취소)
+function choosePerson(name, excludePid){
+  const same = peopleList().filter(p => p.name === name && p.pid !== excludePid);
+  if(!same.length) return {pid: null};
+  if(same.length === 1){
+    const p = same[0];
+    const sameOne = confirm(`이미 '${name}' 님이 있어요 (${describePerson(p)}).\n\n같은 사람이면 [확인]\n이름만 같은 다른 사람(동명이인)이면 [취소]를 눌러주세요.`);
+    return {pid: sameOne ? p.pid : null};
+  }
+  const menu = same.map((p, i) => `${i + 1}. ${p.label} — ${describePerson(p)}`).join('\n');
+  const ans = prompt(`'${name}' 님이 ${same.length}명 있어요. 누구인가요?\n\n${menu}\n0. 이름만 같은 새로운 사람(동명이인)\n\n번호를 입력해주세요 (취소하면 저장하지 않아요)`, '1');
+  if(ans === null) return undefined;
+  const n = parseInt(ans, 10);
+  if(n === 0) return {pid: null};
+  if(n >= 1 && n <= same.length) return {pid: same[n - 1].pid};
+  return undefined;
+}
+// 계약을 저장할 때 이 계약의 가입자가 누구인지 정해요. null 이면 저장 취소
+function planPerson(old, name){
+  if(!old){                                            // 새 계약
+    const pick = choosePerson(name, null);
+    return pick === undefined ? null : {pid: pick.pid || newPid()};
+  }
+  const oldPid = cpid(old);
+  if(old.p === name) return {pid: oldPid};             // 이름 그대로
+  const mates = CONTRACTS.filter(r => cpid(r) === oldPid && r.id !== old.id);
+  if(!mates.length){                                   // 이 사람의 유일한 계약 → 이름만 바꾸는 것 (이미 있는 사람이면 같은 사람인지 확인)
+    const pick = choosePerson(name, oldPid);
+    if(pick === undefined) return null;
+    return pick.pid ? {pid: pick.pid, moveFrom: oldPid} : {pid: oldPid};
+  }
+  const ans = prompt(`'${old.p}' → '${name}' 으로 바꾸셨어요.\n이 사람의 다른 계약이 ${mates.length}건 더 있어요.\n\n1 = 이 사람의 모든 계약 이름을 함께 바꾸기 (보장분석 데이터는 그대로 유지)\n2 = 이 계약만 다른 사람으로 옮기기 (이름만 같은 다른 사람이거나, 잘못 입력했던 경우)\n\n취소하거나 비워두면 저장하지 않아요.`, '1');
+  const n = ans === null ? 0 : parseInt(ans, 10);
+  if(n === 1) return {pid: oldPid, renameAll: oldPid};
+  if(n === 2){
+    const pick = choosePerson(name, oldPid);
+    if(pick === undefined) return null;
+    return {pid: pick.pid || newPid(), moveFrom: oldPid};
+  }
+  return null;
+}
+function moveContractCoverage(contractId, fromPid, toPid){   // 이 계약의 보장분석 기록을 다른 사람 쪽으로
+  if(fromPid === toPid) return;
+  const from = COVERAGES[fromPid];
+  if(!from || !Array.isArray(from.policies)) return;
+  const i = from.policies.findIndex(pl => pl.id === contractId);
+  if(i < 0) return;
+  const pol = from.policies.splice(i, 1)[0];
+  if(!COVERAGES[toPid]) COVERAGES[toPid] = {policies: []};
+  if(!Array.isArray(COVERAGES[toPid].policies)) COVERAGES[toPid].policies = [];
+  if(!COVERAGES[toPid].policies.some(pl => pl.id === contractId)) COVERAGES[toPid].policies.push(pol);
+}
+function renamePerson(pid){
+  const cur = personName(pid);
+  const nn = String(prompt(`'${cur}' 님의 새 이름을 입력해주세요.\n(보장분석·고객 링크는 그대로 유지돼요)`, cur) || '').trim();
+  if(!nn || nn === cur) return;
+  CONTRACTS = CONTRACTS.map(r => cpid(r) === pid ? Object.assign({}, r, {p: nn, pid: pid}) : r);
+  persistLocal(); scheduleSave(); renderAll();
+  showToast(`✅ '${cur}' → '${nn}' 이름을 바꿨어요 (보장분석 유지)`);
+}
+function mergePerson(srcPid){
+  const others = peopleList().filter(p => p.pid !== srcPid);
+  if(!others.length){ showToast('합칠 다른 사람이 없어요'); return; }
+  const menu = others.map((p, i) => `${i + 1}. ${p.label} — ${describePerson(p)}`).join('\n');
+  const ans = prompt(`'${personLabel(srcPid)}' 님을 누구와 합칠까요?\n\n${menu}\n\n번호를 입력해주세요 (취소하거나 비워두면 합치지 않아요)`);
+  const n = parseInt(ans, 10);
+  if(!(n >= 1 && n <= others.length)) return;
+  const dst = others[n - 1];
+  if(!confirm(`'${personLabel(srcPid)}' 님의 계약·보장분석을 '${dst.label}' 님으로 합칩니다.\n합쳐지는 쪽의 고객 링크는 더 이상 열리지 않아요. 계속할까요?`)) return;
+  CONTRACTS = CONTRACTS.map(r => cpid(r) === srcPid ? Object.assign({}, r, {pid: dst.pid, p: dst.name}) : r);
+  if(COVERAGES[srcPid]){
+    COVERAGES[dst.pid] = COVERAGES[dst.pid] ? mergeCoverageRecords(COVERAGES[dst.pid], COVERAGES[srcPid]) : COVERAGES[srcPid];
+    delete COVERAGES[srcPid];
+  }
+  delete SHARES[srcPid];
+  selectedCovCustomer = dst.pid;
+  persistLocal(); scheduleSave(); renderAll();
+  showToast(`✅ '${dst.name}' 님으로 합쳤어요`);
+}
+// 이름이 같은 서로 다른 사람이 한 사람으로 묶여 있을 때, 일부 계약을 새로운 사람으로 분리해요
+function splitPerson(pid){
+  const p = peopleList().find(x => x.pid === pid);
+  if(!p || p.cs.length < 2){ showToast('계약이 2건 이상일 때 분리할 수 있어요'); return; }
+  const sorted = [...p.cs].sort((a, b) => (a.id || 0) - (b.id || 0));
+  const menu = sorted.map((r, i) => `${i + 1}. ${r.co} ${r.n} (계약자 ${r.c}, 가입 ${r.d})`).join('\n');
+  const ans = prompt(`'${p.label}' 님에서 다른 사람으로 분리할 계약 번호를 입력해주세요.\n여러 건이면 쉼표로 구분해요 (예: 1,3)\n\n${menu}\n\n취소하거나 비워두면 분리하지 않아요.`);
+  if(ans === null) return;
+  const picks = [...new Set(String(ans).split(/[,\s]+/).map(s => parseInt(s, 10)).filter(n => n >= 1 && n <= sorted.length))];
+  if(!picks.length || picks.length >= sorted.length){ showToast('분리할 계약을 1건 이상, 전부는 아니게 골라주세요'); return; }
+  const nm = String(prompt(`분리한 사람의 이름을 입력해주세요.\n(이름만 같은 다른 사람이면 그대로 두세요)`, p.name) || '').trim();
+  if(!nm) return;
+  const chosen = new Set(picks.map(n => sorted[n - 1].id));
+  const np = newPid();
+  chosen.forEach(id => moveContractCoverage(id, pid, np));                 // 분리하는 계약의 보장분석도 함께 이동
+  CONTRACTS = CONTRACTS.map(r => chosen.has(r.id) ? Object.assign({}, r, {pid: np, p: nm}) : r);
+  selectedCovCustomer = np;
+  persistLocal(); scheduleSave(); renderAll();
+  showToast(`✅ 계약 ${chosen.size}건을 '${nm}' 님(새로운 사람)으로 분리했어요`);
+}
+// 앱을 열 때: 이름으로만 저장돼 있던 예전 데이터에 번호를 붙여요
+function migrateLocalPeople(){
+  const pd = {contracts: CONTRACTS, coverages: COVERAGES, shares: SHARES};
+  if(!migratePeopleData(pd)) return false;
+  CONTRACTS = pd.contracts; COVERAGES = pd.coverages; SHARES = pd.shares;
+  persistLocal(); return true;
 }
 
 function load(key, def){ try{const v=localStorage.getItem(key);return v?JSON.parse(v):def;}catch(e){return def;} }
@@ -1717,6 +1913,14 @@ function saveContract() {
   else if(id) { const old=CONTRACTS.find(c=>c.id===parseInt(id)); if(old?.proposalUrl) data.proposalUrl=old.proposalUrl; }
   if(!data.c){showToast('⚠️ 계약자를 입력해주세요');return;}
 
+  // 가입자(사람) 연결: 이름이 아니라 고유 번호로 보장분석을 이어줘요 (동명이인 구분, 이름을 바꿔도 유지)
+  const oldC = id ? CONTRACTS.find(c=>c.id===parseInt(id)) : null;
+  const plan = planPerson(oldC, data.p);
+  if(!plan) return;                                   // 사용자가 저장을 취소
+  data.pid = plan.pid;
+  if(plan.renameAll) CONTRACTS = CONTRACTS.map(r => cpid(r) === plan.renameAll ? Object.assign({}, r, {p: data.p, pid: plan.renameAll}) : r);
+  if(plan.moveFrom && oldC) moveContractCoverage(oldC.id, plan.moveFrom, plan.pid);
+
   if(id) {
     const idx = CONTRACTS.findIndex(c=>c.id===parseInt(id));
     if(idx>=0) CONTRACTS[idx] = {...CONTRACTS[idx],...data};
@@ -1753,7 +1957,7 @@ function deleteContract() {
   if(!r || !confirm(`'${r.c} / ${r.n}' 계약을 삭제하시겠습니까?`)) return;
   CONTRACTS = CONTRACTS.filter(c=>c.id!==id);
   delete MEMOS[id];                                   // 이 계약의 메모·분석 데이터도 함께 정리 (번호가 다시 쓰일 때 남은 내용이 붙지 않도록)
-  const cv = COVERAGES[r.p];
+  const cv = COVERAGES[cpid(r)];
   if(cv && Array.isArray(cv.policies)) cv.policies = cv.policies.filter(pl=>pl.id!==id);
   save('ins_contracts', CONTRACTS);
   closeModal('contract');
@@ -1923,8 +2127,8 @@ function renderCoverageTab(subTab){
   if(!subTab) subTab = window._covSubTab || '보장분석';
   window._covSubTab = subTab;
 
-  const customers = [...new Set(CONTRACTS.map(r=>r.p))].sort();
-  if(!selectedCovCustomer && customers.length) selectedCovCustomer = customers[0];
+  const people = peopleList();                         // 이름이 같아도 번호가 다르면 따로 보여줘요
+  if(!people.some(p=>p.pid===selectedCovCustomer)) selectedCovCustomer = people.length ? people[0].pid : null;
 
   const apiBar = GEMINI_KEY ? `
     <div class="api-bar" style="opacity:.85">
@@ -1971,10 +2175,10 @@ function renderCoverageTab(subTab){
       </div>
     </div>`;
 
-  const leftList = customers.map(c=>`
-    <div class="cov-cust ${c===selectedCovCustomer?'on':''}" onclick="selectedCovCustomer='${c.replace(/'/g,"\\'")}';window._covSubTab='보장분석';renderCoverageTab('보장분석')">
-      <span>${c}</span>
-      <span class="cov-cust-cnt">${(COVERAGES[c]?.policies||[]).length}건</span>
+  const leftList = people.map(p=>`
+    <div class="cov-cust ${p.pid===selectedCovCustomer?'on':''}" onclick="selectedCovCustomer='${p.pid}';window._covSubTab='보장분석';renderCoverageTab('보장분석')">
+      <span>${esc(p.label)}</span>
+      <span class="cov-cust-cnt">${(COVERAGES[p.pid]?.policies||[]).length}건</span>
     </div>`).join('');
 
   const subTabs = [
@@ -2236,7 +2440,7 @@ function addMatrixRowBtn(btn) {
   const customer = btn.dataset.cust;
   const grpLabel = btn.dataset.grp || '';
   const contracts = [
-    ...CONTRACTS.filter(r=>r.p===customer && r.s==='계약완료'),
+    ...CONTRACTS.filter(r=>cpid(r)===customer && r.s==='계약완료'),
     ...(COVERAGES[customer]?.externalPolicies||[]).map(p=>({id:p.id,co:p.co,n:p.n||p.name||'',_ext:true}))
   ];
   if(!contracts.length){ showToast('⚠️ 완료된 계약이 없어요'); return; }
@@ -2334,9 +2538,9 @@ function updatePolMeta(customer, polId, field, value){
   saveCoverages();
 }
 
-function renderCovDetail(name){
+function renderCovDetail(name){                          // name 은 가입자 고유 번호
   const cData = COVERAGES[name] || {policies:[], otherPolicies:[]};
-  const contracts = CONTRACTS.filter(r=>r.p===name && r.s==='계약완료');
+  const contracts = CONTRACTS.filter(r=>cpid(r)===name && r.s==='계약완료');
 
   // 기존 보험(otherPolicies + externalPolicies)도 가상 계약으로 포함
   const otherPols = [...(cData.otherPolicies||[]), ...(cData.externalPolicies||[])];
@@ -2570,8 +2774,11 @@ function renderCovDetail(name){
 
   document.getElementById('cov-detail').innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <div style="font-size:16px;font-weight:700">${name} 님의 보장 분석</div>
+      <div style="font-size:16px;font-weight:700">${esc(personLabel(name))} 님의 보장 분석</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-secondary btn-sm" onclick="renamePerson('${name}')" title="이름을 바꿔도 보장분석·고객 링크는 그대로 유지돼요">✏️ 이름 변경</button>
+        <button class="btn btn-secondary btn-sm" onclick="mergePerson('${name}')" title="같은 사람이 둘로 나뉘어 있을 때 하나로 합치기">🔀 합치기</button>
+        <button class="btn btn-secondary btn-sm" onclick="splitPerson('${name}')" title="이름이 같은 다른 사람이 한 사람으로 묶여 있을 때 갈라내기">✂️ 분리</button>
         <button class="btn btn-secondary btn-sm" onclick="openModal('docguide')">📋 청구 서류</button>
         <button class="btn btn-secondary btn-sm" onclick="openAddOtherPolicy('${name}')">➕ 기존 보험 추가</button>
         <button class="btn btn-secondary btn-sm" onclick="openModal('covgroups');renderCovGroupEditor()">⚙️ 그룹 설정</button>
@@ -2829,12 +3036,13 @@ async function handlePDFUpload(event, polId, coName, prodName){
 }
 
 // ── 고객 전용 보장 뷰 ───────────────────────────────────
-function showCustomerView(name){
+function showCustomerView(name, displayName){             // name 은 서버가 알려준 열쇠(가입자 고유 번호), displayName 은 표시용 이름
   document.getElementById('lock-screen').style.display='none';
   document.getElementById('app-wrap').style.display='none';
 
   const cData = COVERAGES[name] || {policies:[]};
-  const contracts = CONTRACTS.filter(r=>r.p===name && r.s==='계약완료');
+  const contracts = CONTRACTS.filter(r=>(isPid(name) ? cpid(r)===name : r.p===name) && r.s==='계약완료');
+  const shownName = displayName || (isPid(name) ? personNameOfContracts(contracts) : name) || name;
   // renderCovDetail과 동일하게 externalPolicies 포함
   const otherPols = [...(cData.otherPolicies||[]), ...(cData.externalPolicies||[])];
   const allContracts = [
@@ -3017,7 +3225,7 @@ function showCustomerView(name){
   const html=`<div class="cv-wrap">
     <div class="cv-header">
       <div style="font-size:14px;opacity:.75;margin-bottom:4px">보험 보장 내역서</div>
-      <div style="font-size:24px;font-weight:800;margin-bottom:4px">${name} 님</div>
+      <div style="font-size:24px;font-weight:800;margin-bottom:4px">${esc(shownName)} 님</div>
       <div style="font-size:12px;opacity:.7">담당: 김성래 설계사</div>
     </div>
     <div style="padding:16px 0 0">
@@ -3179,15 +3387,17 @@ function renderAll() {
         </div>`);
     };
 
+    let cvKey = '', cvName = customerName;
     try {
-      if(!customerName || !token || !/^[A-Za-z0-9_-]{20,200}$/.test(sid)) throw new Error('LINK');
+      if(!token || !/^[A-Za-z0-9_-]{20,200}$/.test(sid)) throw new Error('LINK');
       const res = await fetch(`https://script.google.com/macros/s/${sid}/exec`, {
         method: 'POST',
         headers: {'Content-Type': 'text/plain'},
         body: JSON.stringify({action:'getCustomerView', name:customerName, token:token})
       });
       const data = await res.json();
-      if(!data || !data.ok) throw new Error('LINK');
+      if(!data || !data.ok || !data.key) throw new Error('LINK');
+      cvKey = String(data.key); cvName = String(data.name || customerName);   // 링크의 이름은 표시용일 뿐, 서버가 알려준 값을 써요
       CONTRACTS = Array.isArray(data.contracts) ? data.contracts : [];
       COVERAGES = (data.coverages && typeof data.coverages === 'object') ? data.coverages : {};
       if(data.settings && data.settings.covGroups){ const g = cleanCovGroups(data.settings.covGroups.list); if(g) COV_GROUPS = g; }   // 관리 화면과 같은 담보 그룹
@@ -3200,15 +3410,16 @@ function renderAll() {
     document.getElementById('cv-loading')?.remove();
 
     try {
-      showCustomerView(customerName);
+      showCustomerView(cvKey, cvName);
     } catch(err) {
       console.error('showCustomerView error:', err);
-      showCvError(customerName + ' 님의 보장 내역', '화면을 그리는 중 오류가 발생했어요. 담당 설계사에게 문의해주세요.');
+      showCvError(cvName + ' 님의 보장 내역', '화면을 그리는 중 오류가 발생했어요. 담당 설계사에게 문의해주세요.');
     }
     return;
   }
 
-  // 일반 관리 모드 — 먼저 렌더링 후 app-wrap 표시
+  // 일반 관리 모드 — 이름으로만 저장돼 있던 예전 데이터에 번호를 붙인 뒤 렌더링
+  migrateLocalPeople();
   renderAll();
   document.getElementById('app-wrap').style.display = 'block';
 
