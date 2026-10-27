@@ -856,6 +856,39 @@ function mergeCoverageRecords(a, b){
   return out;
 }
 
+// 외부·기존 보험의 분석 결과가 policies 쪽에 따로 쌓여 있던 예전 데이터를 그 보험 기록으로 합쳐요.
+// (매트릭스는 보험 기록의 담보를 읽는데, 예전엔 분석 결과·직접 추가한 담보가 policies 에 저장돼서 매트릭스에 안 나왔어요)
+// 원본은 건드리지 않고 새 기록을 돌려줘요. 바꿀 게 없으면 null.
+function foldStrayExternalPolicies(rec){
+  if(!isPlain(rec) || !Array.isArray(rec.policies)) return null;
+  const policies = rec.policies.slice();
+  let out = null;
+  ['externalPolicies', 'otherPolicies'].forEach(f => {
+    if(!Array.isArray(rec[f])) return;
+    let list = null;
+    rec[f].forEach((r, i) => {
+      if(!isPlain(r)) return;
+      const k = policies.findIndex(p => p && p.id === r.id);
+      if(k < 0) return;
+      const stray = policies[k];
+      const items = Array.isArray(r.items) ? r.items.slice() : [];
+      const seen = new Set(items.map(it => [it && it.name, it && it.amount].join('|')));
+      (isPlain(stray) && Array.isArray(stray.items) ? stray.items : []).forEach(it => {
+        const key = [it && it.name, it && it.amount].join('|');
+        if(!seen.has(key)){ seen.add(key); items.push(it); }
+      });
+      const merged = Object.assign({}, r, {items});
+      ['payPeriod','covPeriod','renewable','proposalUrl'].forEach(m => { if(!merged[m] && isPlain(stray) && stray[m]) merged[m] = stray[m]; });
+      list = list || rec[f].slice(); list[i] = merged;
+      policies.splice(k, 1);
+      out = out || Object.assign({}, rec);
+      out[f] = list;
+    });
+  });
+  if(out) out.policies = policies;
+  return out;
+}
+
 // 이름만 있던 예전 데이터에 번호를 붙여요. 같은 이름 = 같은 번호라서 기기마다 따로 해도 결과가 같고,
 // 지금까지 묶여 있던 그대로 시작해요. 이미 번호가 있으면 아무것도 안 해요(여러 번 해도 안전).
 // 계약 객체는 건드리지 않고 새로 만들어요(다른 쪽 데이터와 객체를 같이 쓰고 있을 수 있어서).
@@ -878,6 +911,12 @@ function migratePeopleData(d){
       delete m[k]; changed = true;
     });
   });
+  if(isPlain(d.coverages)){
+    Object.keys(d.coverages).forEach(k => {
+      const folded = foldStrayExternalPolicies(d.coverages[k]);
+      if(folded){ d.coverages[k] = folded; changed = true; }
+    });
+  }
   return changed;
 }
 // </SYNC_CORE>
@@ -1465,7 +1504,7 @@ function renderList() {
         <td style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">${wonN(r.pr)}</td>
         <td>${gbadge(r.g)}</td>
         <td class="td-act" onclick="event.stopPropagation()">
-          ${r.proposalUrl?`<a href="${r.proposalUrl}" target="_blank" class="btn btn-secondary btn-sm" onclick="event.stopPropagation()" title="제안서 보기" style="text-decoration:none">📄</a>`:''}
+          ${proposalLinkHtml(r.proposalUrl, true)}
           <button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.id})" title="메모" style="position:relative">
             📝${MEMOS[r.id]?`<span style="position:absolute;top:-3px;right:-3px;width:7px;height:7px;border-radius:50%;background:var(--blue)"></span>`:''}
           </button>
@@ -1517,7 +1556,7 @@ function renderGroups() {
             <td>${r.co}</td><td>${r.n}</td>
             <td style="text-align:right">${wonN(r.pr)}</td>
             <td>${sbadge(r.s)}</td>
-            <td class="td-act"><button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.id})">✏️</button></td>
+            <td class="td-act">${proposalLinkHtml(r.proposalUrl)}<button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.id})">✏️</button></td>
           </tr>`).join('')}</tbody>
         </table>
       </div>
@@ -1590,7 +1629,7 @@ function renderCustomers() { try {
                   </td>
                   <td style="padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">${wonN(r.pr)}원</td>
                   <td style="padding:7px 10px;text-align:right">
-                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openEditModal(${r.id})">✏️</button>
+                    ${proposalLinkHtml(r.proposalUrl, true)}<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openEditModal(${r.id})">✏️</button>
                   </td>
                 </tr>`).join('')}
               </tbody>
@@ -1744,7 +1783,7 @@ function renderMonthly() {
                   </td>
                       <td style="padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">${wonN(r.pr)}원</td>
                       <td style="padding:7px 10px;text-align:right">
-                        <button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.id})">✏️</button>
+                        ${proposalLinkHtml(r.proposalUrl)}<button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.id})">✏️</button>
                       </td>
                     </tr>`).join('')}
                   </tbody>
@@ -1775,6 +1814,85 @@ function renderMonthly() {
 // ════════════════════════════════════════════════════════════
 let pendingProposalUrl = null; // 업로드 완료 후 저장 대기 URL
 
+// ── 제안서 파일 저장 (보장분석 PDF 분석·파일만 저장·계약 수정 화면 공통) ──────
+function safeDriveUrl(u){ return /^https:\/\/drive\.google\.com\//.test(String(u || '')) ? String(u) : ''; }
+function proposalLinkHtml(url, stopClick){                // 표 안의 📄 링크 (Drive 주소만 링크로 만들어요)
+  const u = safeDriveUrl(url);
+  return u ? `<a href="${esc(u)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm"${stopClick ? ' onclick="event.stopPropagation()"' : ''} title="제안서 보기" style="text-decoration:none">📄</a>` : '';
+}
+// 파일 이름이 겹쳐도 서로 지워지지 않게 날짜와 무작위 글자를 붙여요
+function proposalFileName(file){
+  const base = String((file && file.name) || '제안서').replace(/\.pdf$/i, '').slice(0, 60) || '제안서';
+  const a = new Uint8Array(3); crypto.getRandomValues(a);
+  return `${base}_${new Date().toISOString().slice(0, 10)}_${Array.from(a, b => b.toString(16).padStart(2, '0')).join('')}.pdf`;
+}
+async function storeProposalFile(base64, file, folderName){
+  const data = await serverCall('uploadFile', {base64, filename: proposalFileName(file), customerFolder: String(folderName || '미분류')});
+  if(!data || !data.ok) throw new Error((data && data.error) || '업로드 실패');
+  const url = safeDriveUrl(data.viewUrl);
+  if(!url) throw new Error('올바르지 않은 파일 주소가 돌아왔어요');
+  return url;
+}
+// 저장한 파일을 계약(또는 기존·외부 보험 기록)에 연결
+function attachProposalUrl(pid, polId, url){
+  if(CONTRACTS.some(r => r.id === polId)){
+    CONTRACTS = CONTRACTS.map(r => r.id === polId ? Object.assign({}, r, {proposalUrl: url}) : r);
+    return true;
+  }
+  const cv = COVERAGES[pid];
+  if(cv){
+    for(const f of ['externalPolicies', 'otherPolicies']){
+      const rec = (cv[f] || []).find(x => x && x.id === polId);
+      if(rec){ rec.proposalUrl = url; return true; }
+    }
+  }
+  return false;
+}
+function proposalUrlOf(contract){                           // 보장분석 구역: 실제 계약 또는 기존·외부 보험 기록의 파일 주소
+  return safeDriveUrl(contract && (contract._isOther ? (contract._pol && contract._pol.proposalUrl) : contract.proposalUrl));
+}
+// 버튼(onclick)에 id 를 넣을 때: 숫자는 그대로, 글자 id('ext_…')는 따옴표를 붙여요 (안 붙이면 변수 이름으로 읽혀 오류가 나요)
+function jsId(id){ return typeof id === 'number' ? String(id) : "'" + String(id).replace(/[^A-Za-z0-9_-]/g, '') + "'"; }
+// 계약별 담보 기록: 외부·기존 보험은 그 보험 기록 자체가, 일반 계약은 policies 항목이 담보를 가져요
+function polIn(cData, polId){
+  for(const f of ['externalPolicies', 'otherPolicies']){
+    const rec = ((cData && cData[f]) || []).find(x => x && x.id === polId);
+    if(rec){ if(!Array.isArray(rec.items)) rec.items = []; return rec; }
+  }
+  return ((cData && cData.policies) || []).find(p => p && p.id === polId) || null;
+}
+function getPol(pid, polId){                              // 없으면 만들어요
+  const found = polIn(COVERAGES[pid], polId);
+  if(found) return found;
+  if(!COVERAGES[pid]) COVERAGES[pid] = {policies: []};
+  if(!Array.isArray(COVERAGES[pid].policies)) COVERAGES[pid].policies = [];
+  const pol = {id: polId, items: []};
+  COVERAGES[pid].policies.push(pol);
+  return pol;
+}
+// 📎 파일만 저장: AI 분석 없이 파일만 저장해서 계약에 연결 (담보 내용은 바뀌지 않아요)
+async function attachProposalOnly(event, polId){
+  const file = event.target.files[0]; event.target.value = '';
+  if(!file) return;
+  if(file.size > 15*1024*1024){ showToast('❌ PDF가 너무 커요 (15MB 이하만 가능)'); return; }
+  if(!serverConfigured()){ showToast('⚙️ 파일을 저장하려면 먼저 서버 설정을 해주세요'); openServerSettings(); return; }
+  const customer = selectedCovCustomer;
+  showToast('⏳ 파일을 저장하는 중...');
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const url = await storeProposalFile(e.target.result.split(',')[1], file, personName(customer));
+      if(!attachProposalUrl(customer, polId, url)) throw new Error('연결할 계약을 찾지 못했어요');
+      persistLocal(); scheduleSave();
+      if(selectedCovCustomer === customer) renderCovDetail(customer);
+      showToast('✅ 제안서 파일을 저장하고 계약에 연결했어요');
+    } catch(err) {
+      showToast('❌ 파일 저장 실패: ' + err.message);
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
 function handleProposalUpload(event) {
   const file = event.target.files[0];
   if(!file) return;
@@ -1782,30 +1900,21 @@ function handleProposalUpload(event) {
   infoEl.textContent = '⏳ 업로드 중...';
   infoEl.style.color = 'var(--amber)';
 
-  // 고객명 가져오기 (계약자 + 가입자로 폴더 구성)
-  const holder = document.getElementById('f-holder')?.value?.trim() || '';
-  const person = document.getElementById('f-name')?.value?.trim()  || '';
-  const customerFolder = holder || person || '미분류';
+  // 폴더는 가입자(없으면 계약자) 이름 — 보장분석에서 올린 파일과 같은 폴더에 모여요
+  const folder = document.getElementById('f-insured')?.value?.trim() || document.getElementById('f-holder')?.value?.trim() || '미분류';
 
   const reader = new FileReader();
   reader.onload = async e => {
-    const base64   = e.target.result.split(',')[1];
-    const filename = `${file.name.replace(/\.pdf$/i,'')||'제안서'}_${new Date().toISOString().slice(0,10)}.pdf`;
     try {
-      const data = await serverCall('uploadFile', {base64, filename, customerFolder});
-      if(data.ok) {
-        const safeUrl = /^https:\/\/drive\.google\.com\//.test(data.viewUrl || '') ? data.viewUrl : '';
-        if(!safeUrl) throw new Error('올바르지 않은 파일 주소가 돌아왔어요');
-        pendingProposalUrl = safeUrl;
-        const a = document.createElement('a');
-        a.href = safeUrl; a.target = '_blank'; a.rel = 'noopener';
-        a.style.cssText = 'color:var(--blue);text-decoration:none';
-        a.textContent = `✅ ${file.name} (클릭하여 확인)`;
-        infoEl.textContent = ''; infoEl.appendChild(a);
-        showToast(`✅ Drive > 보험관리툴 > ${customerFolder} 폴더에 저장됐어요!`);
-      } else {
-        throw new Error(data.error||'업로드 실패');
-      }
+      const url = await storeProposalFile(e.target.result.split(',')[1], file, folder);
+      pendingProposalUrl = url;
+      const a = document.createElement('a');
+      a.href = url; a.target = '_blank'; a.rel = 'noopener';
+      a.style.cssText = 'color:var(--blue);text-decoration:none';
+      a.textContent = `✅ ${file.name} (클릭하여 확인)`;
+      infoEl.textContent = ''; infoEl.appendChild(a);
+      infoEl.style.color = '';
+      showToast(`✅ Drive > 보험관리툴 > 제안서 > ${folder} 폴더에 저장됐어요! 저장 버튼을 눌러야 이 계약에 연결돼요`);
     } catch(err) {
       infoEl.textContent = '❌ 업로드 실패: ' + err.message;
       infoEl.style.color = 'var(--red)';
@@ -1819,8 +1928,18 @@ function resetProposalField(existingUrl) {
   pendingProposalUrl = null;
   const infoEl = document.getElementById('proposal-info');
   if(!infoEl) return;
-  if(existingUrl) {
-    infoEl.innerHTML = `<a href="${existingUrl}" target="_blank" style="color:var(--blue);text-decoration:none;font-size:12px">📄 기존 제안서 보기</a> <span style="color:var(--muted);font-size:11px">| 새 파일 올리면 교체됩니다</span>`;
+  const url = safeDriveUrl(existingUrl);
+  infoEl.textContent = '';
+  if(url) {
+    const a = document.createElement('a');
+    a.href = url; a.target = '_blank'; a.rel = 'noopener';
+    a.style.cssText = 'color:var(--blue);text-decoration:none;font-size:12px';
+    a.textContent = '📄 기존 제안서 보기';
+    const sp = document.createElement('span');
+    sp.style.cssText = 'color:var(--muted);font-size:11px';
+    sp.textContent = ' | 새 파일 올리면 교체됩니다';
+    infoEl.appendChild(a); infoEl.appendChild(sp);
+    infoEl.style.color = '';
   } else {
     infoEl.textContent = '파일 없음';
     infoEl.style.color = 'var(--muted)';
@@ -2397,7 +2516,7 @@ function inlineEditCell(td) {
     // 현재 표시값: matrixView 우선, 없으면 원본 합산
     let rawTotal = 0;
     if(mode === 'edit') {
-      const pol = COVERAGES[cust]?.policies?.find(p=>p.id===parseInt(polid));
+      const pol = polIn(COVERAGES[cust], /^-?\d+$/.test(polid) ? parseInt(polid, 10) : polid);
       if(pol) rawTotal = (pol.items||[]).filter(it=>(normCovName(it.name)||it.name)===norm)
         .reduce((s,it)=>s+(parseFloat(it.amount)||0),0);
     }
@@ -2531,9 +2650,7 @@ function saveOtherPolicy() {
 }
 
 function updatePolMeta(customer, polId, field, value){
-  if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
-  let pol = COVERAGES[customer].policies.find(p=>p.id===polId);
-  if(!pol){pol={id:polId,items:[]};COVERAGES[customer].policies.push(pol);}
+  const pol = getPol(customer, polId);
   pol[field] = value;
   saveCoverages();
 }
@@ -2561,22 +2678,22 @@ function renderCovDetail(name){                          // name 은 가입자 �
       </thead>
       <tbody>
         ${allContracts.map((r,ri)=>{
-          const pol=(cData.policies||[]).find(p=>p.id===r.id)||{};
+          const pol=polIn(cData,r.id)||{};
           return`<tr style="background:${ri%2===0?'#F8FAFC':'#fff'}">
             <td style="padding:9px 12px;font-weight:600;color:#1E3A8A">${r.co}</td>
             <td style="padding:9px 12px;color:#374151">${r.n}</td>
             <td style="padding:9px 12px;color:#059669;font-weight:700">${wonN(r.pr)}원/월</td>
             <td style="padding:6px 8px">
               <input class="cov-input" value="${pol.payPeriod||''}" placeholder="예: 20년납"
-                onchange="updatePolMeta('${name}',${r.id},'payPeriod',this.value)">
+                onchange="updatePolMeta('${name}',${jsId(r.id)},'payPeriod',this.value)">
             </td>
             <td style="padding:6px 8px">
               <input class="cov-input" value="${pol.covPeriod||''}" placeholder="예: 100세"
-                onchange="updatePolMeta('${name}',${r.id},'covPeriod',this.value)">
+                onchange="updatePolMeta('${name}',${jsId(r.id)},'covPeriod',this.value)">
             </td>
             <td style="padding:6px 8px">
               <input class="cov-input" value="${pol.renewable||''}" placeholder="갱신/비갱신"
-                onchange="updatePolMeta('${name}',${r.id},'renewable',this.value)">
+                onchange="updatePolMeta('${name}',${jsId(r.id)},'renewable',this.value)">
             </td>
           </tr>`;
         }).join('')}
@@ -2737,10 +2854,11 @@ function renderCovDetail(name){                          // name 은 가입자 �
 
   const policySections = allContracts.map(contract=>{
     const polId = contract.id;
-    const pol = (cData.policies||[]).find(p=>p.id===polId) || {id:polId, items:[]};
+    const pol = polIn(cData, polId) || {id:polId, items:[]};
     const items = pol.items||[];
     const safeCoName = contract.co.replace(/'/g,"\\'");
     const safeN = contract.n.replace(/'/g,"\\'");
+    const pUrl = proposalUrlOf(contract);
 
     return`<div class="cov-policy">
       <div class="cov-policy-hdr">
@@ -2749,9 +2867,14 @@ function renderCovDetail(name){                          // name 은 가입자 �
           <div style="font-weight:600;font-size:14px">${contract.co} · ${contract.n}</div>
           <div style="font-size:12px;color:var(--muted)">월 ${wonN(contract.pr)}원 · ${contract.d}</div>
         </div>
-        <label class="btn btn-secondary btn-sm" style="cursor:pointer;position:relative">
+        ${pUrl?`<a href="${esc(pUrl)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" style="text-decoration:none" title="저장된 제안서 열기">📄 제안서 보기</a>`:''}
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer" title="AI 분석 없이 파일만 저장해서 이 계약에 연결해요 (담보 내용은 바뀌지 않아요)">
+          📎 파일만 저장
+          <input type="file" accept=".pdf" onchange="attachProposalOnly(event,${jsId(polId)})" style="display:none">
+        </label>
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;position:relative" title="AI로 담보를 분석하고, 파일도 Drive에 저장해서 이 계약에 연결해요">
           📄 PDF 분석
-          <input type="file" accept=".pdf" onchange="handlePDFUpload(event,${polId},'${safeCoName}','${safeN}')" style="display:none">
+          <input type="file" accept=".pdf" onchange="handlePDFUpload(event,${jsId(polId)},'${safeCoName}','${safeN}')" style="display:none">
         </label>
       </div>
       <div id="cov-items-${polId}">
@@ -2760,13 +2883,13 @@ function renderCovDetail(name){                          // name 은 가입자 �
         </div>
         ${items.map((item,idx)=>`
           <div class="cov-item-row">
-            <input class="cov-input" value="${item.name||''}" onchange="updateCovItem('${name}',${polId},${idx},'name',this.value)" placeholder="담보명">
-            <input class="cov-input" type="number" value="${item.amount||''}" onchange="updateCovItem('${name}',${polId},${idx},'amount',this.value)" placeholder="0">
-            <input class="cov-input" value="${item.unit||'만원'}" onchange="updateCovItem('${name}',${polId},${idx},'unit',this.value)">
-            <button style="border:none;background:none;color:var(--red);cursor:pointer;font-size:14px" onclick="removeCovItem('${name}',${polId},${idx})">✕</button>
+            <input class="cov-input" value="${item.name||''}" onchange="updateCovItem('${name}',${jsId(polId)},${idx},'name',this.value)" placeholder="담보명">
+            <input class="cov-input" type="number" value="${item.amount||''}" onchange="updateCovItem('${name}',${jsId(polId)},${idx},'amount',this.value)" placeholder="0">
+            <input class="cov-input" value="${item.unit||'만원'}" onchange="updateCovItem('${name}',${jsId(polId)},${idx},'unit',this.value)">
+            <button style="border:none;background:none;color:var(--red);cursor:pointer;font-size:14px" onclick="removeCovItem('${name}',${jsId(polId)},${idx})">✕</button>
           </div>`).join('')}
         <div style="padding:8px 14px">
-          <button class="btn btn-secondary btn-sm" onclick="addCovItem('${name}',${polId})">＋ 담보 추가</button>
+          <button class="btn btn-secondary btn-sm" onclick="addCovItem('${name}',${jsId(polId)})">＋ 담보 추가</button>
         </div>
       </div>
     </div>`;
@@ -2828,25 +2951,21 @@ function renderCovDetail(name){                          // name 은 가입자 �
 }
 
 function updateCovItem(customer, polId, idx, field, value){
-  if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
-  let pol = COVERAGES[customer].policies.find(p=>p.id===polId);
-  if(!pol){pol={id:polId,items:[]};COVERAGES[customer].policies.push(pol);}
+  const pol = getPol(customer, polId);
   if(!pol.items[idx]) pol.items[idx]={};
   pol.items[idx][field] = value;
   saveCoverages();
 }
 
 function addCovItem(customer, polId){
-  if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
-  let pol = COVERAGES[customer].policies.find(p=>p.id===polId);
-  if(!pol){pol={id:polId,items:[]};COVERAGES[customer].policies.push(pol);}
+  const pol = getPol(customer, polId);
   pol.items.push({name:'',amount:'',unit:'만원'});
   saveCoverages();
   renderCovDetail(customer);
 }
 
 function removeCovItem(customer, polId, idx){
-  const pol = COVERAGES[customer]?.policies?.find(p=>p.id===polId);
+  const pol = polIn(COVERAGES[customer], polId);
   if(!pol) return;
   pol.items.splice(idx,1);
   saveCoverages();
@@ -2983,6 +3102,11 @@ async function handlePDFUpload(event, polId, coName, prodName){
   const reader = new FileReader();
   reader.onload = async e => {
     const base64 = e.target.result.split(',')[1];
+    // 파일 저장은 분석과 동시에 진행해요 (저장이 실패해도 분석은 계속, 분석이 실패해도 저장된 파일은 계약에 연결)
+    const storing = !serverConfigured()
+      ? Promise.resolve({skipped: true})
+      : storeProposalFile(base64, file, personName(customer)).then(url => ({url}), err => ({err}));
+    let analysisErr = null, count = 0;
     try {
       const prompt = `이 보험 제안서에서 정보를 추출해주세요.
 반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만:
@@ -3014,22 +3138,29 @@ async function handlePDFUpload(event, polId, coName, prodName){
         parsed = merged;
       }
 
-      if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
-      let pol = COVERAGES[customer].policies.find(p=>p.id===polId);
-      if(!pol){pol={id:polId,items:[]};COVERAGES[customer].policies.push(pol);}
+      const pol = getPol(customer, polId);
       pol.items = (Array.isArray(parsed.items) ? parsed.items : []).filter(it=>it && typeof it==='object').slice(0,300).map(it=>({
         name: cleanAI(it.name), amount: Number(it.amount)||0, unit: cleanAI(it.unit||'만원', 10), price: Number(it.price)||0
       }));
       if(parsed.payPeriod) pol.payPeriod = cleanAI(parsed.payPeriod, 40);
       if(parsed.covPeriod) pol.covPeriod = cleanAI(parsed.covPeriod, 40);
       if(parsed.renewable) pol.renewable = cleanAI(parsed.renewable, 40);
-      saveCoverages();
-      renderCovDetail(customer);
-      showToast(`✅ ${pol.items.length}개 담보 추출 완료!`);
+      count = pol.items.length;
     } catch(err) {
+      analysisErr = err;
       console.error('PDF 분석 실패:', err);
-      showToast('❌ 분석 실패: ' + err.message);
     }
+    const st = await storing;
+    let fileNote = '';
+    if(st.url){ attachProposalUrl(customer, polId, st.url); fileNote = '제안서 파일도 저장했어요'; }
+    else if(st.skipped) fileNote = '⚠️ 서버 설정이 없어서 파일은 저장하지 못했어요 (⚙️)';
+    else if(st.err) fileNote = '⚠️ 파일 저장 실패: ' + st.err.message;
+    if(!analysisErr) saveCoverages();
+    else if(st.url){ persistLocal(); scheduleSave(); }
+    if(selectedCovCustomer === customer) renderCovDetail(customer);
+    showToast(analysisErr
+      ? `❌ 분석 실패: ${analysisErr.message}${fileNote ? ' — ' + fileNote : ''}`
+      : `✅ ${count}개 담보 추출 완료!${fileNote ? ' ' + fileNote : ''}`);
   };
   reader.readAsDataURL(file);
   event.target.value='';
