@@ -91,7 +91,8 @@
 ## 배포
 
 - 앱: `index.html` 을 GitHub 에 올리면 끝. 사용자에게 PC·폰 모두 강력 새로고침을 안내한다 (옛 화면이 남은 기기가 옛 형식 데이터를 다시 올릴 수 있음).
-- 서버: `Code.gs` 를 Apps Script 편집기에 붙여 넣고 **배포 → 배포 관리 → 연필 → 새 버전** (주소·키 그대로). 보안 설정을 처음 할 때만 "새 배포" + `createSecretKey` + 옛 배포 보관.
+- 서버: `apps-script/` 에서 clasp 로 배포한다 (주소·키 그대로). `clasp push` → `clasp version "설명"` → `clasp list-deployments` 에서 `@HEAD` 가 아닌 배포 id 로 `clasp redeploy <id> -V <새 버전> -d "설명"`. 배포 전에 `clasp pull` 을 다른 폴더에 받아 편집기 쪽 코드와 저장소 코드가 같은지 먼저 확인한다. `apps-script/.clasp.json`(스크립트 id)은 이 기기에만 있고 git 에 안 올린다.
+- 편집기로 할 때: `Code.gs` 를 붙여 넣고 **배포 → 배포 관리 → 연필 → 새 버전**. 보안 설정을 처음 할 때만 "새 배포" + `createSecretKey` + 옛 배포 보관.
 - 서버 변경이 포함되면 **서버를 먼저** 배포하고 앱을 올린다.
 - 배포 후 확인: 새 주소를 브라우저로 열면 `{"ok":false,"error":"POST로만 사용할 수 있어요."}` 한 줄.
 
