@@ -12,6 +12,12 @@ const monthly=[{m:'26.01',k:2,before:1000000,after:900000,tax:0,memo:''},{m:'26.
 console.log('A) 시작·렌더링 (서버 설정 없음)');
 const D=makeDevice({ls:{ins_contracts:JSON.stringify(contracts),ins_monthly:JSON.stringify(monthly),ins_groups:JSON.stringify({'가족A':'#3B5BDB','가족B':'#C2255C','지인들':'#868E96'}),ins_coverages:JSON.stringify(cov),ins_memos:JSON.stringify(memos)},session:{ins_unlocked:'1'}});
 ok(D.errors.length===0,'스크립트 로드 오류 없음 '+D.errors.join('|'));
+{ const hdr=(html.match(/<div class="hdr-links">[\s\S]*?<\/div>/)||[''])[0];
+  ok(/href="https:\/\/s2ongrae\.github\.io\/"[^>]*>[^<]*<span>포털/.test(hdr),'상단에 포털 링크');
+  ok(/href="https:\/\/s2ongrae\.github\.io\/gaegyebu"[^>]*>[^<]*<span>가계부/.test(hdr),'상단에 가계부 링크');
+  ok((hdr.match(/rel="noopener"/g)||[]).length===2,'새 탭 링크는 rel=noopener');
+  const app=html.indexOf('<div id="app-wrap"'), cust=html.indexOf('<div class="hdr-links">');
+  ok(app>0 && cust>app,'링크는 app-wrap 안에 있어서 고객 전용 화면에는 안 보임'); }
 const tabs=[['리스트','list-results'],['그룹별','pane-그룹별'],['고객별','pane-고객별'],['월별','pane-월별'],['보장분석','pane-보장분석']];
 for(const [t,id] of tabs){
   try{ D.run(`currentTab='${t}'; renderTab('${t}')`); ok(D.el(id).innerHTML.length>200, `${t} 탭 렌더링 (${D.el(id).innerHTML.length}자)`); }

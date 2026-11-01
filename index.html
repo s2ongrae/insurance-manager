@@ -26,6 +26,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans
 .hdr-logo{font-size:15px;font-weight:700;letter-spacing:-.3px}
 .hdr-logo span{color:var(--blue)}
 .hdr-right{display:flex;gap:8px}
+.hdr-links{display:flex;gap:6px;margin-left:6px}
+.hdr-link{display:flex;align-items:center;gap:5px;padding:5px 11px;background:var(--bg);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--muted);font-size:12px;font-weight:600;white-space:nowrap;transition:all .15s}
+.hdr-link:hover{border-color:var(--blue);background:var(--blue-l);color:var(--blue)}
+@media(max-width:700px){.hdr-link span{display:none}.hdr-link{padding:5px 8px}}
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s}
 .btn-primary{background:var(--blue);color:#fff}
 .btn-primary:hover{background:#2f4ac5}
@@ -289,6 +293,10 @@ if(_viewHash.startsWith('#view=')) {
 <div class="hdr">
   <div class="hdr-left">
     <div class="hdr-logo">🏦 <span>보험 고객 관리</span></div>
+    <div class="hdr-links">
+      <a class="hdr-link" href="https://s2ongrae.github.io/" target="_blank" rel="noopener" title="포털로 가기">🏠 <span>포털</span></a>
+      <a class="hdr-link" href="https://s2ongrae.github.io/gaegyebu" target="_blank" rel="noopener" title="가계부로 가기">📒 <span>가계부</span></a>
+    </div>
     <span style="font-size:11px;color:var(--hint);background:var(--surface2);padding:2px 8px;border-radius:20px">김성래</span>
     <span id="sync-status" style="margin-left:4px"><span style="color:var(--muted);font-size:12px">☁️ 연결 중...</span></span>
   </div>
