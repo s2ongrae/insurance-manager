@@ -53,7 +53,7 @@ const fix=JSON.parse(S.dataFile().content); fix.settings=srv.settings; S.dataFil
 console.log('D) 백업 파일 → 복원 왕복 (실제 💾 / 📂 함수)');
 await A.run('syncNow()');
 A.run('exportData()'); const dl=A.downloads[A.downloads.length-1]; const bak=JSON.parse(dl.text);
-ok(Object.keys(bak).sort().join()==='contracts,coverages,exportedAt,groups,memos,monthly,settings,shares,version','백업 파일에 모든 데이터 포함: '+Object.keys(bak).sort().join(','));
+ok(Object.keys(bak).sort().join()==='contracts,coverages,exportedAt,groups,memos,monthly,reminders,settings,shares,version','백업 파일에 모든 데이터 포함: '+Object.keys(bak).sort().join(','));
 ok(bak.settings.covGroups.list.length===3&&Object.keys(bak.coverages).length===2&&bak.memos['7']==='메모7','그룹 설정·보장분석·메모가 실제 값으로 들어 있음');
 const snapshot=A.get('({c:CONTRACTS,m:MONTHLY,g:GROUPS,v:COVERAGES,o:MEMOS,s:SHARES,t:SETTINGS})');
 A.run(`CONTRACTS=[]; MONTHLY=[]; GROUPS={}; COVERAGES={}; MEMOS={}; SETTINGS={}; SHARES={}`);   // 데이터가 모두 날아간 상황

@@ -94,6 +94,7 @@ try{
   ok(/\[style\*="font-size:11px"\]\{font-size:12px!important\}/.test(html),'인라인 9~11px 글자를 12px 로 올리는 규칙');
   ok(/\.mo-charts\{grid-template-columns:minmax\(0,1fr\);/.test(html.replace(/\s+/g,''))&&/class="mo-charts"/.test(html),'폰에서 월별 차트 두 개를 세로로');
   ok(/\.gmeta\{order:5;flex-basis:100%/.test(html),'폰 그룹 머리줄: 건수 설명을 둘째 줄로 (이름이 세로로 쪼개지던 문제)');
+  ok(/id="filter-btn"[^>]*white-space:nowrap;flex-shrink:0/.test(html)&&/#list-search-area \.search-w\{min-width:0\}/.test(html),'폰 검색줄: "필터" 글자가 세로로 깨지지 않고 화면 안에 들어옴');
 }catch(e){ ok(false,'H 오류: '+e.message); }
 console.log(`\n스모크 테스트: ${pass}건 통과, ${fail}건 실패`); process.exit(fail?1:0);
 })();

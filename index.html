@@ -185,6 +185,7 @@ thead th,.kpi-label,.kpi-sub,.cov-cust-cnt,.garr,.b-done,.b-cancel,.b-pending,.g
 .kpi-label,thead th,.chart-title{text-transform:none;letter-spacing:0}
 .mo-charts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-bottom:14px}
 .stat{min-width:0}.stat-v{word-break:keep-all}
+.ctrl .btn{white-space:nowrap;flex-shrink:0}
 @media(max-width:700px){
   .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
   .kpi{padding:10px 12px}.kpi-val{font-size:18px}
@@ -196,7 +197,28 @@ thead th,.kpi-label,.kpi-sub,.cov-cust-cnt,.garr,.b-done,.b-cancel,.b-pending,.g
   .mo-charts{grid-template-columns:minmax(0,1fr);gap:10px}
   .stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .stat-v{font-size:13px}
+  #list-search-area{padding:12px 0 0!important}
+  #list-search-area .search-w{min-width:0}
 }
+
+/* 알림 */
+.rem-badge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--red);color:#fff;font-size:12px;font-weight:700;line-height:18px;text-align:center}
+.rem-banner{display:flex;align-items:center;gap:10px;padding:10px 14px;margin-bottom:14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:var(--radius);font-size:13px;color:#991B1B;cursor:pointer}
+.rem-banner b{font-size:14px}
+.rem-form{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.rem-form-row{display:flex;gap:8px;flex-wrap:wrap}
+.rem-in{padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text);font-family:inherit;width:100%;outline:none}
+.rem-form-row .rem-in{width:auto}
+.rem-sec{font-size:13px;font-weight:700;margin:14px 0 6px;display:flex;align-items:center;gap:6px}
+.rem-item{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;background:var(--surface)}
+.rem-item.due{border-color:#FECACA;background:#FEF2F2}
+.rem-item.ms{border-color:#BFDBFE;background:var(--blue-l)}
+.rem-when{flex:0 0 74px;font-size:13px;font-weight:700;line-height:1.3}
+.rem-when small{display:block;font-size:12px;font-weight:600}
+.rem-body{flex:1;min-width:0;font-size:13px;line-height:1.5;word-break:break-word;white-space:pre-wrap}
+.rem-body .sub{display:block;font-size:12px;color:var(--muted);white-space:normal}
+.rem-act{display:flex;gap:4px;flex-shrink:0}
+.rem-empty{text-align:center;color:var(--hint);font-size:13px;padding:16px}
 
 /* 보장분석 가독성 — 남색 머리줄 표, 요약 카드, 폰 카드 보기 */
 .ntbl thead th{background:#1E3A8A;color:#fff;text-transform:none;letter-spacing:0;font-size:12px;cursor:default;border-bottom:none}
@@ -356,6 +378,7 @@ if(_viewHash.startsWith('#view=')) {
     <span id="sync-status" style="margin-left:4px"><span style="color:var(--muted);font-size:12px">☁️ 연결 중...</span></span>
   </div>
   <div class="hdr-right">
+    <button class="btn btn-secondary" onclick="openReminders()" title="날짜 알림 · 2년 1개월 도래" style="position:relative">🔔 알림<span id="rem-badge" class="rem-badge" style="display:none"></span></button>
     <button class="btn btn-secondary" onclick="openServerSettings()" title="서버 주소·비밀 키 설정">⚙️ 서버</button>
     <button class="btn btn-secondary" onclick="manualSync()" title="지금 즉시 저장">🔄 동기화</button>
     <button class="btn btn-secondary" onclick="exportData()" title="데이터 백업">💾 백업</button>
@@ -369,6 +392,7 @@ if(_viewHash.startsWith('#view=')) {
 </div>
 
 <div class="main">
+<div id="rem-banner" class="rem-banner" style="display:none"></div>
   <div class="kpi-grid" id="kpis"></div>
   <div class="tabs">
     <button class="tab on" onclick="switchTab('리스트',this)">📋 계약 리스트</button>
@@ -390,7 +414,7 @@ if(_viewHash.startsWith('#view=')) {
         </div>
         <button class="btn btn-primary btn-sm" onclick="sq=document.getElementById('sq-inp').value;renderList()" style="white-space:nowrap">🔍 검색</button>
         <button class="btn btn-secondary btn-sm" onclick="sq='';document.getElementById('sq-inp').value='';renderList()" title="초기화">✕</button>
-        <button class="btn btn-secondary" id="filter-btn" onclick="toggleFilterPanel()">⚙️ 필터</button>
+        <button class="btn btn-secondary" id="filter-btn" onclick="toggleFilterPanel()" style="white-space:nowrap;flex-shrink:0">⚙️ 필터</button>
       </div>
       <div id="filter-area" style="display:none;margin-top:8px"></div>
     </div>
@@ -400,6 +424,31 @@ if(_viewHash.startsWith('#view=')) {
   <div id="pane-고객별" class="pane"></div>
   <div id="pane-월별" class="pane"></div>
   <div id="pane-보장분석" class="pane"></div>
+</div>
+
+<!-- 날짜 알림 모달 -->
+<div class="overlay" id="modal-reminders">
+<div class="modal" style="max-width:560px">
+  <div class="modal-header">
+    <div class="modal-title">🔔 알림</div>
+    <button class="modal-close" onclick="closeModal('reminders')">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="rem-form">
+      <div class="rem-form-row">
+        <input type="date" id="rem-date" class="rem-in" style="flex:0 0 150px">
+        <select id="rem-cid" class="rem-in" style="flex:1;min-width:0"><option value="">계약 연결 없음</option></select>
+      </div>
+      <textarea id="rem-memo" class="rem-in" rows="2" placeholder="메모 (예: 갱신 안내 전화, 서류 받기)" maxlength="300"></textarea>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-primary btn-sm" onclick="addReminder()">＋ 알림 추가</button>
+        <span style="flex:1"></span>
+        <button class="btn btn-secondary btn-sm" id="rem-notify-btn" onclick="enableDeviceNotify()">📲 이 기기 알림 켜기</button>
+      </div>
+    </div>
+    <div id="rem-list"></div>
+  </div>
+</div>
 </div>
 
 <!-- 청구 서류 안내 모달 -->
@@ -600,7 +649,8 @@ if(_viewHash.startsWith('#view=')) {
       </div>
       <div class="form-field">
         <label>가입일 (YY.MM.DD)</label>
-        <input type="text" id="f-date" placeholder="예: 26.05.20">
+        <input type="text" id="f-date" placeholder="예: 26.05.20" oninput="updateMilestoneHint()">
+        <div id="f-milestone" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
       </div>
       <div class="form-field" id="f-enddate-wrap" style="display:none">
         <label>해지일 (YY.MM.DD)</label>
@@ -744,7 +794,7 @@ function setSyncStatus(status, msg) {
 
 // <SYNC_CORE>
 // ── 병합 핵심 (화면·저장소와 무관한 순수 함수) ──────────────
-const SYNC_COLLECTIONS = ['contracts','monthly','groups','coverages','memos','shares','settings'];
+const SYNC_COLLECTIONS = ['contracts','monthly','groups','coverages','memos','shares','settings','reminders'];
 const isSafeKey = k => k !== '__proto__' && k !== 'constructor' && k !== 'prototype';
 const isPlain   = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 
@@ -786,7 +836,7 @@ function toMaps(d, strict){
     if(k in m.monthly) k = k + '#' + i;
     m.monthly[k] = x;
   });
-  [['groups','s'],['coverages','o'],['memos','s'],['shares','s'],['settings','o']].forEach(([col, t]) => {
+  [['groups','s'],['coverages','o'],['memos','s'],['shares','s'],['settings','o'],['reminders','o']].forEach(([col, t]) => {
     const src = isPlain(d[col]) ? d[col] : {};
     Object.keys(src).forEach(k => {
       if(!isSafeKey(k)) return;
@@ -803,7 +853,8 @@ function fromMaps(m){
   return {
     contracts: vals('contracts').sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0)),
     monthly:   vals('monthly').sort((a, b) => String(a.m).localeCompare(String(b.m))),
-    groups: obj('groups'), coverages: obj('coverages'), memos: obj('memos'), shares: obj('shares'), settings: obj('settings')
+    groups: obj('groups'), coverages: obj('coverages'), memos: obj('memos'), shares: obj('shares'), settings: obj('settings'),
+    reminders: obj('reminders')
   };
 }
 const normalizeData = d => fromMaps(toMaps(d, false));
@@ -1002,18 +1053,19 @@ async function serverCall(action, payload){
 
 // ── 이 기기의 상태 ────────────────────────────────────────
 function collectLocal(){
-  return {contracts:CONTRACTS, monthly:MONTHLY, groups:GROUPS, coverages:COVERAGES, memos:MEMOS, shares:SHARES, settings:SETTINGS, tombstones:TOMBS};
+  return {contracts:CONTRACTS, monthly:MONTHLY, groups:GROUPS, coverages:COVERAGES, memos:MEMOS, shares:SHARES, settings:SETTINGS, reminders:REMINDERS, tombstones:TOMBS};
 }
 function persistLocal(){
   save('ins_contracts', CONTRACTS); save('ins_monthly', MONTHLY); save('ins_groups', GROUPS);
   save('ins_coverages', COVERAGES); save('ins_memos', MEMOS);   save('ins_shares', SHARES);
-  save('ins_tombs', TOMBS); save('ins_settings', SETTINGS);
+  save('ins_tombs', TOMBS); save('ins_settings', SETTINGS); save('ins_reminders', REMINDERS);
 }
 function applyData(d){
   CONTRACTS = d.contracts; MONTHLY = d.monthly; GROUPS = d.groups;
   COVERAGES = d.coverages; MEMOS = d.memos;     SHARES = d.shares;
   TOMBS = normTombs(d.tombstones);
   SETTINGS = isPlain(d.settings) ? d.settings : {};
+  REMINDERS = isPlain(d.reminders) ? d.reminders : {};
   refreshCovGroups();
   { const pd = {contracts:CONTRACTS, coverages:COVERAGES, shares:SHARES}; migratePeopleData(pd);
     CONTRACTS = pd.contracts; COVERAGES = pd.coverages; SHARES = pd.shares; }   // 예전 형식이 들어와도 번호 기준으로
@@ -1408,6 +1460,8 @@ let MONTHLY   = load('ins_monthly',   DEFAULT_MONTHLY);
 let MEMOS     = load('ins_memos',     {});  // 계약별 메모 {contractId: string}
 let SHARES    = load('ins_shares',    {});  // 고객 링크 토큰 {고객이름: 토큰}
 let TOMBS     = load('ins_tombs',     {});  // 삭제 기록 {컬렉션: {키: 시각}}
+let REMINDERS = load('ins_reminders', {});  // 날짜 알림 {id: {id, date:'YYYY-MM-DD', memo, done, cid, at}}
+if(!isPlain(REMINDERS)) REMINDERS = {};
 let GROUPS    = load('ins_groups',    DEFAULT_GROUPS);
 
 // Ensure nextId
@@ -1418,6 +1472,63 @@ let nextId = Math.max(...CONTRACTS.map(c=>c.id||0), 0) + 1;
 // ════════════════════════════════════════════════════════════
 const won   = n => (n||0).toLocaleString('ko-KR') + '원';
 const wonN  = n => (n||0).toLocaleString('ko-KR');
+
+// ── 날짜 · 2년 1개월 시점 · 알림 ─────────────────────────
+const pad2 = n => String(n).padStart(2,'0');
+function parseYMD(s){                                   // 'YY.MM.DD' 또는 'YYYY-MM-DD' → Date (없는 날짜는 null)
+  const m = String(s||'').trim().match(/^(\d{2}|\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})$/);
+  if(!m) return null;
+  const y = m[1].length===2 ? 2000+Number(m[1]) : Number(m[1]), mo = Number(m[2])-1, d = Number(m[3]);
+  const dt = new Date(y, mo, d);
+  return (dt.getFullYear()===y && dt.getMonth()===mo && dt.getDate()===d) ? dt : null;
+}
+const fmtYMD = dt => `${String(dt.getFullYear()).slice(2)}.${pad2(dt.getMonth()+1)}.${pad2(dt.getDate())}`;
+const isoDay = dt => `${dt.getFullYear()}-${pad2(dt.getMonth()+1)}-${pad2(dt.getDate())}`;
+function addMonthsClamp(dt, n){                         // 1월 31일 + 1개월 → 2월 말일 (다음 달로 넘어가지 않게)
+  const y = dt.getFullYear(), m = dt.getMonth()+n;
+  const last = new Date(y, m+1, 0).getDate();
+  return new Date(y, m, Math.min(dt.getDate(), last));
+}
+const todayStart = () => { const t = new Date(); return new Date(t.getFullYear(), t.getMonth(), t.getDate()); };
+const daysUntil = dt => Math.round((dt - todayStart()) / 86400000);
+const ddayLabel = n => n > 0 ? `D-${n}` : n === 0 ? 'D-DAY' : `${-n}일 지남`;
+const MILESTONE_MONTHS = 25;                            // 가입일로부터 2년 1개월
+function milestoneOf(r){                                // 계약완료 계약의 2년 1개월 시점
+  if(!r || r.s !== '계약완료') return null;
+  const st = parseYMD(r.d); if(!st) return null;
+  const dt = addMonthsClamp(st, MILESTONE_MONTHS);
+  return {date: dt, label: fmtYMD(dt), days: daysUntil(dt)};
+}
+function milestoneCell(r){
+  const m = milestoneOf(r); if(!m) return '<span style="color:var(--hint)">-</span>';
+  const col = m.days < 0 ? 'var(--hint)' : m.days <= 30 ? 'var(--red)' : 'var(--muted)';
+  return `<span style="white-space:nowrap">${m.label}</span>${m.days >= 0 && m.days <= 60 ? ` <span style="font-size:12px;font-weight:700;color:${col}">${ddayLabel(m.days)}</span>` : m.days < 0 ? ' <span style="font-size:12px;color:var(--green)">✓</span>' : ''}`;
+}
+// 알림 목록: 직접 넣은 날짜 알림 + 2년 1개월이 30일 안으로 다가온 계약
+function reminderBuckets(){
+  const items = Object.values(REMINDERS).filter(x => isPlain(x) && parseYMD(x.date));
+  const withD = items.map(x => ({...x, _d: parseYMD(x.date), _days: daysUntil(parseYMD(x.date))})).sort((a,b) => a._d - b._d);
+  const due  = withD.filter(x => !x.done && x._days <= 0);
+  const soon = withD.filter(x => !x.done && x._days > 0);
+  const done = withD.filter(x => x.done).reverse();
+  const ms = CONTRACTS.map(r => ({r, m: milestoneOf(r)})).filter(x => x.m && x.m.days >= -7 && x.m.days <= 30).sort((a,b) => a.m.date - b.m.date);
+  return {due, soon, done, ms};
+}
+function reminderBadgeCount(){
+  const b = reminderBuckets();
+  return b.due.length + b.ms.filter(x => x.m.days >= 0 && x.m.days <= 7).length;
+}
+function updateMilestoneHint(){                        // 계약 창: 가입일을 넣으면 2년 1개월 날짜를 바로 보여줌
+  const el = document.getElementById('f-milestone'); if(!el) return;
+  const st = parseYMD(document.getElementById('f-date').value);
+  if(!st){ el.textContent = ''; return; }
+  const dt = addMonthsClamp(st, MILESTONE_MONTHS);
+  el.textContent = `📅 2년 1개월: ${fmtYMD(dt)} (${ddayLabel(daysUntil(dt))})`;
+}
+function contractLabel(id){
+  const r = CONTRACTS.find(c => String(c.id) === String(id));
+  return r ? `${r.c} · ${r.co} ${r.n}` : '';
+}
 const wonAxis = n => {
   if(n>=10000000) return (n/10000000).toFixed(1)+'천만';
   if(n>=1000000) return (n/10000).toFixed(0)+'만';
@@ -1549,19 +1660,20 @@ function renderList() {
     <div class="tbl-wrap">
     <table>
       <thead><tr>
-        ${H('s','상태')}${H('d','가입일')}${H('c','계약자')}${H('p','가입자')}
+        ${H('s','상태')}${H('d','가입일')}<th title="가입일로부터 2년 1개월이 되는 날">2년 1개월</th>${H('c','계약자')}${H('p','가입자')}
         ${H('co','보험회사')}${H('n','보험명')}${H('pr','월보험료')}${H('g','그룹')}<th>편집</th>
       </tr></thead>
       <tbody>${d.length?d.map(r=>`<tr onclick="openEditModal(${r.id})" style="cursor:pointer">
         <td>${sbadge(r.s)}</td>
         <td style="color:var(--muted);font-size:12px;white-space:nowrap">
-          ${r.d}${r.s==='계약해지'&&r.ed?`<br><span style="color:var(--red);font-size:11px">→ ${r.ed}</span>`:''}
+          ${esc(r.d)}${r.s==='계약해지'&&r.ed?`<br><span style="color:var(--red);font-size:11px">→ ${esc(r.ed)}</span>`:''}
         </td>
-        <td style="font-weight:600;white-space:nowrap">${r.c}</td>
-        <td style="color:var(--muted);white-space:nowrap">${r.p}</td>
-        <td style="white-space:nowrap">${r.co}</td>
+        <td style="color:var(--muted);font-size:12px">${milestoneCell(r)}</td>
+        <td style="font-weight:600;white-space:nowrap">${esc(r.c)}</td>
+        <td style="color:var(--muted);white-space:nowrap">${esc(r.p)}</td>
+        <td style="white-space:nowrap">${esc(r.co)}</td>
         <td>
-          <div style="font-weight:500">${r.n}</div>
+          <div style="font-weight:500">${esc(r.n)}</div>
           ${MEMOS[r.id]?`<div style="font-size:11px;color:#3B82F6;margin-top:3px;font-weight:400">${esc(MEMOS[r.id].split('\n')[0])}</div>`:''}
         </td>
         <td style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">${wonN(r.pr)}</td>
@@ -1611,11 +1723,12 @@ function renderGroups() {
       </div>
       <div class="gtbl" id="gt-${id}">
         <table>
-          <thead><tr>${['계약자','가입자','가입일','보험회사','보험명','월보험료','상태',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+          <thead><tr>${['계약자','가입자','가입일','2년 1개월','보험회사','보험명','월보험료','상태',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
           <tbody>${rows.map(r=>`<tr>
             <td style="font-weight:600">${esc(r.c)}</td>
             <td style="color:var(--muted)">${esc(r.p)}</td>
             <td style="color:var(--muted);font-size:12px">${esc(r.d)}</td>
+            <td style="color:var(--muted);font-size:12px">${milestoneCell(r)}</td>
             <td>${esc(r.co)}</td><td>${esc(r.n)}</td>
             <td style="text-align:right">${wonN(r.pr)}</td>
             <td>${sbadge(r.s)}</td>
@@ -2040,7 +2153,7 @@ function openAddModal() {
   document.getElementById('modal-title').textContent = '새 계약 추가';
   document.getElementById('edit-id').value = '';
   document.getElementById('f-status').value = '계약완료';
-  document.getElementById('f-date').value = '';
+  document.getElementById('f-date').value = ''; updateMilestoneHint();
   document.getElementById('f-end-date').value = '';
   document.getElementById('f-enddate-wrap').style.display = 'none';
   document.getElementById('f-holder').value = '';
@@ -2062,7 +2175,7 @@ function openEditModal(id) {
   document.getElementById('modal-title').textContent = `계약 수정 — ${r.c}`;
   document.getElementById('edit-id').value = id;
   document.getElementById('f-status').value = r.s;
-  document.getElementById('f-date').value = r.d;
+  document.getElementById('f-date').value = r.d; updateMilestoneHint();
   document.getElementById('f-end-date').value = r.ed || '';
   document.getElementById('f-enddate-wrap').style.display = r.s==='계약해지'?'block':'none';
   document.getElementById('f-holder').value = r.c;
@@ -2216,6 +2329,117 @@ function saveIncome() {
 // ════════════════════════════════════════════════════════════
 
 
+// ════════════════════════════════════════════════════════════
+// 날짜 알림 (직접 넣은 날짜·메모 + 2년 1개월 도래)
+// ════════════════════════════════════════════════════════════
+function openReminders(){
+  const sel = document.getElementById('rem-cid');
+  sel.innerHTML = '<option value="">계약 연결 없음</option>' + CONTRACTS.filter(r => r.s !== '계약해지')
+    .slice().sort((a,b) => String(a.c).localeCompare(String(b.c)))
+    .map(r => `<option value="${esc(r.id)}">${esc(r.c)} · ${esc(r.co)} ${esc(r.n)}</option>`).join('');
+  const di = document.getElementById('rem-date');
+  if(!di.value) di.value = isoDay(addMonthsClamp(todayStart(), 0));
+  renderReminders();
+  openModal('reminders');
+}
+function remItemHtml(x){
+  const col = x.done ? 'var(--hint)' : x._days < 0 ? 'var(--red)' : x._days === 0 ? 'var(--red)' : x._days <= 7 ? 'var(--amber)' : 'var(--blue)';
+  const link = x.cid ? contractLabel(x.cid) : '';
+  return `<div class="rem-item ${!x.done && x._days <= 0 ? 'due' : ''}">
+    <div class="rem-when" style="color:${col}">${fmtYMD(x._d)}<small>${x.done ? '완료' : ddayLabel(x._days)}</small></div>
+    <div class="rem-body"${x.done ? ' style="color:var(--hint);text-decoration:line-through"' : ''}>${esc(x.memo || '(메모 없음)')}${link ? `<span class="sub">📎 ${esc(link)}</span>` : ''}</div>
+    <div class="rem-act">
+      <button class="btn btn-secondary btn-sm" data-id="${esc(x.id)}" onclick="toggleReminder(this.dataset.id)" title="${x.done ? '다시 알림' : '완료'}">${x.done ? '↩' : '✓'}</button>
+      <button class="btn btn-secondary btn-sm" data-id="${esc(x.id)}" onclick="deleteReminder(this.dataset.id)" title="삭제">🗑</button>
+    </div>
+  </div>`;
+}
+function renderReminders(){
+  const b = reminderBuckets(), el = document.getElementById('rem-list');
+  if(!el) return;
+  const msHtml = b.ms.map(({r, m}) => `<div class="rem-item ms">
+      <div class="rem-when" style="color:${m.days < 0 ? 'var(--hint)' : m.days <= 7 ? 'var(--red)' : 'var(--blue)'}">${m.label}<small>${ddayLabel(m.days)}</small></div>
+      <div class="rem-body">2년 1개월 도래<span class="sub">${esc(r.c)} · ${esc(r.co)} ${esc(r.n)} (가입 ${esc(r.d)})</span></div>
+    </div>`).join('');
+  el.innerHTML = `
+    <div class="rem-sec" style="color:var(--red)">⏰ 지금 확인할 것 <span style="font-weight:400;color:var(--hint)">${b.due.length}건</span></div>
+    ${b.due.length ? b.due.map(remItemHtml).join('') : '<div class="rem-empty">오늘까지 할 일이 없어요</div>'}
+    <div class="rem-sec" style="color:var(--blue)">🗓️ 2년 1개월 도래 <span style="font-weight:400;color:var(--hint)">30일 안 · 지난 7일</span></div>
+    ${msHtml || '<div class="rem-empty">30일 안에 2년 1개월이 되는 계약이 없어요</div>'}
+    <div class="rem-sec">📅 다가오는 알림 <span style="font-weight:400;color:var(--hint)">${b.soon.length}건</span></div>
+    ${b.soon.length ? b.soon.map(remItemHtml).join('') : '<div class="rem-empty">예약된 알림이 없어요</div>'}
+    ${b.done.length ? `<details style="margin-top:10px"><summary class="rem-sec" style="cursor:pointer;color:var(--muted)">✅ 완료한 알림 ${b.done.length}건</summary>${b.done.slice(0, 50).map(remItemHtml).join('')}</details>` : ''}`;
+  const nb = document.getElementById('rem-notify-btn');
+  if(nb){
+    // 폰 브라우저는 서비스 워커 없이 알림 창을 못 띄워요 → PC에서만 보여줌 (폰은 화면 위 빨간 띠로 알림)
+    const mobile = /Android|iPhone|iPad|iPod/i.test((typeof navigator !== 'undefined' && navigator.userAgent) || '');
+    const st = (typeof Notification === 'undefined' || mobile) ? 'none' : Notification.permission;
+    nb.style.display = st === 'none' ? 'none' : '';
+    nb.textContent = st === 'granted' ? '📲 이 기기 알림 켜짐' : st === 'denied' ? '📲 알림 차단됨 (브라우저 설정)' : '📲 이 기기 알림 켜기';
+    nb.disabled = st !== 'default';
+  }
+}
+function addReminder(){
+  const date = document.getElementById('rem-date').value;
+  const memo = document.getElementById('rem-memo').value.trim().slice(0, 300);
+  const cid = document.getElementById('rem-cid').value;
+  if(!parseYMD(date)){ showToast('⚠️ 날짜를 골라 주세요'); return; }
+  if(!memo){ showToast('⚠️ 메모를 적어 주세요'); return; }
+  const id = 'rem_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  REMINDERS[id] = {id, date, memo, done: false, cid: cid || '', at: new Date().toISOString()};
+  document.getElementById('rem-memo').value = '';
+  afterReminderChange();
+  showToast(`🔔 ${fmtYMD(parseYMD(date))} 알림을 추가했어요`);
+}
+function toggleReminder(id){
+  const x = REMINDERS[id]; if(!isPlain(x)) return;
+  REMINDERS[id] = {...x, done: !x.done};              // 새 객체로 바꿔야 동기화가 "바뀜"으로 알아봐요
+  afterReminderChange();
+}
+function deleteReminder(id){
+  if(!REMINDERS[id] || !confirm('이 알림을 삭제할까요?')) return;
+  delete REMINDERS[id];
+  afterReminderChange();
+}
+function afterReminderChange(){
+  save('ins_reminders', REMINDERS);
+  scheduleSave();
+  renderReminders();
+  refreshReminderUI();
+}
+// 상단 🔔 숫자와, 확인할 알림이 있으면 화면 위 빨간 띠
+function refreshReminderUI(){
+  const n = reminderBadgeCount(), b = document.getElementById('rem-badge');
+  if(b){ b.textContent = n > 99 ? '99+' : String(n); b.style.display = n ? '' : 'none'; }
+  const bn = document.getElementById('rem-banner'); if(!bn) return;
+  const r = reminderBuckets(), ms7 = r.ms.filter(x => x.m.days >= 0 && x.m.days <= 7);
+  if(!n || sessionStorage.getItem('ins_rem_banner_off') === isoDay(todayStart())){ bn.style.display = 'none'; return; }
+  const first = r.due[0] ? (r.due[0].memo || '') : ms7[0] ? `${ms7[0].r.c} 2년 1개월 도래` : '';
+  bn.innerHTML = `<span style="font-size:18px">🔔</span><div style="flex:1;min-width:0"><b>확인할 알림 ${n}건</b><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(first)}${n > 1 ? ' 외' : ''}</div></div><span style="font-weight:700;white-space:nowrap">보기 ›</span><button class="btn btn-sm" style="background:none;border:none;color:#991B1B" onclick="event.stopPropagation();sessionStorage.setItem('ins_rem_banner_off','${isoDay(todayStart())}');refreshReminderUI()" title="오늘은 숨기기">✕</button>`;
+  bn.onclick = openReminders;
+  bn.style.display = 'flex';
+}
+// 이 기기 알림(브라우저 알림): 앱을 열 때 하루 한 번만. 앱이 닫혀 있을 때는 오지 않아요.
+async function enableDeviceNotify(){
+  if(typeof Notification === 'undefined'){ showToast('⚠️ 이 브라우저는 알림을 지원하지 않아요'); return; }
+  const p = await Notification.requestPermission();
+  showToast(p === 'granted' ? '📲 이 기기에서 앱을 열 때 알림을 띄워요' : '알림이 허용되지 않았어요');
+  renderReminders();
+  if(p === 'granted') notifyDueOnOpen(true);
+}
+function notifyDueOnOpen(force){
+  try{
+    if(typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    const today = isoDay(todayStart());
+    if(!force && localStorage.getItem('ins_rem_notified') === today) return;
+    const n = reminderBadgeCount(); if(!n) return;
+    const r = reminderBuckets();
+    const lines = [...r.due.map(x => x.memo), ...r.ms.filter(x => x.m.days >= 0 && x.m.days <= 7).map(x => `${x.r.c} 2년 1개월 (${x.m.label})`)].slice(0, 4);
+    new Notification(`🔔 확인할 알림 ${n}건`, {body: lines.join('\n'), tag: 'ins-reminders'});
+    localStorage.setItem('ins_rem_notified', today);
+  }catch(_){}
+}
+
 function openModal(name) { document.getElementById('modal-'+name).classList.add('on'); }
 function closeModal(name) { document.getElementById('modal-'+name).classList.remove('on'); }
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('on');}));
@@ -2252,6 +2476,7 @@ function exportData() {
     memos: MEMOS,
     shares: SHARES,
     settings: SETTINGS,
+    reminders: REMINDERS,
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
@@ -2284,6 +2509,7 @@ function importData(event) {
         memos:     data.memos     || MEMOS,
         shares:    data.shares    || SHARES,
         settings:  data.settings  || SETTINGS,
+        reminders: data.reminders || REMINDERS,
       }));
       renderAll();
       showToast(`✅ 복원 완료! 계약 ${CONTRACTS.length}건 불러왔습니다`);
@@ -3522,6 +3748,7 @@ function getCovGroup(name) {
 function renderAll() {
   renderKPIs();
   renderTab(currentTab);
+  refreshReminderUI();
 }
 
 // ════════════════════════════════════════════════════════════
@@ -3597,6 +3824,7 @@ function renderAll() {
   migrateLocalPeople();
   renderAll();
   document.getElementById('app-wrap').style.display = 'block';
+  notifyDueOnOpen();
 
   if(!serverConfigured()){ setSyncStatus('idle', '서버 설정 필요 (⚙️)'); openServerSettings(); return; }
   const loaded = await loadFromCloud();

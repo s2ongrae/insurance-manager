@@ -54,7 +54,7 @@ function makeDevice(server, url){
       return { json: async()=>out };
     }
   });
-  const prelude = `let CONTRACTS=[],MONTHLY=[],GROUPS={},COVERAGES={},MEMOS={},SHARES={},TOMBS={},SETTINGS={},nextId=1; function refreshCovGroups(){}
+  const prelude = `let CONTRACTS=[],MONTHLY=[],GROUPS={},COVERAGES={},MEMOS={},SHARES={},TOMBS={},SETTINGS={},REMINDERS={},nextId=1; function refreshCovGroups(){}
     function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
     function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
     function showToast(m){__dev.toasts.push(m);} function renderAll(){__dev.renders++;} function closeModal(){} function openServerSettings(){__dev.opened=true;}`;

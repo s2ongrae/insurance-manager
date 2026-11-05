@@ -119,6 +119,7 @@ function readData(file) {
   d.shares    = isObj(d.shares)    ? d.shares    : {};
   d.tombstones = isObj(d.tombstones) ? d.tombstones : {};
   d.settings  = isObj(d.settings)  ? d.settings  : {};
+  d.reminders = isObj(d.reminders) ? d.reminders : {};
   d.rev       = Number(d.rev) || 0;
   return d;
 }
@@ -181,6 +182,8 @@ function saveData(body) {
       shares:    isObj(inc.shares) ? inc.shares : {},
       tombstones: isObj(inc.tombstones) ? inc.tombstones : {},
       settings:  isObj(inc.settings)  ? inc.settings  : {},
+      // 날짜 알림 (고객 화면에는 절대 안 보냄). 이 칸을 모르는 옛 화면이 저장하면 칸이 아예 없으니 기존 알림을 유지
+      reminders: isObj(inc.reminders) ? inc.reminders : cur.reminders,
       version:   2,
       rev:       cur.rev + 1,
       savedAt:   new Date().toISOString()
