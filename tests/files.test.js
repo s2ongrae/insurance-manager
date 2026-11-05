@@ -139,7 +139,7 @@ console.log('M) "기존 보험 추가"(글자 id) 보험: 담보 입력·분석�
   M.run(`COVERAGES['${mp}']={policies:[],otherPolicies:[{id:'${XID}',co:'옛보험사',name:'옛상품',price:5000,payPeriod:'20년납',items:[]}]}; selectedCovCustomer='${mp}'; renderCoverageTab('보장분석')`);
   const codes=[...M.el('cov-detail').innerHTML.matchAll(/(?:onclick|onchange)="((?:addCovItem|updateCovItem|removeCovItem|handlePDFUpload|attachProposalOnly|updatePolMeta)\([^"]*ext_[^"]*)"/g)].map(m=>m[1]);
   ok(codes.length>=4,'글자 id 보험의 버튼·입력 칸 코드가 만들어짐 ('+codes.length+'개)');
-  const run=code=>{ try{ M.run(`(function(event){ ${code} }).call({value:'직접입력담보'},{target:{files:[],value:''}})`); return null; }catch(e){ return e.name+': '+e.message; } };
+  const run=code=>{ try{ M.run(`(function(event){ ${code} }).call({value:'직접입력담보',dataset:{co:'옛보험사',n:'옛상품'}},{target:{files:[],value:''}})`); return null; }catch(e){ return e.name+': '+e.message; } };
   const errs=codes.map(run).filter(Boolean); ok(errs.length===0,'버튼·입력 칸 코드를 실제로 실행해도 오류가 없음 '+errs.join(' | '));
   const rec=()=>M.get(`COVERAGES['${mp}'].otherPolicies[0]`);
   M.run(`COVERAGES['${mp}'].otherPolicies[0].items=[]`);

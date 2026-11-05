@@ -56,5 +56,31 @@ try{ D.run(`selectedCovCustomer=legacyPid('가입자1'); renderCoverageTab('보�
 console.log('F) 고객 화면');
 try{ D.run(`showCustomerView(legacyPid('가입자1'),'가입자1')`); const html2=D.bodyHtml; ok(html2.includes('cv-screen')&&/가입자1/.test(html2),'고객 화면 렌더링'); ok(/청구 서류/.test(html2),'청구 서류 안내'); ok(!/<b>태그<\/b>/.test(html2)&&!/메모/.test(html2.replace(/청구 서류[\s\S]*?(?=<)/,'')) ,'고객 화면에 메모 없음'); }
 catch(e){ ok(false,'고객 화면 오류: '+e.message); }
+console.log('G) 보장분석 가독성 (외부 보험 포함 합계·폰 카드·머리줄)');
+try{
+  const it=(n,a,p)=>({name:n,amount:a,unit:'만원',price:p});
+  const gc=[{id:1,s:'계약완료',d:'25.03.10',c:'갑',p:'갑',pid:'pid_g1',co:'삼성화재',n:'건강A',pr:85000,g:''},
+            {id:2,s:'계약완료',d:'25.07.02',c:'갑',p:'갑',pid:'pid_g1',co:'메리츠화재',n:'종합B',pr:62000,g:''}];
+  const gcov={pid_g1:{policies:[{id:1,payPeriod:'20년납',covPeriod:'100세',renewable:'비갱신',items:[it('유사암진단비',600,1800)]},{id:2,items:[it('뇌졸중진단비',500,4000)]}],
+    externalPolicies:[{id:-1,co:'DB손해보험',n:'실손<b>X</b>',pr:21000,items:[it('질병입원의료비',5000,8000),it('질병통원의료비',20,4000)]}]}};
+  const G=makeDevice({ls:{ins_contracts:JSON.stringify(gc),ins_coverages:JSON.stringify(gcov),ins_groups:'{}',ins_monthly:'[]'}});
+  ok(G.errors.length===0,'G 기기 로드 오류 없음 '+G.errors.join('|'));
+  G.run(`selectedCovCustomer='pid_g1'; renderCoverageTab('보장분석')`); const cd=G.el('cov-detail').innerHTML;
+  ok(/class="cov-sum"/.test(cd)&&/168,000원/.test(cd),'관리 화면 요약 카드: 월 보험료 168,000원 (외부 21,000 포함)');
+  ok((cd.match(/class="ntbl"/g)||[]).length===2,'관리 화면 개요·매트릭스 표에 남색 머리줄(ntbl)');
+  ok((cd.match(/📋 보험별 담보 내역/g)||[]).length===1,'"보험별 담보 내역" 제목이 한 번만');
+  ok(/updateCovItem\([^)]*'price'/.test(cd),'담보 줄에 보험료 입력칸 (머리줄 5칸과 맞음)');
+  ok(!/실손<b>X<\/b>/.test(cd)&&/실손&lt;b&gt;X/.test(cd),'관리 화면 보험명은 글자 그대로(태그 실행 안 됨)');
+  ok(/실손의료비[\s\S]{0,400}질병입원의료비/.test(cd.replace(/<[^>]+>/g,' ')),'기본 그룹에서 "의료비" 담보는 실손의료비로 분류');
+  G.run(`showCustomerView('pid_g1','갑')`); const cv=G.bodyHtml;
+  ok(/168,000원/.test(cv),'고객 화면 월 보험료에 외부 보험 포함 (168,000원)');
+  ok(/class="cv-cards"/.test(cv)&&/class="cv-mtx"/.test(cv),'고객 화면: PC 표(cv-mtx)와 폰 카드(cv-cards) 둘 다 그림');
+  ok(/class="cv-row-name">질병입원의료비/.test(cv),'폰 카드에 외부 보험 담보도 나옴');
+  ok((cv.match(/class="cv-policy"/g)||[]).length===3,'보험별 담보 내역에 외부 보험까지 3건');
+  ok(!/실손<b>X<\/b>/.test(cv),'고객 화면 보험명 태그 실행 안 됨');
+  ok(/<span>20년납<\/span><span>100세<\/span><span>비갱신<\/span>/.test(cv),'보험별 카드에 납입·보험기간·갱신 표시');
+  ok(/@media\(max-width:700px\)\{[^}]*\.cv-mtx,\.cv-ovw\{display:none\}/.test(html.replace(/\s+/g,'')),'폰에서는 표를 숨기고 카드로');
+  ok(/@media\(max-width:600px\)\{\.kpi-grid\{[^}]*\}\.form-grid/.test(html),'폰 CSS 규칙 사이에 잘못된 ";" 없음 (입력 칸 1열 규칙이 적용됨)');
+}catch(e){ ok(false,'G 오류: '+e.message); }
 console.log(`\n스모크 테스트: ${pass}건 통과, ${fail}건 실패`); process.exit(fail?1:0);
 })();

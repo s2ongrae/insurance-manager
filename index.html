@@ -142,7 +142,7 @@ input[type=text]:focus,input[type=number]:focus,select.form-sel:focus,textarea:f
 .stat-v{font-size:14px;font-weight:700}
 
 @media(max-width:900px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:600px){.kpi-grid{grid-template-columns:repeat(2,1fr)};.form-grid{grid-template-columns:1fr};.income-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.form-grid{grid-template-columns:1fr}.income-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:400px){.kpi-grid{grid-template-columns:1fr}}
 
 .cov-grid{display:grid;grid-template-columns:220px 1fr;gap:16px}
@@ -154,7 +154,7 @@ input[type=text]:focus,input[type=number]:focus,select.form-sel:focus,textarea:f
 .cov-right{flex:1}
 .cov-policy{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
 .cov-policy-hdr{padding:12px 14px;background:var(--surface2);display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
-.cov-item-row{display:grid;grid-template-columns:1fr 100px 80px 32px;gap:6px;padding:6px 14px;border-bottom:1px dashed var(--border);align-items:center;font-size:13px}
+.cov-item-row{display:grid;grid-template-columns:minmax(0,1fr) 90px 64px 90px 28px;gap:6px;padding:6px 14px;border-bottom:1px dashed var(--border);align-items:center;font-size:13px}
 .cov-item-row:last-child{border:none}
 .cov-input{width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);outline:none}
 .cov-input:focus{border-color:var(--blue)}
@@ -164,7 +164,8 @@ input[type=text]:focus,input[type=number]:focus,select.form-sel:focus,textarea:f
 .total-card .tc-val{font-size:18px;font-weight:700;color:var(--text)}
 .total-card .tc-sub{font-size:11px;color:var(--hint);margin-top:2px}
 .api-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--amber-l);border:1px solid #FDE68A;border-radius:var(--radius);margin-bottom:14px;font-size:12px}
-@media(max-width:700px){.cov-grid{grid-template-columns:1fr}}
+.cov-right{min-width:0}
+@media(max-width:700px){.cov-grid{grid-template-columns:minmax(0,1fr)}.tabs{max-width:100%;overflow-x:auto}}
 
 /* 고객 전용 화면 */
 .cv-wrap{max-width:900px;margin:0 auto;padding:0 0 40px}
@@ -176,6 +177,40 @@ input[type=text]:focus,input[type=number]:focus,select.form-sel:focus,textarea:f
 .cv-total{background:#fff;border:1px solid #E2E8F0;border-radius:12px;margin:0 16px 12px;padding:16px}
 .cv-total-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed #E2E8F0;font-size:13px}
 .cv-total-row:last-child{border:none;font-weight:700;font-size:14px}
+
+/* 보장분석 가독성 — 남색 머리줄 표, 요약 카드, 폰 카드 보기 */
+.ntbl thead th{background:#1E3A8A;color:#fff;text-transform:none;letter-spacing:0;font-size:12px;cursor:default;border-bottom:none}
+.ntbl thead th:hover{color:#fff}
+.ntbl tbody tr{cursor:default}
+.cov-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.cov-sum>div{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;border-top:3px solid var(--blue);min-width:0}
+.cov-sum .l{font-size:12px;color:var(--muted);margin-bottom:4px;white-space:nowrap}
+.cov-sum .v{font-size:20px;font-weight:800;letter-spacing:-.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cov-sum .s{font-size:12px;color:var(--hint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cov-sec{font-size:14px;font-weight:700;color:var(--text);margin:18px 0 10px;display:flex;align-items:center;gap:8px}
+.cov-sec small{font-size:12px;font-weight:400;color:var(--hint)}
+.cv-sec{margin:18px 16px 10px;font-size:15px;font-weight:700;color:#1E293B}
+.cv-sum{margin:0 16px 4px}
+.cv-meta{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.cv-meta span{font-size:12px;padding:2px 8px;border-radius:999px;background:#EFF6FF;color:#1E40AF;white-space:nowrap}
+.cv-cards{display:none;margin:0 16px}
+.cv-grp{background:#fff;border:1px solid #E2E8F0;border-radius:12px;margin-bottom:10px;overflow:hidden}
+.cv-grp-h{padding:9px 14px;font-size:14px;font-weight:700}
+.cv-row{padding:10px 14px;border-top:1px solid #F1F5F9}
+.cv-row-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.cv-row-name{font-size:14px;color:#1E293B;min-width:0;word-break:keep-all}
+.cv-row-amt{font-size:15px;font-weight:800;white-space:nowrap}
+.cv-row-src{font-size:12px;color:#64748B;margin-top:3px;line-height:1.5}
+@media(max-width:700px){
+  .cv-mtx,.cv-ovw{display:none}
+  .cv-cards{display:block}
+  .cov-sum .v{font-size:17px}
+  .hdr{height:auto;flex-wrap:wrap;padding:8px 12px;gap:6px}
+  .hdr-left{flex-wrap:wrap;min-width:0}
+  .hdr-left>span:first-of-type{display:none}
+  .hdr-right{overflow-x:auto;max-width:100%;padding-bottom:2px}
+  .hdr-right .btn{flex-shrink:0;white-space:nowrap;padding:6px 10px;font-size:12px}
+}
 </style>
 
 <!-- 잠금 화면 -->
@@ -2676,9 +2711,9 @@ function renderCovDetail(name){                          // name 은 가입자 �
 
   // ── 보험 개요 테이블 ───────────────────────────────
   const totalPremium = allContracts.reduce((s,r)=>s+r.pr,0);
-  const overviewTable = contracts.length>0?`
+  const overviewTable = allContracts.length>0?`
     <div style="overflow-x:auto;margin-bottom:16px">
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
+    <table class="ntbl" style="width:100%;border-collapse:collapse;font-size:13px">
       <thead>
         <tr style="background:#1E3A8A">
           ${['보험사','보험명','월 납입료','납입기간','보험기간','갱신여부'].map(h=>`<th style="padding:9px 12px;text-align:left;color:#fff;font-weight:600;white-space:nowrap">${h}</th>`).join('')}
@@ -2688,8 +2723,8 @@ function renderCovDetail(name){                          // name 은 가입자 �
         ${allContracts.map((r,ri)=>{
           const pol=polIn(cData,r.id)||{};
           return`<tr style="background:${ri%2===0?'#F8FAFC':'#fff'}">
-            <td style="padding:9px 12px;font-weight:600;color:#1E3A8A">${r.co}</td>
-            <td style="padding:9px 12px;color:#374151">${r.n}</td>
+            <td style="padding:9px 12px;font-weight:600;color:#1E3A8A">${esc(r.co)}</td>
+            <td style="padding:9px 12px;color:#374151">${esc(r.n)}${r._isOther?' <span style="font-size:11px;color:var(--hint)">외부</span>':''}</td>
             <td style="padding:9px 12px;color:#059669;font-weight:700">${wonN(r.pr)}원/월</td>
             <td style="padding:6px 8px">
               <input class="cov-input" value="${pol.payPeriod||''}" placeholder="예: 20년납"
@@ -2779,14 +2814,14 @@ function renderCovDetail(name){                          // name 은 가입자 �
 
   const matrixTable = itemNames.length>0 ? `
     <div style="overflow-x:auto;margin-bottom:16px">
-    <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:400px">
+    <table class="ntbl" style="width:100%;border-collapse:collapse;font-size:12px;min-width:400px">
       <thead>
         <tr style="background:#1E3A8A">
           <th style="padding:10px 12px;text-align:left;color:#fff;font-weight:600;white-space:nowrap;position:sticky;left:0;background:#1E3A8A;min-width:130px">담보 항목</th>
           ${policyLabels.map(p=>`
             <th style="padding:10px 8px;text-align:center;color:#fff;font-weight:600;white-space:nowrap;min-width:90px;line-height:1.3">
-              <div style="font-size:11px;opacity:.8">${p.co}</div>
-              <div style="font-size:11px">${p.n}</div>
+              <div style="font-size:11px;opacity:.8">${esc(p.co)}</div>
+              <div style="font-size:12px">${esc(p.n)}</div>
             </th>`).join('')}
           <th style="padding:10px 12px;text-align:right;color:#fff;font-weight:700;white-space:nowrap;background:#1a327a">합계</th>
         </tr>
@@ -2794,7 +2829,12 @@ function renderCovDetail(name){                          // name 은 가입자 �
       <tbody>
         ${COV_GROUPS.map(g=>`
           <tr>
-            <td colspan="${policyLabels.length+2}" style="padding:7px 12px;background:${g.bg};color:${g.color};font-weight:700;font-size:12px;border-top:2px solid ${g.border};position:sticky;left:0">${g.label}</td>
+            <td colspan="${policyLabels.length+2}" style="padding:6px 12px;background:${g.bg};color:${g.color};font-weight:700;font-size:13px;border-top:2px solid ${g.border}">
+              <span style="position:sticky;left:12px">${esc(g.label)} <span style="font-weight:400;font-size:12px;opacity:.8">${adminGrouped[g.label].length?adminGrouped[g.label].length+'개':''}</span></span>
+              <button class="btn btn-sm" style="float:right;padding:2px 8px;font-size:12px;background:#fff;border:1px solid ${g.border};color:${g.color}"
+                data-cust="${safeC}" data-grp="${esc(g.label)}"
+                onclick="addMatrixRowBtn(this)">＋ 담보</button>
+            </td>
           </tr>
           ${adminGrouped[g.label].map(itemName=>{
             const rowTotal=policyLabels.reduce((s,p)=>s+(matrix[itemName][p.key]||0),0);
@@ -2820,7 +2860,7 @@ function renderCovDetail(name){                          // name 은 가입자 �
                     onmouseover="this.style.borderBottomColor='var(--blue)'"
                     onmouseout="this.style.borderBottomColor='transparent'"
                     data-cust="${safeC}" data-norm="${safeItem}"
-                    onclick="editMatrixRowName(this)">${cData.matrixNames?.[itemName]||itemName}</span>
+                    onclick="editMatrixRowName(this)">${esc(cData.matrixNames?.[itemName]||itemName)}</span>
                   <button onclick="deleteMatrixRow('${safeC}','${safeItem}')" style="border:none;background:none;color:var(--hint);cursor:pointer;font-size:11px;padding:0;opacity:.4;transition:opacity .15s" onmouseover="this.style.opacity=1;this.style.color='var(--red)'" onmouseout="this.style.opacity=.4;this.style.color='var(--hint)'" title="삭제">✕</button>
                 </div>
               </td>
@@ -2849,11 +2889,6 @@ function renderCovDetail(name){                          // name 은 가입자 �
               <td style="padding:7px 12px;text-align:right;font-weight:700;color:var(--text);border-left:1px solid var(--border)">${wonN(rowTotal*10000)}원</td>
             </tr>`;
           }).join('')}
-          <tr><td colspan="${policyLabels.length+2}" style="padding:4px 14px">
-            <button class="btn btn-secondary btn-sm" style="font-size:11px;color:var(--muted)"
-              data-cust="${safeC}" data-grp="${g.label}"
-              onclick="addMatrixRowBtn(this)">＋ 담보 추가</button>
-          </td></tr>
         `).join('')}
       </tbody>
     </table>
@@ -2864,16 +2899,14 @@ function renderCovDetail(name){                          // name 은 가입자 �
     const polId = contract.id;
     const pol = polIn(cData, polId) || {id:polId, items:[]};
     const items = pol.items||[];
-    const safeCoName = contract.co.replace(/'/g,"\\'");
-    const safeN = contract.n.replace(/'/g,"\\'");
     const pUrl = proposalUrlOf(contract);
 
     return`<div class="cov-policy">
       <div class="cov-policy-hdr">
         <div style="font-size:16px">${contract.co.includes('삼성')?'🟠':contract.co.includes('메리츠')?'🔵':contract.co.includes('현대')?'🟢':'🏦'}</div>
         <div style="flex:1">
-          <div style="font-weight:600;font-size:14px">${contract.co} · ${contract.n}</div>
-          <div style="font-size:12px;color:var(--muted)">월 ${wonN(contract.pr)}원 · ${contract.d}</div>
+          <div style="font-weight:600;font-size:14px">${esc(contract.co)} · ${esc(contract.n)}</div>
+          <div style="font-size:12px;color:var(--muted)">월 ${wonN(contract.pr)}원${contract._isOther?' · 외부 보험':' · '+esc(contract.d)} · 담보 ${items.length}개</div>
         </div>
         ${pUrl?`<a href="${esc(pUrl)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm" style="text-decoration:none" title="저장된 제안서 열기">📄 제안서 보기</a>`:''}
         <label class="btn btn-secondary btn-sm" style="cursor:pointer" title="AI 분석 없이 파일만 저장해서 이 계약에 연결해요 (담보 내용은 바뀌지 않아요)">
@@ -2882,18 +2915,19 @@ function renderCovDetail(name){                          // name 은 가입자 �
         </label>
         <label class="btn btn-secondary btn-sm" style="cursor:pointer;position:relative" title="AI로 담보를 분석하고, 파일도 Drive에 저장해서 이 계약에 연결해요">
           📄 PDF 분석
-          <input type="file" accept=".pdf" onchange="handlePDFUpload(event,${jsId(polId)},'${safeCoName}','${safeN}')" style="display:none">
+          <input type="file" accept=".pdf" data-co="${esc(contract.co)}" data-n="${esc(contract.n)}" onchange="handlePDFUpload(event,${jsId(polId)},this.dataset.co,this.dataset.n)" style="display:none">
         </label>
       </div>
       <div id="cov-items-${polId}">
-        <div class="cov-item-row" style="background:var(--surface2);font-weight:600;font-size:11px;color:var(--muted);grid-template-columns:1fr 80px 60px 80px 28px">
+        <div class="cov-item-row" style="background:var(--surface2);font-weight:600;font-size:12px;color:var(--muted)">
           <span>담보명</span><span>금액(만원)</span><span>단위</span><span>보험료(원)</span><span></span>
         </div>
         ${items.map((item,idx)=>`
           <div class="cov-item-row">
-            <input class="cov-input" value="${item.name||''}" onchange="updateCovItem('${name}',${jsId(polId)},${idx},'name',this.value)" placeholder="담보명">
-            <input class="cov-input" type="number" value="${item.amount||''}" onchange="updateCovItem('${name}',${jsId(polId)},${idx},'amount',this.value)" placeholder="0">
-            <input class="cov-input" value="${item.unit||'만원'}" onchange="updateCovItem('${name}',${jsId(polId)},${idx},'unit',this.value)">
+            <input class="cov-input" value="${esc(item.name||'')}" onchange="updateCovItem('${name}',${jsId(polId)},${idx},'name',this.value)" placeholder="담보명">
+            <input class="cov-input" type="number" value="${esc(item.amount||'')}" onchange="updateCovItem('${name}',${jsId(polId)},${idx},'amount',this.value)" placeholder="0">
+            <input class="cov-input" value="${esc(item.unit||'만원')}" onchange="updateCovItem('${name}',${jsId(polId)},${idx},'unit',this.value)">
+            <input class="cov-input" type="number" value="${esc(item.price||'')}" onchange="updateCovItem('${name}',${jsId(polId)},${idx},'price',this.value)" placeholder="0">
             <button style="border:none;background:none;color:var(--red);cursor:pointer;font-size:14px" onclick="removeCovItem('${name}',${jsId(polId)},${idx})">✕</button>
           </div>`).join('')}
         <div style="padding:8px 14px">
@@ -2918,41 +2952,24 @@ function renderCovDetail(name){                          // name 은 가입자 �
       </div>
     </div>
 
-    ${contracts.length>0?`
-    <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px">📑 보험 개요</div>
+    <div class="cov-sum">
+      <div><div class="l">💰 월 보험료</div><div class="v">${wonN(totalPremium)}원</div><div class="s">연 ${wonN(totalPremium*12)}원</div></div>
+      <div style="border-top-color:var(--green)"><div class="l">📑 보험</div><div class="v">${allContracts.length}건</div><div class="s">내 계약 ${contracts.length} · 외부 ${otherPols.length}</div></div>
+      <div style="border-top-color:var(--purple)"><div class="l">📊 담보 항목</div><div class="v">${itemNames.length}개</div><div class="s">${COV_GROUPS.filter(g=>(adminGrouped[g.label]||[]).length).length}개 분야</div></div>
+    </div>
+
+    ${allContracts.length>0?`
+    <div class="cov-sec">📑 보험 개요</div>
     ${overviewTable}`:''}
 
     ${itemNames.length>0?`
-    <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px">📊 보장 합산 매트릭스 <span style="font-size:11px;color:var(--hint);font-weight:400">· 금액 클릭하면 바로 편집</span></div>
+    <div class="cov-sec">📊 보장 합산 매트릭스 <small>금액을 누르면 바로 고칠 수 있어요</small></div>
     ${matrixTable}
     `:''}
-    <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px">📋 보험별 담보 내역</div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div style="font-size:13px;font-weight:600;color:var(--muted)">📋 보험별 담보 내역</div>
+    <div class="cov-sec" style="justify-content:space-between">
+      <span>📋 보험별 담보 내역</span>
       <button class="btn btn-secondary btn-sm" onclick="openAddExternalModal('${name}')">＋ 외부 보험 추가</button>
     </div>
-
-    <details style="margin-bottom:14px;background:var(--amber-l);border:1px solid #FDE68A;border-radius:10px;padding:0">
-      <summary style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--amber)">📄 청구 서류 안내 (클릭하여 펼치기)</summary>
-      <div style="padding:0 14px 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
-        <div style="background:#fff;border-radius:8px;padding:12px;border:1px solid #FDE68A">
-          <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">🏥 실손/외래 청구</div>
-          ${['진료비 세부내역서','영수증','약봉투 또는 처방전'].map(d=>`<div style="font-size:12px;padding:3px 0;color:var(--text)">• ${d}</div>`).join('')}
-        </div>
-        <div style="background:#fff;border-radius:8px;padding:12px;border:1px solid #FDE68A">
-          <div style="font-size:12px;font-weight:700;color:#DC2626;margin-bottom:8px">⚕️ 수술 청구</div>
-          ${['초진차트 (상세 기재 요청)','수술확인서','진료비 세부내역서','영수증'].map(d=>`<div style="font-size:12px;padding:3px 0;color:var(--text)">• ${d}</div>`).join('')}
-        </div>
-        <div style="background:#fff;border-radius:8px;padding:12px;border:1px solid #FDE68A">
-          <div style="font-size:12px;font-weight:700;color:#7C3AED;margin-bottom:8px">🎗️ 암/중증 청구</div>
-          ${['조직검사 결과지 또는 진단서','수술확인서 (수술 시)','입원확인서 (입원 시)','진료비 세부내역서'].map(d=>`<div style="font-size:12px;padding:3px 0;color:var(--text)">• ${d}</div>`).join('')}
-        </div>
-        <div style="background:#FEF9C3;border-radius:8px;padding:12px;border:1px solid #FDE68A">
-          <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:6px">💡 비용 절감 팁</div>
-          <div style="font-size:11px;color:#92400E;line-height:1.6">진단서 대신 <strong>초진차트</strong>에 내용을 자세히 기재해 달라고 요청하세요. 진단서 비용(1~3만원)을 아낄 수 있습니다.</div>
-        </div>
-      </div>
-    </details>
 
     ${policySections || '<div style="text-align:center;padding:30px;color:var(--hint)">계약 완료된 보험이 없어요</div>'}
   `;
@@ -3189,43 +3206,29 @@ function showCustomerView(name, displayName){             // name 은 서버가 
     ...otherPols.map(op=>({id:op.id, co:op.co, n:op.n||op.name||'', pr:op.pr||op.price||0, d:'-', s:'계약완료', _isOther:true, _pol:{...op, items:op.items||[]}}))
   ];
 
-  // 고객 뷰 — 담보 집계 (normCovName으로 유사항목 합산)
-  const agg = {};
-  contracts.forEach(contract=>{
-    const pol = (cData.policies||[]).find(p=>p.id===contract.id);
-    (pol?.items||[]).forEach(item=>{
-      if(!item.name) return;
-      const norm = normCovName(item.name) || item.name;
-      const amt = parseFloat(item.amount)||0;
-      if(!agg[norm]) agg[norm]={total:0, sources:[], premium:0};
-      agg[norm].total += amt;
-      agg[norm].premium += parseFloat(item.price)||0;
-      if(!agg[norm].sources.includes(contract.co)) agg[norm].sources.push(contract.co);
-    });
-  });
-  const aggEntries = Object.entries(agg)
-    .sort((a,b)=>b[1].total-a[1].total);
-  const cvTotalPremium = contracts.reduce((s,r)=>s+r.pr,0);
+  // 외부·기존 보험까지 모두 합쳐서 보여줘요 (관리 화면과 같은 숫자)
+  const cvTotalPremium = allContracts.reduce((s,r)=>s+(Number(r.pr)||0),0);
+  const polOf = r => r._isOther ? r._pol : ((cData.policies||[]).find(p=>p.id===r.id) || {});
 
   // 고객 뷰 개요 테이블
-  const cvOverview = contracts.length>0?`
-    <div style="overflow-x:auto">
-    <table style="width:100%;border-collapse:collapse;font-size:12px">
+  const cvOverview = allContracts.length>0?`
+    <div class="cv-ovw" style="overflow-x:auto">
+    <table class="ntbl" style="width:100%;border-collapse:collapse;font-size:12px">
       <thead>
         <tr style="background:#1E3A8A">
           ${['보험사','보험명','월 납입료','납입기간','보험기간','갱신여부'].map(h=>`<th style="padding:8px 10px;text-align:left;color:#fff;font-weight:600;white-space:nowrap">${h}</th>`).join('')}
         </tr>
       </thead>
       <tbody>
-        ${contracts.map((r,ri)=>{
-          const pol=(cData.policies||[]).find(p=>p.id===r.id)||{};
+        ${allContracts.map((r,ri)=>{
+          const pol=polOf(r);
           return`<tr style="background:${ri%2===0?'#F8FAFC':'#fff'}">
-            <td style="padding:8px 10px;font-weight:700;color:#1E3A8A">${r.co}</td>
-            <td style="padding:8px 10px;color:#374151">${r.n}</td>
+            <td style="padding:8px 10px;font-weight:700;color:#1E3A8A">${esc(r.co)}</td>
+            <td style="padding:8px 10px;color:#374151">${esc(r.n)}</td>
             <td style="padding:8px 10px;color:#059669;font-weight:700">${wonN(r.pr)}원/월</td>
-            <td style="padding:8px 10px;color:#374151">${pol.payPeriod||'-'}</td>
-            <td style="padding:8px 10px;color:#374151">${pol.covPeriod||'-'}</td>
-            <td style="padding:8px 10px;color:#374151">${pol.renewable||'-'}</td>
+            <td style="padding:8px 10px;color:#374151">${esc(pol.payPeriod||'-')}</td>
+            <td style="padding:8px 10px;color:#374151">${esc(pol.covPeriod||'-')}</td>
+            <td style="padding:8px 10px;color:#374151">${esc(pol.renewable||'-')}</td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -3238,14 +3241,6 @@ function showCustomerView(name, displayName){             // name 은 서버가 
       </tfoot>
     </table></div>`:'';
 
-
-  // 카테고리별 그룹핑
-  const grouped = {};
-  COV_GROUPS.forEach(g=>{ grouped[g.label]=[]; });
-  aggEntries.forEach(([itemName,v])=>{
-    const g=getCovGroup(itemName);
-    grouped[g.label].push([itemName,v]);
-  });
 
   // 고객 뷰 매트릭스 - 관리툴 matrixView 완전 동일 적용
   const mv2 = cData.matrixView || {};
@@ -3294,16 +3289,19 @@ function showCustomerView(name, displayName){             // name 은 서버가 
   // 5) 컬럼 (모든 계약)
   const cvColKeys=allContracts.map(r=>r.co+'\n'+(r.n||''));
   const cvPolicyCols=allContracts;
+  const cvName = n => (cData.matrixNames||{})[n] || n;
+  const cvCell = (n,k) => { const m=mv2[n]?.[k]; return Number(m!==undefined ? m : (cvMatrix2[n]?.[k]||0)) || 0; };
+  const cvRowTotal = n => cvColKeys.reduce((s,k)=>s+cvCell(n,k),0);
 
-  const matrixTableCV = Object.keys(cvMatrix2).length>0?`
-    <div style="overflow-x:auto">
-    <table style="width:100%;border-collapse:collapse;font-size:12px">
+  const matrixTableCV = cvItemNames.length>0?`
+    <div class="cv-mtx" style="overflow-x:auto">
+    <table class="ntbl" style="width:100%;border-collapse:collapse;font-size:12px">
       <thead>
         <tr style="background:#1E3A8A">
           <th style="padding:10px 14px;text-align:left;color:#fff;font-weight:600;min-width:130px">담보 항목</th>
           ${cvPolicyCols.map(r=>`<th style="padding:10px 8px;text-align:center;color:#fff;font-weight:600;min-width:80px;line-height:1.3">
-            <div style="font-size:10px;opacity:.8">${r.co}</div>
-            <div style="font-size:11px">${r.n}</div>
+            <div style="font-size:11px;opacity:.8">${esc(r.co)}</div>
+            <div style="font-size:12px">${esc(r.n)}</div>
           </th>`).join('')}
           <th style="padding:10px 12px;text-align:right;color:#fff;font-weight:700;background:#1a327a;white-space:nowrap">합계</th>
         </tr>
@@ -3311,20 +3309,15 @@ function showCustomerView(name, displayName){             // name 은 서버가 
       <tbody>
         ${COV_GROUPS.filter(g=>cvGrouped2[g.label]&&cvGrouped2[g.label].length>0).map(g=>`
           <tr>
-            <td colspan="${cvPolicyCols.length+2}" style="padding:8px 14px 6px;background:${g.bg};color:${g.color};font-weight:700;font-size:12px;border-top:2px solid ${g.border}">${g.label}</td>
+            <td colspan="${cvPolicyCols.length+2}" style="padding:8px 14px 6px;background:${g.bg};color:${g.color};font-weight:700;font-size:13px;border-top:2px solid ${g.border}">${esc(g.label)}</td>
           </tr>
           ${cvGrouped2[g.label].map(itemName=>{
-            const displayName = (cData.matrixNames||{})[itemName] || itemName;
-            const rowTotal=cvColKeys.reduce((s,k)=>{
-              const mvV=mv2[itemName]?.[k];
-              const v=mvV!==undefined?mvV:(cvMatrix2[itemName]?.[k]||0);
-              return s+v;
-            },0);
+            const displayName = cvName(itemName);
+            const rowTotal = cvRowTotal(itemName);
             return`<tr style="background:#fff;border-bottom:1px solid #F1F5F9">
-              <td style="padding:8px 14px 8px 20px;font-weight:500;color:#1E293B">${displayName}</td>
+              <td style="padding:8px 14px 8px 20px;font-weight:500;color:#1E293B">${esc(displayName)}</td>
               ${cvColKeys.map(k=>{
-                const mvV=mv2[itemName]?.[k];
-                const v=mvV!==undefined?mvV:(cvMatrix2[itemName]?.[k]||0);
+                const v=cvCell(itemName,k);
                 return`<td style="padding:8px;text-align:center;color:${v>0?g.color:'#9CA3AF'};font-weight:${v>0?600:400}">
                   ${v>0?wonN(v*10000)+'원':'-'}
                 </td>`;
@@ -3341,23 +3334,40 @@ function showCustomerView(name, displayName){             // name 은 서버가 
     </table></div>
   `:'';
 
-    const policySections = contracts.map(contract=>{
-    const pol = (cData.policies||[]).find(p=>p.id===contract.id);
-    const items = pol?.items||[];
-    if(!items.length) return'';
+  // 폰 화면용: 표 대신 분야별 카드 (담보 이름 · 합계, 아래에 어느 보험에서 얼마인지)
+  const cvCards = cvItemNames.length>0 ? `<div class="cv-cards">${
+    COV_GROUPS.filter(g=>(cvGrouped2[g.label]||[]).length).map(g=>`
+      <div class="cv-grp">
+        <div class="cv-grp-h" style="background:${g.bg};color:${g.color}">${esc(g.label)}</div>
+        ${cvGrouped2[g.label].map(n=>{
+          const src = allContracts.map((r,i)=>[r, cvCell(n, cvColKeys[i])]).filter(([,v])=>v>0);
+          return `<div class="cv-row">
+            <div class="cv-row-top"><span class="cv-row-name">${esc(cvName(n))}</span><span class="cv-row-amt" style="color:${g.color}">${wonN(cvRowTotal(n)*10000)}원</span></div>
+            ${src.length>1 ? `<div class="cv-row-src">${src.map(([r,v])=>`${esc(r.co)} ${wonN(v*10000)}원`).join(' · ')}</div>`
+              : src.length ? `<div class="cv-row-src">${esc(src[0][0].co)}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>`).join('')
+  }</div>` : '';
+
+  const policySections = allContracts.map(contract=>{
+    const pol = polOf(contract);
+    const items = (pol.items||[]).filter(it=>it && it.name);
+    const meta = [pol.payPeriod, pol.covPeriod, pol.renewable].filter(Boolean);
     return`<div class="cv-policy">
       <div class="cv-policy-hdr">
         <div style="font-size:20px">${contract.co.includes('삼성')?'🟠':contract.co.includes('메리츠')?'🔵':contract.co.includes('현대')?'🟢':'🏦'}</div>
-        <div>
-          <div style="font-weight:600;font-size:14px">${contract.co}</div>
-          <div style="font-size:12px;color:var(--muted)">${contract.n} · 월 ${wonN(contract.pr)}원</div>
+        <div style="min-width:0">
+          <div style="font-weight:700;font-size:15px">${esc(contract.co)}</div>
+          <div style="font-size:13px;color:#475569">${esc(contract.n)} · 월 <b style="color:#059669">${wonN(contract.pr)}원</b></div>
+          ${meta.length?`<div class="cv-meta">${meta.map(m=>`<span>${esc(m)}</span>`).join('')}</div>`:''}
         </div>
       </div>
-      ${items.map(item=>`
+      ${items.length ? items.map(item=>`
         <div class="cv-item">
-          <span style="color:#374151">${item.name}</span>
-          <span style="font-weight:600;color:#1E3A8A">${wonN(parseFloat(item.amount||0)*10000)}원</span>
-        </div>`).join('')}
+          <span style="color:#374151">${esc(item.name)}</span>
+          <span style="font-weight:600;color:#1E3A8A;white-space:nowrap">${wonN(parseFloat(item.amount||0)*10000)}원</span>
+        </div>`).join('') : '<div class="cv-item" style="color:#94A3B8">담보 정리 중이에요</div>'}
     </div>`;
   }).join('');
 
@@ -3397,17 +3407,23 @@ function showCustomerView(name, displayName){             // name 은 서버가 
         </details>
       </div>
 
-      ${cvTotalPremium>0?`
-      <div style="margin:0 16px 12px;font-size:13px;font-weight:600;color:#374151">📑 보험 개요</div>
-      <div style="margin:0 16px 12px">${cvOverview}</div>`:''}
-      ${aggEntries.length>0?`
-      <div style="margin:0 16px 12px;font-size:13px;font-weight:600;color:#374151">📊 보장 합산 매트릭스</div>
-      <div style="margin:0 16px 12px">${matrixTableCV}</div>`:''}
-      <div style="margin:0 16px 12px;font-size:13px;font-weight:600;color:#374151">📋 보험별 담보 내역</div>
+      ${allContracts.length>0?`
+      <div class="cov-sum cv-sum">
+        <div><div class="l">💰 월 보험료</div><div class="v">${wonN(cvTotalPremium)}원</div><div class="s">연 ${wonN(cvTotalPremium*12)}원</div></div>
+        <div style="border-top-color:var(--green)"><div class="l">📑 보험</div><div class="v">${allContracts.length}건</div><div class="s">${esc([...new Set(allContracts.map(r=>r.co))].slice(0,2).join(' · '))}${new Set(allContracts.map(r=>r.co)).size>2?' 외':''}</div></div>
+        <div style="border-top-color:var(--purple)"><div class="l">📊 담보</div><div class="v">${cvItemNames.length}개</div><div class="s">${COV_GROUPS.filter(g=>(cvGrouped2[g.label]||[]).length).length}개 분야</div></div>
+      </div>
+      <div class="cv-ovw"><div class="cv-sec">📑 보험 개요</div><div style="margin:0 16px 12px">${cvOverview}</div></div>`:''}
+      ${cvItemNames.length>0?`
+      <div class="cv-sec">📊 분야별 보장 합계</div>
+      <div style="margin:0 16px 12px">${matrixTableCV}</div>
+      ${cvCards}`:''}
+      <div class="cv-sec">📋 보험별 담보 내역</div>
       ${policySections||'<div style="text-align:center;padding:30px;color:#9CA3AF">보장 데이터가 없습니다</div>'}
       <div style="text-align:center;margin-top:20px;font-size:12px;color:#9CA3AF">
         문의: 김성래 설계사 📞
       </div>
+    </div>
   </div>`;
 
   document.body.insertAdjacentHTML('beforeend', `<div id="cv-screen">${html}</div>`);
@@ -3432,7 +3448,7 @@ function normCovName(name) {
 
 // ── 보장 카테고리 그룹 정의 ─────────────────────────────
 const DEFAULT_COV_GROUPS = [
-  {label:'🏥 실손의료비',       color:'#0284C7', bg:'#E0F2FE', border:'#0EA5E9', keys:['실손','실비','실손의료']},
+  {label:'🏥 실손의료비',       color:'#0284C7', bg:'#E0F2FE', border:'#0EA5E9', keys:['실손','실비','실손의료','의료비']},
   {label:'💀 사망·장해·후유',   color:'#374151', bg:'#F1F5F9', border:'#94A3B8', keys:['사망보험금','사망','유족','후유장해','후유','장해']},
   {label:'🎗️ 암 관련 보장',    color:'#DC2626', bg:'#FEF2F2', border:'#FCA5A5', keys:['암진단','유사암','소액암','암치료','암수술','암특약','암']},
   {label:'🧠 뇌·심장 관련',    color:'#7C3AED', bg:'#F5F3FF', border:'#C4B5FD', keys:['뇌혈관','뇌졸중','뇌출혈','뇌경색','뇌','심장','심근경색','허혈성','심혈관']},
