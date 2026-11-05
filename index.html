@@ -94,7 +94,8 @@ td{padding:9px 12px;white-space:nowrap;vertical-align:middle}
 .gmeta{font-size:12px;color:var(--muted)}
 .gamt{font-size:13px;font-weight:700;margin-left:8px}
 .garr{font-size:11px;color:var(--hint);transition:transform .2s}
-.gtbl{display:none;border-top:1px solid var(--border)}
+.gtbl{display:none;border-top:1px solid var(--border);overflow-x:auto}
+.gtbl.open{display:block}
 
 /* Monthly tab */
 .month-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:20px}
@@ -177,6 +178,25 @@ input[type=text]:focus,input[type=number]:focus,select.form-sel:focus,textarea:f
 .cv-total{background:#fff;border:1px solid #E2E8F0;border-radius:12px;margin:0 16px 12px;padding:16px}
 .cv-total-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed #E2E8F0;font-size:13px}
 .cv-total-row:last-child{border:none;font-weight:700;font-size:14px}
+
+/* 전체 가독성 — 12px 미만 글자 없애기 (인라인 style 의 9~11px 도 12px 로) */
+[style*="font-size:9px"],[style*="font-size:10px"],[style*="font-size:11px"]{font-size:12px!important}
+thead th,.kpi-label,.kpi-sub,.cov-cust-cnt,.garr,.b-done,.b-cancel,.b-pending,.gbadge,.stat-l{font-size:12px}
+.kpi-label,thead th,.chart-title{text-transform:none;letter-spacing:0}
+.mo-charts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-bottom:14px}
+.stat{min-width:0}.stat-v{word-break:keep-all}
+@media(max-width:700px){
+  .kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .kpi{padding:10px 12px}.kpi-val{font-size:18px}
+  .kpi-grid>.kpi:last-child:nth-child(odd){grid-column:1/-1}
+  .gheader{flex-wrap:wrap;row-gap:2px;padding:11px 14px}
+  .gname{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .gamt{white-space:nowrap;margin-left:auto}
+  .gmeta{order:5;flex-basis:100%;padding-left:20px}
+  .mo-charts{grid-template-columns:minmax(0,1fr);gap:10px}
+  .stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stat-v{font-size:13px}
+}
 
 /* 보장분석 가독성 — 남색 머리줄 표, 요약 카드, 폰 카드 보기 */
 .ntbl thead th{background:#1E3A8A;color:#fff;text-transform:none;letter-spacing:0;font-size:12px;cursor:default;border-bottom:none}
@@ -1577,14 +1597,14 @@ function renderGroups() {
     gm[r.g].nc.add(r.c);
   });
   const gs = Object.entries(gm).map(([g,v])=>({g,...v,nc:v.nc.size})).sort((a,b)=>b.amt-a.amt);
-  document.getElementById('pane-그룹별').innerHTML = gs.map(g=>{
-    const id=g.g.replace(/[\s()]/g,'_');
+  document.getElementById('pane-그룹별').innerHTML = gs.map((g,gi)=>{
+    const id='g'+gi;                                     // 그룹 이름에 따옴표가 있어도 onclick 이 깨지지 않게 순번으로
     const rows=CONTRACTS.filter(r=>r.g===g.g).sort((a,b)=>a.c.localeCompare(b.c));
     const meta=[`${g.nc}명`,`${g.k}건 완료`,g.cancel?`${g.cancel}건 해지`:'',g.pending?`${g.pending}건 예정`:''].filter(Boolean).join(' · ');
     return `<div class="gcard">
       <div class="gheader" onclick="toggleG('${id}')">
         <div class="gdot" style="background:${gc(g.g)}"></div>
-        <span class="gname">${g.g}</span>
+        <span class="gname">${esc(g.g||'그룹 없음')}</span>
         <span class="gmeta">${meta}</span>
         <span class="gamt" style="color:${gc(g.g)}">${wonN(g.amt)}원/월</span>
         <span class="garr" id="arr-${id}">▼</span>
@@ -1593,10 +1613,10 @@ function renderGroups() {
         <table>
           <thead><tr>${['계약자','가입자','가입일','보험회사','보험명','월보험료','상태',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
           <tbody>${rows.map(r=>`<tr>
-            <td style="font-weight:600">${r.c}</td>
-            <td style="color:var(--muted)">${r.p}</td>
-            <td style="color:var(--muted);font-size:12px">${r.d}</td>
-            <td>${r.co}</td><td>${r.n}</td>
+            <td style="font-weight:600">${esc(r.c)}</td>
+            <td style="color:var(--muted)">${esc(r.p)}</td>
+            <td style="color:var(--muted);font-size:12px">${esc(r.d)}</td>
+            <td>${esc(r.co)}</td><td>${esc(r.n)}</td>
             <td style="text-align:right">${wonN(r.pr)}</td>
             <td>${sbadge(r.s)}</td>
             <td class="td-act">${proposalLinkHtml(r.proposalUrl)}<button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.id})">✏️</button></td>
@@ -1608,8 +1628,8 @@ function renderGroups() {
 }
 function toggleG(id){
   const t=document.getElementById('gt-'+id),a=document.getElementById('arr-'+id);
-  if(t.style.display==='table'){t.style.display='none';a.textContent='▼';}
-  else{t.style.display='table';a.textContent='▲';}
+  const open=!t.classList.contains('open');            // display:table 로 열면 상자가 내용 폭만큼 줄어서 표가 반쪽이 됐어요
+  t.classList.toggle('open', open); a.textContent=open?'▲':'▼';
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1774,7 +1794,7 @@ function renderMonthly() {
   const maxKM=MONTHLY.reduce((a,b)=>(kByMonth[b.m]||b.k)>(kByMonth[a.m]||a.k)?b:a,MONTHLY[0]||{m:'-',k:0,before:0,after:0,tax:0});
 
   document.getElementById('pane-월별').innerHTML=`
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+    <div class="mo-charts">
       <div class="chart-wrap"><div class="chart-title">월별 신규 가입 건수</div>${barSVG}</div>
       <div class="chart-wrap"><div class="chart-title">월별 세후 수입 추이</div>${lineSVG}</div>
     </div>
@@ -1801,7 +1821,7 @@ function renderMonthly() {
             <td style="text-align:right;font-weight:${mAmt>0?600:400};color:${mAmt>0?'var(--blue)':'var(--hint)'}">${mAmt>0?wonN(mAmt)+'원':'-'}</td>
             <td style="text-align:right">${m.before?won(m.before):'-'}</td>
             <td style="text-align:right;font-weight:${m.after>=3000000?600:400};color:${m.after>=3000000?'var(--blue)':'inherit'}">${m.after?won(m.after):'-'}</td>
-            <td style="color:var(--hint);font-size:12px">${m.memo||''}</td>
+            <td style="color:var(--hint);font-size:12px">${esc(m.memo||'')}</td>
             <td class="td-act" onclick="event.stopPropagation()">
               <button class="btn btn-secondary btn-sm" onclick="openIncomeModalFor('${m.m}')">✏️ 수입편집</button>
             </td>

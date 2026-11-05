@@ -82,5 +82,18 @@ try{
   ok(/@media\(max-width:700px\)\{[^}]*\.cv-mtx,\.cv-ovw\{display:none\}/.test(html.replace(/\s+/g,'')),'폰에서는 표를 숨기고 카드로');
   ok(/@media\(max-width:600px\)\{\.kpi-grid\{[^}]*\}\.form-grid/.test(html),'폰 CSS 규칙 사이에 잘못된 ";" 없음 (입력 칸 1열 규칙이 적용됨)');
 }catch(e){ ok(false,'G 오류: '+e.message); }
+console.log('H) 디자인 점검 (그룹 표 폭·작은 글자·폰 배치)');
+try{
+  D.run("renderTab('그룹별')"); const gp=D.el('pane-그룹별').innerHTML;
+  ok(!/display='table'|display==='table'/.test(html),'그룹 표를 display:table 로 열지 않음 (상자가 내용 폭으로 줄어 표가 반쪽이 되던 원인)');
+  ok(/\.gtbl\.open\{display:block\}/.test(html)&&/onclick="toggleG\('g\d+'\)"/.test(gp),'그룹은 순번 id + open 클래스로 펼침');
+  const t={classList:{_o:false,contains(){return this._o;},toggle(c,v){this._o=v;}}}, a={textContent:''};
+  D.ctx.document.getElementById=id=>id==='gt-g0'?t:id==='arr-g0'?a:{style:{}};
+  D.run("toggleG('g0')"); ok(t.classList._o===true&&a.textContent==='▲','toggleG: 누르면 펼치고 ▲');
+  D.run("toggleG('g0')"); ok(t.classList._o===false&&a.textContent==='▼','toggleG: 다시 누르면 접고 ▼');
+  ok(/\[style\*="font-size:11px"\]\{font-size:12px!important\}/.test(html),'인라인 9~11px 글자를 12px 로 올리는 규칙');
+  ok(/\.mo-charts\{grid-template-columns:minmax\(0,1fr\);/.test(html.replace(/\s+/g,''))&&/class="mo-charts"/.test(html),'폰에서 월별 차트 두 개를 세로로');
+  ok(/\.gmeta\{order:5;flex-basis:100%/.test(html),'폰 그룹 머리줄: 건수 설명을 둘째 줄로 (이름이 세로로 쪼개지던 문제)');
+}catch(e){ ok(false,'H 오류: '+e.message); }
 console.log(`\n스모크 테스트: ${pass}건 통과, ${fail}건 실패`); process.exit(fail?1:0);
 })();
