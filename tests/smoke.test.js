@@ -15,7 +15,9 @@ ok(D.errors.length===0,'스크립트 로드 오류 없음 '+D.errors.join('|'));
 { const hdr=(html.match(/<div class="hdr-links">[\s\S]*?<\/div>/)||[''])[0];
   ok(/href="https:\/\/s2ongrae\.github\.io\/"[^>]*>[^<]*<span>포털/.test(hdr),'상단에 포털 링크');
   ok(/href="https:\/\/s2ongrae\.github\.io\/gaegyebu"[^>]*>[^<]*<span>가계부/.test(hdr),'상단에 가계부 링크');
-  ok((hdr.match(/rel="noopener"/g)||[]).length===2,'새 탭 링크는 rel=noopener');
+  ok(/href="https:\/\/s2ongrae\.github\.io\/prediag\/"[^>]*>[^<]*<span>사전진단/.test(hdr),'상단에 사전진단툴 링크');
+  ok((hdr.match(/<a class="hdr-link"/g)||[]).length===3,'상단 링크는 포털·가계부·사전진단 3개');
+  ok((hdr.match(/rel="noopener"/g)||[]).length===3 && (hdr.match(/target="_blank"/g)||[]).length===3,'새 탭 링크는 모두 rel=noopener');
   const app=html.indexOf('<div id="app-wrap"'), cust=html.indexOf('<div class="hdr-links">');
   ok(app>0 && cust>app,'링크는 app-wrap 안에 있어서 고객 전용 화면에는 안 보임'); }
 const tabs=[['리스트','list-results'],['그룹별','pane-그룹별'],['고객별','pane-고객별'],['월별','pane-월별'],['보장분석','pane-보장분석']];

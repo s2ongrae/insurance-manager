@@ -129,10 +129,24 @@ for(const bad of ['javascript:alert(1)','https://evil.example/x.pdf','http://dri
 K.run(`CONTRACTS=CONTRACTS.map(r=>r.id===1?Object.assign({},r,{proposalUrl:'https://drive.google.com/file/d/abc"onmouseover="alert(1)/view'}):r)`);
 K.run("renderTab('리스트')"); ok(!/onmouseover="alert/.test(K.el('list-results').innerHTML),'따옴표가 섞인 주소도 속성 밖으로 못 나감(이스케이프)');
 
-console.log('L) 고객 링크로는 파일 주소가 안 나감');
+console.log('L) 고객 링크: 그 고객의 제안서만 📄 로 보임 (사용자 결정 2026-11-06: 설계사와 고객 모두 볼 수 있게)');
 await H.run(`copyShareLink('${hh}')`); const link='#'+H.clip.split('#')[1];
+const srvC=JSON.parse(E.S.dataFile().content).contracts; const otherUrl=(srvC.find(r=>r.id===3)||{}).proposalUrl||'';
 const V=makeDevice({hash:link,fetch:E.route}); await sleep(90);
-ok(V.bodyHtml.includes('cv-screen')&&!/drive\.google\.com/.test(V.bodyHtml)&&V.get('CONTRACTS.every(c=>c.proposalUrl===undefined)'),'고객 화면과 고객이 받는 데이터에 제안서 파일 주소 없음');
+const myUrls=V.get('CONTRACTS.map(c=>c.proposalUrl).filter(Boolean)');
+const esc2=u=>u.replace(/&/g,'&amp;');
+ok(V.bodyHtml.includes('cv-screen')&&myUrls.length>=2&&myUrls.every(isDrive),'고객이 받는 데이터에는 Drive 제안서 주소만 ('+myUrls.length+'개)');
+ok(myUrls.every(u=>V.bodyHtml.includes(esc2(u))),'고객 화면에 그 주소들이 링크로 나타남');
+ok(/📄 보기/.test(V.bodyHtml)&&/📄 제안서 보기/.test(V.bodyHtml),'계약 목록 표(📄 보기)와 계약별 구역(📄 제안서 보기) 두 곳에 보임');
+ok(isDrive(otherUrl)&&!V.bodyHtml.includes(esc2(otherUrl)),'다른 가입자(이순신)의 제안서 주소는 이 고객 화면에 없음');
+ok(!/href="(?!https:\/\/drive\.google\.com\/|https?:\/\/s2ongrae)/.test(V.bodyHtml.replace(/<a href="tel:[^"]*"/g,'')),'고객 화면의 링크는 Drive 주소(또는 자기 사이트)뿐');
+
+{ const evilRoute=async(u,o)=>{ const res=await E.route(u,o); const body=JSON.parse(o.body||'{}');
+    if(body.action!=='getCustomerView') return res; const out=await res.json();
+    (out.contracts||[]).forEach((c,i)=>{ c.proposalUrl=i===0?'javascript:alert(1)':'https://evil.example/x.pdf'; });
+    return {status:200,json:async()=>out}; };
+  const V2=makeDevice({hash:link,fetch:evilRoute}); await sleep(90);
+  ok(V2.bodyHtml.includes('cv-screen')&&!/href="javascript:/.test(V2.bodyHtml)&&!V2.bodyHtml.includes('evil.example'),'서버가 이상한 주소를 보내도(방어) 고객 화면은 링크로 만들지 않음'); }
 
 console.log('M) "기존 보험 추가"(글자 id) 보험: 담보 입력·분석·파일 저장이 모두 동작');
 { const M=E.mk(); await sleep(70); const mp=pidOf(M,'홍길동'); const XID='ext_1700000000000';

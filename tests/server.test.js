@@ -127,7 +127,7 @@ ok(r.ok===true, '올바른 토큰이면 조회 가능 (관리 키 불필요)');
 ok(r.contracts.every(c=>c.p==='가입자A'), '그 고객 계약만 반환');
 ok(Object.keys(r.coverages).length===1 && r.coverages['가입자A'], '그 고객 보장분석만 반환');
 const txt = JSON.stringify(r);
-ok(!txt.includes('비공개 메모') && !txt.includes('secret') && !txt.includes('홍길동') && !txt.includes('가입자B'), '메모·제안서 링크·계약자·다른 고객 정보는 포함 안 됨');
+ok(!txt.includes('비공개 메모') && !txt.includes('secret') && !txt.includes('홍길동') && !txt.includes('가입자B'), '메모·계약자·다른 고객 정보와 Drive 가 아닌 제안서 주소는 포함 안 됨');
 r = post({action:'getCustomerView', name:'가입자A', token:'wrong'.repeat(8)}); ok(r.ok===false && !r.contracts, '틀린 토큰 거절');
 r = post({action:'getCustomerView', name:'가입자B', token:TOK}); ok(r.ok && r.key==='가입자A' && r.contracts.every(c=>c.p==='가입자A') && !JSON.stringify(r).includes('가입자B'), '다른 이름을 넣어도 토큰이 정한 사람의 정보만 나옴 (이름은 인증에 쓰지 않음)');
 r = post({action:'getCustomerView', name:'가입자A', token:''}); ok(r.ok===false, '토큰 없음 거절');
@@ -171,6 +171,23 @@ console.log('5c) 가입자 고유 번호(pid) 기반 고객 링크');
   ok(post({action:'getCustomerView',token:'x'.repeat(40)}).ok===false,'__proto__ 열쇠의 토큰은 무시');
   ok(post({action:'getCustomerView',token:TA}).ok===true,'다른 항목이 있어도 정상 토큰은 그대로 열림');
 }
+
+console.log('5d) 제안서 주소: Drive 주소만 고객에게 전달 (사용자 결정 2026-11-06: 설계사와 고객 모두 볼 수 있게)');
+{ const cur=post({action:'load',key:KEY}); const TA='d'.repeat(40), TB='e'.repeat(40);
+  const mk=(id,pid,url)=>({id,s:'계약완료',d:'26.01.01',c:'계약자',p:'홍길동',pid,co:'화재',n:'종합'+id,pr:1000,g:'지인들',proposalUrl:url});
+  const DR='https://drive.google.com/file/d/AAA111/view?usp=drivesdk', DR2='https://drive.google.com/file/d/BBB222/view?usp=drivesdk';
+  const d={contracts:[mk(1,'pid_a',DR),mk(2,'pid_a','javascript:alert(1)'),mk(3,'pid_a','https://evil.example/x.pdf'),mk(4,'pid_b',DR2),mk(5,'pid_a','')],monthly:[],groups:{},memos:{},settings:{},
+    coverages:{pid_a:{policies:[{id:1,proposalUrl:'https://evil.example/stray',items:[]}],externalPolicies:[{id:-5,co:'외부',n:'외부종합',proposalUrl:DR,items:[]},{id:-6,co:'외부2',n:'x',proposalUrl:'javascript:alert(2)',items:[]}],otherPolicies:[{id:'ext_1',co:'옛',name:'옛상품',proposalUrl:'https://evil.example/o',items:[]}]},pid_b:{policies:[]}},
+    shares:{pid_a:TA,pid_b:TB}};
+  const w=post({action:'save',key:KEY,baseRev:cur.rev,force:true,data:d}); ok(w.ok,'제안서 주소가 든 데이터 저장');
+  const a=post({action:'getCustomerView',token:TA}); const byId=Object.fromEntries(a.contracts.map(c=>[c.id,c.proposalUrl]));
+  ok(byId[1]===DR,'Drive 제안서 주소는 그 고객 화면에 전달');
+  ok(byId[2]===''&&byId[3]===''&&byId[5]==='','javascript:·다른 사이트·빈 값은 빈 문자열로 걸러짐');
+  const j=JSON.stringify(a);
+  ok(!j.includes('javascript:')&&!j.includes('evil.example'),'걸러진 주소가 응답 어디에도 없음 (외부·기존 보험 기록, 옛 policies 항목 포함)');
+  ok(a.coverages.pid_a.externalPolicies[0].proposalUrl===DR&&a.coverages.pid_a.externalPolicies[1].proposalUrl===''&&a.coverages.pid_a.otherPolicies[0].proposalUrl==='','외부·기존 보험의 제안서 주소도 Drive 주소만 전달');
+  ok(!j.includes('BBB222'),'다른 고객(B)의 제안서 주소는 안 보임');
+  const b=post({action:'getCustomerView',token:TB}); ok(b.contracts.length===1&&b.contracts[0].proposalUrl===DR2&&!JSON.stringify(b).includes('AAA111'),'B 고객은 자기 제안서만'); }
 // ───────── 6) 업로드 ─────────
 console.log('6) PDF 업로드');
 const pdf = Buffer.from('%PDF-1.4 test content').toString('base64');

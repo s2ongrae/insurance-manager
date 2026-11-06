@@ -373,6 +373,7 @@ if(_viewHash.startsWith('#view=')) {
     <div class="hdr-links">
       <a class="hdr-link" href="https://s2ongrae.github.io/" target="_blank" rel="noopener" title="포털로 가기">🏠 <span>포털</span></a>
       <a class="hdr-link" href="https://s2ongrae.github.io/gaegyebu" target="_blank" rel="noopener" title="가계부로 가기">📒 <span>가계부</span></a>
+      <a class="hdr-link" href="https://s2ongrae.github.io/prediag/" target="_blank" rel="noopener" title="사전진단툴로 가기">🩺 <span>사전진단</span></a>
     </div>
     <span style="font-size:11px;color:var(--hint);background:var(--surface2);padding:2px 8px;border-radius:20px">김성래</span>
     <span id="sync-status" style="margin-left:4px"><span style="color:var(--muted);font-size:12px">☁️ 연결 중...</span></span>
@@ -3455,6 +3456,8 @@ function showCustomerView(name, displayName){             // name 은 서버가 
   // 외부·기존 보험까지 모두 합쳐서 보여줘요 (관리 화면과 같은 숫자)
   const cvTotalPremium = allContracts.reduce((s,r)=>s+(Number(r.pr)||0),0);
   const polOf = r => r._isOther ? r._pol : ((cData.policies||[]).find(p=>p.id===r.id) || {});
+  // 제안서 파일 주소 (Drive 주소만 링크로 만들어요)
+  const pUrlOf = r => safeDriveUrl(r._isOther ? (r._pol && r._pol.proposalUrl) : r.proposalUrl);
 
   // 고객 뷰 개요 테이블
   const cvOverview = allContracts.length>0?`
@@ -3462,7 +3465,7 @@ function showCustomerView(name, displayName){             // name 은 서버가 
     <table class="ntbl" style="width:100%;border-collapse:collapse;font-size:12px">
       <thead>
         <tr style="background:#1E3A8A">
-          ${['보험사','보험명','월 납입료','납입기간','보험기간','갱신여부'].map(h=>`<th style="padding:8px 10px;text-align:left;color:#fff;font-weight:600;white-space:nowrap">${h}</th>`).join('')}
+          ${['보험사','보험명','월 납입료','납입기간','보험기간','갱신여부','제안서'].map(h=>`<th style="padding:8px 10px;text-align:left;color:#fff;font-weight:600;white-space:nowrap">${h}</th>`).join('')}
         </tr>
       </thead>
       <tbody>
@@ -3475,6 +3478,7 @@ function showCustomerView(name, displayName){             // name 은 서버가 
             <td style="padding:8px 10px;color:#374151">${esc(pol.payPeriod||'-')}</td>
             <td style="padding:8px 10px;color:#374151">${esc(pol.covPeriod||'-')}</td>
             <td style="padding:8px 10px;color:#374151">${esc(pol.renewable||'-')}</td>
+            <td style="padding:8px 10px;white-space:nowrap">${pUrlOf(r)?`<a href="${esc(pUrlOf(r))}" target="_blank" rel="noopener" style="color:#2563EB;font-weight:600;text-decoration:none">📄 보기</a>`:'<span style="color:#CBD5E1">-</span>'}</td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -3482,7 +3486,7 @@ function showCustomerView(name, displayName){             // name 은 서버가 
         <tr style="background:#1E3A8A">
           <td colspan="2" style="padding:10px 10px;color:#fff;font-weight:700">💰 월 합계</td>
           <td style="padding:10px 10px;color:#FCD34D;font-weight:800;font-size:15px">${wonN(cvTotalPremium)}원</td>
-          <td colspan="3" style="padding:10px 10px;color:rgba(255,255,255,.75);font-size:11px">연 ${wonN(cvTotalPremium*12)}원</td>
+          <td colspan="4" style="padding:10px 10px;color:rgba(255,255,255,.75);font-size:11px">연 ${wonN(cvTotalPremium*12)}원</td>
         </tr>
       </tfoot>
     </table></div>`:'';
@@ -3607,6 +3611,7 @@ function showCustomerView(name, displayName){             // name 은 서버가 
           <div style="font-weight:700;font-size:15px">${esc(contract.co)}</div>
           <div style="font-size:13px;color:#475569">${esc(contract.n)} · 월 <b style="color:#059669">${wonN(contract.pr)}원</b></div>
           ${meta.length?`<div class="cv-meta">${meta.map(m=>`<span>${esc(m)}</span>`).join('')}</div>`:''}
+          ${pUrlOf(contract)?`<div style="margin-top:6px"><a href="${esc(pUrlOf(contract))}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;color:#2563EB;text-decoration:none">📄 제안서 보기</a></div>`:''}
         </div>
       </div>
       ${items.length ? items.map(item=>`

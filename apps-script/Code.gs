@@ -229,6 +229,11 @@ function pruneBackups(folder) {
 // shares 의 열쇠는 가입자 고유 번호(pid_…) 이고, 번호가 생기기 전의 예전 링크(열쇠가 이름)도 그대로 열려요.
 function isPidKey(k) { return /^pid_[a-z0-9_]+$/.test(String(k)); }
 
+// 제안서 파일 주소는 Google Drive 주소만 고객에게 보내요 (다른 주소·javascript: 같은 값은 빈 문자열로)
+function driveUrlOnly(u) {
+  return /^https:\/\/drive\.google\.com\//.test(String(u == null ? '' : u)) ? String(u) : '';
+}
+
 function personNameOfContracts(cs) {              // 가장 많이 쓰인 이름 (동률이면 최근 계약의 이름)
   const cnt = {};
   cs.forEach(function (c) { cnt[c.p] = (cnt[c.p] || 0) + 1; });
@@ -256,12 +261,28 @@ function getCustomerView(body) {
   const belongs = function (c) { return c && (isPidKey(key) ? c.pid === key : c.p === key); };
   const all  = d.contracts.filter(belongs);
   const mine = all.filter(function (c) { return c.s === '계약완료'; });
-  // 고객 화면에 필요한 최소 필드만 (계약자·그룹·메모·제안서 링크 등은 제외)
+  // 고객 화면에 필요한 최소 필드만 (계약자·그룹·메모 등은 제외). 제안서 주소는 Drive 주소만 보내요
+  // — 사용자 결정(2026-11-06): 제안서는 설계사와 고객 모두 볼 수 있어야 한다
   const contracts = mine.map(function (c) {
-    return { id: c.id, s: c.s, d: c.d, p: c.p, pid: c.pid || '', co: c.co, n: c.n, pr: c.pr };
+    return { id: c.id, s: c.s, d: c.d, p: c.p, pid: c.pid || '', co: c.co, n: c.n, pr: c.pr,
+             proposalUrl: driveUrlOnly(c.proposalUrl) };
   });
+  const cov = Object.assign({}, has(d.coverages, key) ? d.coverages[key] : { policies: [] });
+  ['externalPolicies', 'otherPolicies'].forEach(function (f) {          // 외부·기존 보험 기록의 제안서 주소도 같은 기준
+    if (Array.isArray(cov[f])) {
+      cov[f] = cov[f].map(function (r) {
+        return isObj(r) ? Object.assign({}, r, { proposalUrl: driveUrlOnly(r.proposalUrl) }) : r;
+      });
+    }
+  });
+  if (Array.isArray(cov.policies)) {                                      // 계약별 분석 항목에는 제안서 주소가 필요 없어요
+    cov.policies = cov.policies.map(function (p) {
+      if (!isObj(p)) return p;
+      const q = Object.assign({}, p); delete q.proposalUrl; return q;
+    });
+  }
   const coverages = {};
-  coverages[key] = has(d.coverages, key) ? d.coverages[key] : { policies: [] };
+  coverages[key] = cov;
   // 관리 화면과 같은 담보 그룹으로 보이도록 그룹 설정만 전달 (다른 설정은 보내지 않음)
   const settings = {};
   if (isObj(d.settings.covGroups)) settings.covGroups = d.settings.covGroups;
