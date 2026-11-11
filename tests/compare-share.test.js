@@ -5,8 +5,8 @@ const PID = 'pid_cmptest1';
 const ls = {
   ins_contracts: JSON.stringify([{ id: 1, pid: PID, c: '가나다', p: '가나다', co: '가나생명', n: '새건강보험', s: '가입 예정', d: '26.11.20', pr: 85000, g: '지인' }]),
   ins_coverages: JSON.stringify({ [PID]: {
-    policies: [{ id: 1, items: [{ name: '암진단비', amount: 5000, unit: '만원' }] }],
-    externalPolicies: [{ id: -5, co: '마바손해보험', n: '옛실손보험', pr: 23000, items: [{ name: '암진단비', amount: 3000, unit: '만원' }, { name: '질병입원의료비', amount: 5000, unit: '만원' }] }] } }),
+    policies: [{ id: 1, items: [{ name: '암진단비', amount: 5000, unit: '만원' }, { name: '일반사망', amount: 1000, unit: '만원' }] }],
+    externalPolicies: [{ id: -5, co: '마바손해보험', n: '옛실손보험', pr: 23000, items: [{ name: '암진단비', amount: 3000, unit: '만원' }, { name: '질병입원의료비', amount: 5000, unit: '만원' }, { name: '일반사망', amount: 1000, unit: '만원' }] }] } }),
   ins_monthly: '[]', ins_groups: '{}', ins_reminders: '{}'
 };
 const rec = D => D.get(`COVERAGES['${PID}']`);
@@ -48,7 +48,20 @@ ok(/📈 늘어나는 보장 1개/.test(cmp) && /암진단비/.test(cmp) && /3�
 ok(/✖️ 없어지는 보장 1개/.test(cmp) && /질병입원의료비/.test(cmp), '없어지는 보장: 질병입원의료비');
 ok(/🗑️ 해지 1건/.test(cmp) && /🆕 새로 가입 1건/.test(cmp), '보험 정리: 해지 1 · 신규 1');
 ok(/바꾸기 전에 꼭 확인하세요/.test(cmp), '바꿀 때 알아둘 점 (기본 켜짐)');
-ok(!/담당 설계사 설명/.test(cmp) && !/그대로인 보장/.test(cmp), '설계사 한마디·그대로인 보장은 기본 꺼짐');
+ok(!/담당 설계사 설명/.test(cmp), '설계사 한마디는 기본 꺼짐');
+const tbl = cmp.slice(cmp.indexOf('📊 상세 비교표'), cmp.indexOf('📋 보험 정리'));
+ok(cmp.indexOf('📊 상세 비교표') > cmp.indexOf('📈 보장이 이렇게 바뀌어요'), '상세 비교표는 요약(보장 변화) 아래 (기본 켜짐)');
+const rowOf = n => { const i = tbl.indexOf('<td>' + n + '</td>'); return i < 0 ? '' : tbl.slice(i, tbl.indexOf('</tr>', i)); };
+const cells = r => (r.match(/<td[^>]*>[\s\S]*?<\/td>/g) || []).map(c => c.replace(/<[^>]+>/g, '').trim());   // 행의 칸 글자만
+ok(cells(rowOf('암진단비')).join('|') === '암진단비|3천만원|5천만원|+2천만원', '표: 암진단비 | 3천만원 | 5천만원 | +2천만원');
+ok(cells(rowOf('질병입원의료비')).join('|') === '질병입원의료비|5천만원|-|없어짐', '표: 질병입원의료비 | 5천만원 | - | 없어짐');
+ok(/그대로/.test(rowOf('일반사망')) && /cmp-tsame/.test(tbl), '표에는 바뀌지 않은 보장(일반사망)도 "그대로"로 나옴');
+ok(!/일반사망/.test(cmp.slice(0, cmp.indexOf('📊 상세 비교표'))), '위 요약에는 바뀐 보장만 (일반사망 없음)');
+ok(/class="cmp-tg"/.test(tbl), '표는 보장 분야별로 묶음');
+ok(tbl.includes('보험 (월 보험료)') && cells(tbl.slice(tbl.indexOf('<tfoot>'))).join('|') === '합계|23,000원|85,000원', '보험별 월 보험료 표 + 합계 23,000원 → 85,000원');
+const polRow = n => { const i = tbl.lastIndexOf('<tr>', tbl.indexOf(n)); return cells(tbl.slice(i, tbl.indexOf('</tr>', i))).join('|'); };
+ok(polRow('옛실손보험') === '마바손보 · 옛실손보험해지|23,000원|-', '해지 보험: 지금 23,000원 → 바꾼 뒤 - (실제 ' + polRow('옛실손보험') + ')');
+ok(polRow('새건강보험') === '가나생명 · 새건강보험신규|-|85,000원', '신규 보험: 지금 - → 바꾼 뒤 85,000원 (실제 ' + polRow('새건강보험') + ')');
 D.run(`cvTab('cmp')`);
 ok(D.get(`document.getElementById('cv-pane-cmp').style.display===''`) && D.get(`document.getElementById('cv-pane-cov').style.display==='none'`), '탭을 누르면 비교 분석으로 바뀜');
 
@@ -56,6 +69,9 @@ console.log('D) 블록 끄고 켜기 · 설계사 한마디 (글자 그대로)')
 D.run(`setCompareBlock('${PID}', 'caution', false); setCompareBlock('${PID}', 'note', true); setCompareNote('${PID}', '<img src=x onerror=alert(1)> 실손 전환')`);
 cv = cvHtml(D);
 ok(!/바꾸기 전에 꼭 확인하세요/.test(cv), '끈 블록은 고객 화면에서 빠짐');
+D.run(`setCompareBlock('${PID}', 'table', false)`);
+ok(!/상세 비교표/.test(cvHtml(D)), '상세 비교표도 끌 수 있음');
+D.run(`setCompareBlock('${PID}', 'table', true)`);
 ok(/담당 설계사 설명/.test(cv) && /&lt;img src=x/.test(cv) && !/<img src=x/.test(cv), '설계사 한마디는 글자 그대로 (태그 실행 안 됨)');
 D.run(`setCompareBlock('${PID}', 'nope', true)`);
 ok(D.get(`!('nope' in (COVERAGES['${PID}'].compareShare.blocks||{}))`), '없는 블록 이름은 무시');
