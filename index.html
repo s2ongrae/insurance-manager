@@ -30,7 +30,48 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans
 .hdr-link{display:flex;align-items:center;gap:5px;padding:5px 11px;background:var(--bg);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--muted);font-size:12px;font-weight:600;white-space:nowrap;transition:all .15s}
 .hdr-link:hover{border-color:var(--blue);background:var(--blue-l);color:var(--blue)}
 @media(max-width:700px){.hdr-link span{display:none}.hdr-link{padding:5px 8px}}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;white-space:nowrap}
+.more-menu{position:relative;display:inline-block}
+.more-menu>summary{list-style:none}.more-menu>summary::-webkit-details-marker{display:none}
+.more-pop{position:absolute;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.14);padding:6px;display:flex;flex-direction:column;gap:4px;z-index:300;min-width:180px}
+.more-pop .btn{justify-content:flex-start;width:100%;margin:0}
+@media(max-width:700px){.hdr-menu .more-pop{position:fixed;top:58px;right:8px}}
+details[data-fold]>summary{list-style:none;cursor:pointer}
+details[data-fold]>summary::-webkit-details-marker{display:none}
+details[data-fold]>summary::after{content:'▾';margin-left:auto;padding-left:8px;color:#64748B;font-size:20px;line-height:1;transition:transform .15s}
+details.cv-policy>summary{align-items:flex-start}
+details[data-fold]:not([open])>summary::after{transform:rotate(-90deg)}
+summary.cv-sec{display:flex;align-items:center;gap:2px 6px;flex-wrap:wrap;white-space:nowrap}
+summary.cv-sec small{order:3;flex-basis:100%;white-space:normal;font-size:12px;font-weight:500;color:#64748B}
+.cv-toolbar{display:flex;justify-content:flex-end;gap:6px;margin:0 16px 10px}
+.cv-tabs{display:flex;gap:6px;margin:14px 16px 0;background:#E2E8F0;padding:4px;border-radius:12px}
+.cv-tabs button{flex:1;border:none;background:none;padding:10px 8px;border-radius:9px;font-size:14px;font-weight:700;color:#475569;cursor:pointer}
+.cv-tabs button.on{background:#fff;color:#1E3A8A;box-shadow:0 1px 3px rgba(15,23,42,.12)}
+.cmp{margin:0 16px}
+.cmp-card{background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.cmp-card h4{font-size:15px;margin:0 0 10px;color:#1E293B}
+.cmp-prem{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;text-align:center}
+.cmp-prem .l{font-size:12px;color:#64748B}.cmp-prem .v{font-size:17px;font-weight:800;margin-top:4px;white-space:nowrap}
+.cmp-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px dashed #E2E8F0;font-size:13px}
+.cmp-row:first-of-type{border-top:none}
+.cmp-row b{white-space:nowrap}
+.cmp-k{font-size:13px;font-weight:700;margin:12px 0 2px;padding:3px 10px;border-radius:999px;display:inline-block}
+.cmp-up{background:#DCFCE7;color:#047857}.cmp-new{background:#DBEAFE;color:#1D4ED8}.cmp-down{background:#FEF3C7;color:#B45309}.cmp-del{background:#FEE2E2;color:#B91C1C}.cmp-same{background:#F1F5F9;color:#475569}
+.cmp-note{white-space:pre-wrap;font-size:14px;line-height:1.7;color:#334155}
+.cmp-warn{background:#FFFBEB;border-color:#FDE68A}.cmp-warn li{font-size:13px;line-height:1.7;color:#92400E;margin-left:18px}
+.cs-panel{background:#fff;border:1px solid #C7D2FE;border-radius:12px;padding:14px;margin:0 0 16px}
+.cs-panel .cs-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cs-switch{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;cursor:pointer}
+.cs-switch input{width:18px;height:18px;accent-color:#3B5BDB}
+.cs-blocks{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px;margin:12px 0}
+.cs-blocks label{display:flex;gap:7px;align-items:flex-start;font-size:13px;padding:8px 10px;border:1px solid #E2E8F0;border-radius:8px;cursor:pointer;background:#F8FAFC}
+.cs-blocks small{display:block;font-size:11px;color:#64748B}
+.cs-status{font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px}
+.cs-on{background:#DCFCE7;color:#047857}.cs-off{background:#F1F5F9;color:#64748B}.cs-stale{background:#FEF3C7;color:#B45309}
+.cv-toolbar button{font-size:12px;font-weight:600;color:#1E40AF;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:999px;padding:5px 12px;cursor:pointer}
+details.cv-policy:not([open])>.cv-policy-hdr{border-bottom:none}
+.cv-policy-hint{font-size:11px;color:#94A3B8;white-space:nowrap;margin-left:auto}
+details.cv-policy[open] .cv-policy-hint{display:none}
 .btn-primary{background:var(--blue);color:#fff}
 .btn-primary:hover{background:#2f4ac5}
 .btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
@@ -283,15 +324,6 @@ thead th,.kpi-label,.kpi-sub,.cov-cust-cnt,.garr,.b-done,.b-cancel,.b-pending,.g
 .bm-link{font-size:12px;font-weight:600;color:#2563EB;text-decoration:none;white-space:nowrap}
 .bm-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 14px;padding:10px 14px;background:#F0F7FF;border:1px solid #CFE0FA;border-radius:10px;font-size:12px;color:#334155}
 .cv-wrap .bm-head{margin:0 16px 12px}
-.bm-std table{width:100%;border-collapse:collapse;font-size:12px}
-.bm-std th,.bm-std td{padding:7px 10px;border-bottom:1px solid #EEF2F7;text-align:left}
-.bm-std td.n{text-align:right;white-space:nowrap}
-.bm-std .gh td{background:#F8FAFC;font-weight:700;color:#334155}
-.bm-st{font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;white-space:nowrap}
-.bm-st.ok{background:#DCFCE7;color:#047857}.bm-st.no{background:#FEE2E2;color:#B91C1C}
-.bm-src{display:block;font-size:11px;color:#64748B;margin-top:2px}
-.cv-wrap .bm-std{margin:12px 16px;border:1px solid #E2E8F0;border-radius:12px;background:#fff;overflow:hidden}
-.cv-wrap .bm-std>summary{padding:12px 14px;cursor:pointer;font-weight:700;font-size:14px;color:#1E293B}
 .cv-grp-h{padding:9px 14px;font-size:14px;font-weight:700}
 .cv-row{padding:10px 14px;border-top:1px solid #F1F5F9}
 .cv-row-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
@@ -490,14 +522,19 @@ if(_viewHash.startsWith('#view=')) {
   </div>
   <div class="hdr-right">
     <button class="btn btn-secondary" onclick="openReminders()" title="날짜 알림 · 2년 1개월 도래" style="position:relative">🔔 알림<span id="rem-badge" class="rem-badge" style="display:none"></span></button>
-    <button class="btn btn-secondary" onclick="openServerSettings()" title="서버 주소·비밀 키 설정">⚙️ 서버</button>
-    <button class="btn btn-secondary" onclick="manualSync()" title="지금 즉시 저장">🔄 동기화</button>
-    <button class="btn btn-secondary" onclick="openModal('bomapp')" title="보맵 플래너 고객의 보험·특약·납입·약관·분석리포트 가져오기">📥 보맵</button>
-    <button class="btn btn-secondary" onclick="exportData()" title="데이터 백업">💾 백업</button>
-    <label class="btn btn-secondary" title="백업 파일 불러오기" style="cursor:pointer;margin:0">
-      📂 복원
-      <input type="file" accept=".json" onchange="importData(event)" style="display:none">
-    </label>
+    <details class="more-menu hdr-menu">
+      <summary class="btn btn-secondary" title="서버 · 동기화 · 보맵 · 백업 · 복원">⚙️ 관리 ▾</summary>
+      <div class="more-pop" onclick="if(event.target.closest('.btn'))this.closest('details').open=false">
+        <button class="btn btn-secondary" onclick="manualSync()" title="지금 즉시 저장">🔄 지금 동기화</button>
+        <button class="btn btn-secondary" onclick="openBomappModal()" title="보맵 플래너 고객의 보험·특약·납입·약관·분석리포트 가져오기">📥 보맵 가져오기</button>
+        <button class="btn btn-secondary" onclick="exportData()" title="데이터 백업">💾 백업 파일 받기</button>
+        <label class="btn btn-secondary" title="백업 파일 불러오기" style="cursor:pointer">
+          📂 백업 복원
+          <input type="file" accept=".json" onchange="importData(event)" style="display:none">
+        </label>
+        <button class="btn btn-secondary" onclick="openServerSettings()" title="서버 주소·비밀 키 설정">⚙️ 서버 설정</button>
+      </div>
+    </details>
     <button class="btn btn-secondary" onclick="openIncomeModal()">💰 월 수입 입력</button>
     <button class="btn btn-primary" onclick="openAddModal()">＋ 계약 추가</button>
   </div>
@@ -682,7 +719,7 @@ if(_viewHash.startsWith('#view=')) {
     <button class="modal-close" onclick="closeModal('bomapp')">✕</button>
   </div>
   <div class="modal-body" style="font-size:13px;line-height:1.7">
-    <p style="color:var(--muted);margin-bottom:12px">보맵 고객의 가입 보험 · 특약(담보) 전체 · 납입 현황 · 약관 · 보맵 보장분석(또래 평균 대비) · 분석 리포트 PDF 를 고객별 보장분석에 넣어요.</p>
+    <p style="color:var(--muted);margin-bottom:12px">보맵 고객의 가입 보험 · 특약(담보) 전체 · 납입 현황 · 약관 · 분석 리포트 PDF 를 고객별 보장분석에 넣어요.</p>
     <div style="background:var(--surface2);border-radius:10px;padding:12px 14px;margin-bottom:10px">
       <b>① 처음 한 번:</b> 아래 버튼을 브라우저 <b>북마크바로 끌어다 놓으세요</b> (북마크바가 안 보이면 Ctrl+Shift+B)<br>
       <a class="btn btn-primary btn-sm" style="margin-top:8px;cursor:grab" onclick="event.preventDefault();showToast('클릭이 아니라 북마크바로 끌어다 놓아 주세요')" href="javascript:(function(){var s=document.createElement('script');s.src='https://s2ongrae.github.io/insurance-manager/bomapp-export.js?v='+Date.now();document.body.appendChild(s);})();">📦 보맵→관리툴</a>
@@ -690,6 +727,9 @@ if(_viewHash.startsWith('#view=')) {
     <div style="background:var(--surface2);border-radius:10px;padding:12px 14px;margin-bottom:10px">
       <b>② 보맵 플래너</b>(<a href="https://dplanner.bomapp.co.kr/customer/all" target="_blank" rel="noopener">dplanner.bomapp.co.kr</a>)에 로그인한 화면에서 그 북마크를 누르면 오른쪽 위에 창이 떠요 → 고객 고르고 <b>📦 관리툴용 파일 만들기</b>.<br>
       <span class="rm-fine">같은 창에서 고객별 보맵 분석 리포트 PDF / Excel 도 바로 받을 수 있어요 (비밀번호: 플래너 사번).</span>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap"><b>🔑 리포트 비밀번호</b>
+        <input id="bm-report-pw" class="rem-in" style="width:120px" maxlength="20" autocomplete="off" placeholder="플래너 사번" onchange="setBmReportPw(this.value)"></label>
+      <span class="rm-fine">여기 넣은 번호가 보장분석의 리포트 안내에 보여요. 서버 데이터에만 저장되고 코드·고객 화면에는 나가지 않아요.</span>
     </div>
     <div style="background:var(--surface2);border-radius:10px;padding:12px 14px">
       <b>③ 받은 파일 열기</b><br>
@@ -1682,13 +1722,60 @@ function milestoneCell(r){
 }
 // 알림 목록: 직접 넣은 날짜 알림 + 2년 1개월이 30일 안으로 다가온 계약
 function reminderBuckets(){
-  const items = Object.values(REMINDERS).filter(x => isPlain(x) && parseYMD(x.date));
+  const items = Object.values(REMINDERS).filter(x => isPlain(x) && !x.off && parseYMD(x.date));
   const withD = items.map(x => ({...x, _d: parseYMD(x.date), _days: daysUntil(parseYMD(x.date))})).sort((a,b) => a._d - b._d);
   const due  = withD.filter(x => !x.done && x._days <= 0);
   const soon = withD.filter(x => !x.done && x._days > 0);
   const done = withD.filter(x => x.done).reverse();
   const ms = CONTRACTS.map(r => ({r, m: milestoneOf(r)})).filter(x => x.m && x.m.days >= -7 && x.m.days <= 30).sort((a,b) => a.m.date - b.m.date);
   return {due, soon, done, ms};
+}
+// 특약 만기·갱신 자동 알림: 담보에 만기일(until, 보맵에서 가져온 특약)이 있고 90일 안에 오면
+// 만기 30일 전 날짜로 🔔 알림에 등록. 같은 특약·같은 만기일은 같은 id → 여러 기기·여러 번 그려도 한 건.
+const RIDER_REM_WINDOW = 90, RIDER_REM_LEAD = 30;
+function riderReminderTargets(){
+  const out = {};
+  Object.keys(COVERAGES).forEach(pid => {
+    const rec = COVERAGES[pid]; if(!isPlain(rec)) return;
+    const pols = [];
+    (Array.isArray(rec.policies) ? rec.policies : []).forEach(p => {
+      if(!isPlain(p)) return;
+      const c = CONTRACTS.find(x => String(x.id) === String(p.id) && cpid(x) === pid);
+      if(c && c.s === '계약완료') pols.push({p, co: c.co, n: c.n, cid: String(c.id)});   // 해지·가입 예정 계약은 제외
+    });
+    ['externalPolicies', 'otherPolicies'].forEach(f => (Array.isArray(rec[f]) ? rec[f] : []).forEach(p => {
+      if(isPlain(p)) pols.push({p, co: p.co, n: p.n || p.name, cid: ''});
+    }));
+    pols.forEach(({p, co, n, cid}) => (Array.isArray(p.items) ? p.items : []).forEach(it => {   // items = 정상 특약만 (만기·다른 피보험자는 bm.extra)
+      if(!isPlain(it) || !it.name) return;
+      const end = parseYMD(it.until); if(!end) return;
+      const left = daysUntil(end); if(left < 0 || left > RIDER_REM_WINDOW) return;
+      const kind = (/^갱신형/.test(String(p.renewable || '')) || /갱신/.test(String(it.name).replace(/비갱신/g, ''))) ? '갱신' : '만기';
+      const polKey = isPlain(p.bm) && p.bm.id != null ? 'bm' + p.bm.id : String(p.id);
+      const id = 'rauto_' + hash53([pid, polKey, it.name, isoDay(end)].join('|'));
+      const remind = new Date(end.getFullYear(), end.getMonth(), end.getDate() - RIDER_REM_LEAD);
+      out[id] = {id, date: isoDay(remind), until: isoDay(end), cid,
+        memo: `특약 ${kind} ${fmtYMD(end)} · ${personName(pid)} · ${[shortCo(co), n].filter(Boolean).join(' ')} · ${it.name}`.slice(0, 300)};
+    }));
+  });
+  return out;
+}
+function syncRiderReminders(){
+  if(String((window.location && window.location.hash) || '').startsWith('#view=')) return false;   // 고객 화면에서는 안 함
+  const want = riderReminderTargets();
+  let changed = false;
+  Object.keys(want).forEach(id => {
+    if(!REMINDERS[id]){ REMINDERS[id] = {...want[id], done: false, auto: 'rider', at: new Date().toISOString()}; changed = true; }
+  });
+  // 갱신돼 만기일이 바뀌었거나 특약이 사라진 옛 자동 알림: 아직 처리 안 했으면 정리, 처리한 것도 만기 30일 지나면 정리
+  Object.keys(REMINDERS).forEach(id => {
+    const x = REMINDERS[id];
+    if(!isPlain(x) || x.auto !== 'rider' || want[id]) return;
+    const u = parseYMD(x.until);
+    if(!x.done || !u || daysUntil(u) < -30){ delete REMINDERS[id]; changed = true; }
+  });
+  if(changed){ save('ins_reminders', REMINDERS); scheduleSave(); }
+  return changed;
 }
 function reminderBadgeCount(){
   const b = reminderBuckets();
@@ -2532,7 +2619,7 @@ function remItemHtml(x){
   const link = x.cid ? contractLabel(x.cid) : '';
   return `<div class="rem-item ${!x.done && x._days <= 0 ? 'due' : ''}">
     <div class="rem-when" style="color:${col}">${fmtYMD(x._d)}<small>${x.done ? '완료' : ddayLabel(x._days)}</small></div>
-    <div class="rem-body"${x.done ? ' style="color:var(--hint);text-decoration:line-through"' : ''}>${esc(x.memo || '(메모 없음)')}${link ? `<span class="sub">📎 ${esc(link)}</span>` : ''}</div>
+    <div class="rem-body"${x.done ? ' style="color:var(--hint);text-decoration:line-through"' : ''}>${esc(x.memo || '(메모 없음)')}${link ? `<span class="sub">📎 ${esc(link)}</span>` : ''}${x.auto ? '<span class="sub">🤖 자동 등록 · 특약 만기·갱신 30일 전</span>' : ''}</div>
     <div class="rem-act">
       <button class="btn btn-secondary btn-sm" data-id="${esc(x.id)}" onclick="toggleReminder(this.dataset.id)" title="${x.done ? '다시 알림' : '완료'}">${x.done ? '↩' : '✓'}</button>
       <button class="btn btn-secondary btn-sm" data-id="${esc(x.id)}" onclick="deleteReminder(this.dataset.id)" title="삭제">🗑</button>
@@ -2582,8 +2669,10 @@ function toggleReminder(id){
   afterReminderChange();
 }
 function deleteReminder(id){
-  if(!REMINDERS[id] || !confirm('이 알림을 삭제할까요?')) return;
-  delete REMINDERS[id];
+  const x = REMINDERS[id];
+  if(!x || !confirm(x.auto ? '이 자동 알림을 지울까요?\n같은 특약·같은 만기일로는 다시 생기지 않아요.' : '이 알림을 삭제할까요?')) return;
+  if(x.auto) REMINDERS[id] = {...x, done: true, off: true};   // 지운 표시를 남겨야 다음에 다시 자동 등록되지 않아요
+  else delete REMINDERS[id];
   afterReminderChange();
 }
 function afterReminderChange(){
@@ -2799,7 +2888,6 @@ function importBomappData(data){
     c.policies.forEach(p=>{
       if(!isPlain(p) || p.insuranceId==null || !p.insuranceStatus || (!Array.isArray(p.riders) && !p.ridersError)) throw new Error('보험/특약 목록이 불완전해요');
     });
-    if(c.guarantees && (!Array.isArray(c.guarantees.groups) || c.guarantees.groups.some(g=>!isPlain(g)||!Array.isArray(g.items)))) throw new Error('보장분석 목록이 불완전해요');
   });
   const res = {people:0, newPeople:0, added:0, updated:0, linked:0, ended:0, removed:0, riders:0, warnings:[], ambiguous:[], reports:[]};
   const at = String(data.exportedAt || new Date().toISOString()).slice(0,19);
@@ -2859,7 +2947,6 @@ function importBomappData(data){
     res.removed += before - rec.externalPolicies.length;
     res.ended += ended.length;
     const oldBm = isPlain(rec.bomapp) ? rec.bomapp : {};
-    const g = isPlain(c.guarantees) ? c.guarantees : null;
     rec.bomapp = {
       memberId: c.memberId, plannerMemberId: c.plannerMemberId, at,
       reportUrl: safeDriveUrl(oldBm.reportUrl),
@@ -2867,11 +2954,7 @@ function importBomappData(data){
         const oldEnded=(oldBm.ended||[]).find(x=>x && x.bm && x.bm.id===p.insuranceId);
         if(p.ridersError || !Array.isArray(p.riders)) return oldEnded || {co:String(p.insurerName||''),n:String(p.productName||''),status:String(p.insuranceStatus||''),items:[],bm:{warning:'특약 조회 실패'}};
         return Object.assign(bmPolicyRecord(p,oldEnded,base-(seq++),at),{status:String(p.insuranceStatus||'')});
-      }),
-      std: g ? {age: Number(g.ageGroup)||0, groups: (g.groups||[]).filter(isPlain).map(gr=>({g:String(gr.g||''), items:(gr.items||[]).filter(isPlain).map(x=>({
-        n:String(x.name||''), st:x.status==='ENOUGH'?'ok':'no', rec:Number(x.rec)||0, total:Number(x.total)||0, desc:String(x.desc||'').trim(),
-        by:(x.by||[]).filter(isPlain).map(b=>({id: byBm[b.id]!==undefined ? byBm[b.id] : null, amt:Number(b.amt)||0}))
-      }))}))} : (oldBm.std || null)
+      })
     };
     if(isPlain(c.report) && typeof c.report.pdfB64==='string' && c.report.pdfB64.length>100) res.reports.push({pid, name:String(c.name), b64:c.report.pdfB64});
     res.people++;
@@ -2938,6 +3021,17 @@ function bmExtraItemsHtml(pol){
   </details>`;
 }
 // 고객 머리: 보맵 연동 시각 · 분석 리포트
+function bmReportPw(){ const b = isPlain(SETTINGS.bomapp) ? SETTINGS.bomapp : {}; return String(b.reportPw || '').trim().slice(0, 20); }
+function setBmReportPw(v){
+  SETTINGS.bomapp = Object.assign({}, isPlain(SETTINGS.bomapp) ? SETTINGS.bomapp : {}, {reportPw: String(v || '').trim().slice(0, 20)});
+  save('ins_settings', SETTINGS); scheduleSave();
+  showToast(bmReportPw() ? '🔑 리포트 비밀번호를 저장했어요' : '리포트 비밀번호를 지웠어요');
+  renderAll();
+}
+function openBomappModal(){
+  const el = document.getElementById('bm-report-pw'); if(el) el.value = bmReportPw();
+  openModal('bomapp');
+}
 function bmCustomerHeadHtml(pid, forCustomer){
   const r = COVERAGES[pid];
   if(!isPlain(r) || !isPlain(r.bomapp)) return '';
@@ -2945,28 +3039,8 @@ function bmCustomerHeadHtml(pid, forCustomer){
   if(forCustomer) return rep ? `<div class="bm-head">📊 <b>보험 분석 리포트</b><a class="bm-link" href="${esc(rep)}" target="_blank" rel="noopener">PDF 내려받기</a><span class="rm-fine">열 때 비밀번호가 필요해요 (담당 설계사에게 문의)</span></div>` : '';
   return `<div class="bm-head"><span class="bm-badge" style="font-size:11px;font-weight:700;color:#1D4ED8;background:#DBEAFE;border-radius:4px;padding:1px 6px">보맵 연동</span>
     <span>${esc(String(b.at||'').replace('T',' ').slice(0,16))} 기준</span>
-    ${rep?`<a class="bm-link" href="${esc(rep)}" target="_blank" rel="noopener">📊 보맵 분석 리포트 (PDF, 비밀번호: 플래너 사번)</a>`:'<span class="rm-fine">분석 리포트: 보맵 창에서 "리포트 PDF 받기" 또는 파일 만들 때 PDF 포함</span>'}
+    ${rep?`<a class="bm-link" href="${esc(rep)}" target="_blank" rel="noopener">📊 보맵 분석 리포트 (PDF, 비밀번호: ${esc(bmReportPw() || '플래너 사번')})</a>`:'<span class="rm-fine">분석 리포트: 보맵 창에서 "리포트 PDF 받기" 또는 파일 만들 때 PDF 포함</span>'}
     <a class="bm-link" href="https://dplanner.bomapp.co.kr/customer/detail/relationship/${encodeURIComponent(b.plannerMemberId||'')}" target="_blank" rel="noopener">보맵에서 열기 ↗</a></div>`;
-}
-// 보맵 표준 보장 점검 (또래 평균 대비) — 가로 스크롤 없는 4칸 표
-function bmStdHtml(pid, forCustomer){
-  const r = COVERAGES[pid];
-  const s = isPlain(r) && isPlain(r.bomapp) && isPlain(r.bomapp.std) ? r.bomapp.std : null;
-  if(!s || !Array.isArray(s.groups) || !s.groups.length) return '';
-  const pols = (r.externalPolicies||[]).concat(r.otherPolicies||[]);
-  const nameOf = id => { const p = pols.find(x=>x && x.id===id); return p ? shortCo(p.co) : '보험'; };
-  let ok = 0, no = 0;
-  s.groups.forEach(g=>(g.items||[]).forEach(x=>{ if(x.st==='ok') ok++; else no++; }));
-  const rows = s.groups.map(g=>`<tr class="gh"><td colspan="4">${esc(g.g)}</td></tr>${(g.items||[]).map(x=>`<tr>
-      <td>${esc(x.n)}${(x.by||[]).filter(b=>b.amt>0).length>1?`<span class="bm-src">${(x.by||[]).filter(b=>b.amt>0).map(b=>esc(nameOf(b.id))+' '+korWon(b.amt)).join(' · ')}</span>`:''}</td>
-      <td class="n"><b>${x.total>0?korWon(x.total):'-'}</b></td>
-      <td class="n" style="color:var(--muted)">${x.rec>0?korWon(x.rec):'-'}</td>
-      <td><span class="bm-st ${x.st==='ok'?'ok':'no'}">${x.st==='ok'?'충분':'부족'}</span></td></tr>`).join('')}`).join('');
-  const title = `📈 보장 점검 (${s.age?s.age+'대 ':''}또래 평균 대비) · 충분 ${ok} · 부족 ${no}`;
-  const open = forCustomer ? '' : (window._bmStdOpen ? 'open' : '');
-  return `<details class="${forCustomer?'bm-std':'policy-secondary bm-std'}" ${open} ${forCustomer?'':'ontoggle="window._bmStdOpen=this.open"'}><summary>${title}</summary>
-    <div style="overflow-x:auto"><table><thead><tr><th>보장</th><th style="text-align:right">${forCustomer?'내 보장':'가입 금액'}</th><th style="text-align:right">또래 평균</th><th>상태</th></tr></thead><tbody>${rows}</tbody></table></div>
-    <p class="rm-fine" style="padding:8px 10px">보맵 기준 표준 보장 분류예요. 같은 특약이 여러 보장에 함께 반영될 수 있어요.</p></details>`;
 }
 function bmEndedHtml(pid){
   const r = COVERAGES[pid];
@@ -3554,8 +3628,9 @@ function remodelSectionHtml(pid){
     return `<tr><th colspan="4" style="text-align:left;padding:8px;background:${g.bg};color:${g.color}">${esc(g.label)}</th></tr>`+its.map(x=>`<tr><td>${esc(x.name)}</td><td>${x.before?money(x.before):'-'}</td><td>${x.after?money(x.after):'-'}</td><td><b>${kind[x.kind](x)}</b></td></tr>`).join('');
   }).join('');
   return `<details class="policy-secondary" ${window._covCompareOpen?'open':''} ontoggle="window._covCompareOpen=this.open">
-    <summary>필요할 때만: 보험별 설정 결과 전체 비교 보기</summary>
+    <summary>🔄 필요할 때만: 보험별 설정 결과 전체 비교 보기${compareStatusBadge(pid)}</summary>
     <section class="rm-workspace" aria-label="보험 변경 전후 비교">
+      ${compareSharePanelHtml(pid)}
       <div class="rm-workspace-head"><h3>보험 변경 전 / 변경 후 비교</h3><p>각 보험 카드에서 선택한 상태와 특약 배서 결과를 모아서 보여주는 보조 화면입니다.</p></div>
       ${R.pending?`<p class="rm-alert">미설정 보험 ${R.pending}건이 있습니다. 위의 각 보험 카드에서 상태를 설정하세요. 보험료 합계는 모든 보험 분류 후 표시합니다.</p>`:''}
       ${R.unknownPremium?`<p class="rm-alert">배서 보험 ${R.unknownPremium}건의 확인된 변경 후 월 보험료를 입력하세요.</p>`:''}
@@ -3570,6 +3645,153 @@ function remodelSectionHtml(pid){
       <p class="rm-fine">이 화면은 비교 계획입니다. 실제 계약을 해지하거나 원본 담보를 삭제하지 않습니다.</p>
     </section>
   </details>`;
+}
+
+// ════════════════════════════════════════════════════════════
+// 🔄 고객용 비교 분석 자료 (사용자 결정 2026-11-11: 같은 고객 링크 안 별도 탭, 필요할 때만 켬)
+// COVERAGES[pid].compareShare = {make 만들기, on 고객 공개, blocks{…}, note 설계사 한마디, snap 공개한 순간의 숫자}
+// 보장분석 기록은 통째로 고객 응답에 들어가므로, 공개하지 않은 계산 결과(snap)는 저장하지 않는다.
+// ════════════════════════════════════════════════════════════
+const COMPARE_BLOCKS = [
+  {k:'premium', label:'💰 보험료 요약', tip:'월 보험료 변경 전 → 후, 차이', def:true},
+  {k:'changes', label:'📈 보장 변화', tip:'늘어난 · 새로 생긴 · 줄어든 · 없어진 보장', def:true},
+  {k:'policies', label:'📋 보험 정리', tip:'유지 · 일부 배서 · 해지 · 신규 보험 목록', def:true},
+  {k:'note', label:'✍️ 설계사 한마디', tip:'왜 바꾸는지 직접 쓰는 설명', def:false},
+  {k:'caution', label:'⚠️ 바꿀 때 알아둘 점', tip:'해지할 때 생길 수 있는 불이익 안내', def:true},
+  {k:'full', label:'🔍 바뀌지 않은 보장도', tip:'보장 변화에 그대로인 담보까지 표시', def:false}
+];
+const COMPARE_CAUTIONS = [
+  '기존 보험을 해지하면 낸 보험료보다 해지환급금이 적거나 없을 수 있어요.',
+  '새로 가입하면 지금 나이와 건강 상태로 보험료가 다시 정해져서 더 비쌀 수 있어요.',
+  '새 보험은 보장이 시작되기 전 기간(면책)이나 일부만 주는 기간(감액)이 처음부터 다시 시작될 수 있어요.',
+  '건강 상태에 따라 새 보험 가입이 거절되거나 일부 보장이 빠질 수 있어요.',
+  '기존 보험은 새 보험 가입이 확정된 뒤에 해지하는 것이 안전해요.'
+];
+function localStamp(iso, withTime){                    // 저장은 국제 표준시(ISO), 표시는 이 기기 시간(한국)으로
+  const d = new Date(String(iso || '')); if(isNaN(d)) return '';
+  return `${d.getFullYear()}.${pad2(d.getMonth()+1)}.${pad2(d.getDate())}` + (withTime ? ` ${pad2(d.getHours())}:${pad2(d.getMinutes())}` : '');
+}
+function compareShareOf(pid){
+  const c = COVERAGES[pid], s = isPlain(c) && isPlain(c.compareShare) ? c.compareShare : {};
+  const blocks = {};
+  COMPARE_BLOCKS.forEach(b => { blocks[b.k] = isPlain(s.blocks) && typeof s.blocks[b.k] === 'boolean' ? s.blocks[b.k] : b.def; });
+  return {make: !!s.make, on: !!(s.on && isPlain(s.snap)), blocks, note: String(s.note || '').slice(0, 1000), snap: isPlain(s.snap) ? s.snap : null};
+}
+function compareSnapshot(pid){                            // 지금 설정으로 고객에게 보여줄 숫자 (화면과 무관)
+  const R = buildRemodel(pid);
+  const pols = R.policies.filter(p => !['none','unassigned'].includes(p.role));
+  return {
+    beforeTotal: R.beforeTotal, afterTotal: R.afterTotal, pending: R.pending,
+    items: R.items.map(x => ({name: String(x.name), group: String(x.group), before: x.before, after: x.after, kind: x.kind})),
+    policies: pols.map(p => ({co: String(p.co || ''), n: String(p.n || ''), role: p.role, pr: Number(p.pr) || 0,
+      afterPremium: p.afterPremium === null ? null : Number(p.afterPremium) || 0, excluded: p.role === 'endorse' ? p.excludedCount : 0}))
+  };
+}
+const compareKey = s => s ? stableStringify({b: s.beforeTotal, a: s.afterTotal, p: s.pending, i: s.items, l: s.policies}) : '';
+function compareIsStale(pid){
+  const cs = compareShareOf(pid);
+  return !!(cs.on && compareKey(cs.snap) !== compareKey(compareSnapshot(pid)));
+}
+function updateCompareShare(pid, patch){
+  if(!isPlain(COVERAGES[pid])) COVERAGES[pid] = {policies: []};
+  const old = isPlain(COVERAGES[pid].compareShare) ? COVERAGES[pid].compareShare : {};
+  const next = Object.assign({}, old, patch);
+  if(!next.on) delete next.snap;                         // 공개를 끄면 숫자도 지워서 고객 응답에 남지 않게
+  COVERAGES[pid] = Object.assign({}, COVERAGES[pid], {compareShare: next});
+  saveCoverages();
+  window._covCompareOpen = true;
+  renderCovDetail(pid);
+}
+function setCompareMake(pid, on){
+  if(!on && compareShareOf(pid).on && !confirm('고객 링크의 🔄 비교 분석 탭도 함께 내려요. 계속할까요?')){ renderCovDetail(pid); return; }
+  updateCompareShare(pid, on ? {make: true} : {make: false, on: false});
+}
+function setCompareBlock(pid, key, on){
+  if(!COMPARE_BLOCKS.some(b => b.k === key)) return;
+  updateCompareShare(pid, {blocks: Object.assign({}, compareShareOf(pid).blocks, {[key]: !!on})});
+}
+function setCompareNote(pid, text){ updateCompareShare(pid, {note: String(text || '').slice(0, 1000)}); }
+function publishCompare(pid){
+  const snap = compareSnapshot(pid);
+  if(!snap.policies.length){ showToast('⚠️ 비교할 보험이 없어요. 각 보험의 상태(기존·해지·일부 배서·신규)를 먼저 골라 주세요'); return; }
+  if(snap.pending && !confirm(`아직 상태를 고르지 않은 보험이 ${snap.pending}건 있어요. 그 보험은 빼고 공개할까요?`)) return;
+  updateCompareShare(pid, {make: true, on: true, snap: Object.assign({at: new Date().toISOString()}, snap)});
+  showToast('📤 고객 링크에 🔄 비교 분석 탭을 공개했어요');
+}
+function unpublishCompare(pid){
+  if(!confirm('고객 링크에서 🔄 비교 분석 탭을 내릴까요? (설정한 내용은 남아요)')) return;
+  updateCompareShare(pid, {on: false});
+  showToast('비교 분석 탭을 내렸어요');
+}
+function compareStatusBadge(pid){
+  const cs = compareShareOf(pid);
+  if(!cs.make) return '';
+  return cs.on ? (compareIsStale(pid) ? ' <span class="cs-status cs-stale">고객 공개 중 · 최신 아님</span>' : ' <span class="cs-status cs-on">고객 공개 중</span>') : ' <span class="cs-status cs-off">고객용 자료 준비 중</span>';
+}
+function compareSharePanelHtml(pid){
+  const cs = compareShareOf(pid), safe = esc(pid);
+  if(!cs.make) return `<div class="cs-panel"><label class="cs-switch"><input type="checkbox" onchange="setCompareMake('${safe}',this.checked)"> 고객용 비교 분석 자료 만들기</label>
+    <p class="rm-fine" style="margin-top:6px">켜면 넣을 내용을 고르고, 공개하면 고객 링크에 <b>🔄 비교 분석</b> 탭이 생겨요. 끄면 설계사만 보는 계산 화면이에요.</p></div>`;
+  const stale = compareIsStale(pid);
+  const at = cs.snap ? localStamp(cs.snap.at, true) : '';
+  return `<div class="cs-panel">
+    <div class="cs-row"><label class="cs-switch"><input type="checkbox" checked onchange="setCompareMake('${safe}',this.checked)"> 고객용 비교 분석 자료 만들기</label>
+      <span class="cs-status ${cs.on ? (stale ? 'cs-stale' : 'cs-on') : 'cs-off'}">${cs.on ? (stale ? '공개 중 · 그 뒤로 내용이 바뀌었어요' : '고객 링크에 공개 중 (' + esc(at) + ')') : '아직 공개 안 함'}</span></div>
+    <div class="cs-blocks">${COMPARE_BLOCKS.map(b => `<label><input type="checkbox" ${cs.blocks[b.k] ? 'checked' : ''} onchange="setCompareBlock('${safe}','${b.k}',this.checked)"><span>${b.label}<small>${b.tip}</small></span></label>`).join('')}</div>
+    ${cs.blocks.note ? `<textarea class="rem-in" rows="3" maxlength="1000" style="width:100%;margin-bottom:10px" placeholder="예) 실손을 4세대로 바꾸면서 월 보험료가 줄고, 암 진단비를 보강했어요." onchange="setCompareNote('${safe}',this.value)">${esc(cs.note)}</textarea>` : ''}
+    <div class="cs-row">
+      <button class="btn btn-primary btn-sm" onclick="publishCompare('${safe}')">${cs.on ? '🔄 최신 내용으로 다시 공개' : '📤 고객 링크에 공개'}</button>
+      ${cs.on ? `<button class="btn btn-secondary btn-sm" onclick="unpublishCompare('${safe}')">공개 중지</button>` : ''}
+      <span class="rm-fine">공개하는 순간의 숫자를 고정해서 보여줘요. 담보·상태를 고친 뒤에는 다시 공개를 눌러 주세요.</span>
+    </div>
+    <details style="margin-top:10px"><summary class="rm-fine" style="cursor:pointer;font-weight:700">👀 고객 화면 미리보기 (지금 설정 기준)</summary>
+      <div style="background:#F1F5F9;border-radius:10px;padding:12px 0;margin-top:8px">${compareTabHtml(Object.assign({at: new Date().toISOString()}, compareSnapshot(pid)), cs)}</div></details>
+  </div>`;
+}
+// 고객에게 보이는 비교 분석 탭 내용 (관리 화면 미리보기와 같은 함수)
+function compareTabHtml(snap, cs){
+  if(!isPlain(snap)) return '';
+  const B = cs.blocks || {}, num = v => Number(v) || 0;
+  const sign = v => (v > 0 ? '+' : v < 0 ? '−' : '') + wonN(Math.abs(v)) + '원';
+  const items = (Array.isArray(snap.items) ? snap.items : []).filter(isPlain);
+  const pols = (Array.isArray(snap.policies) ? snap.policies : []).filter(isPlain);
+  const at = localStamp(snap.at, false);
+  const out = [`<div class="cmp-card" style="background:#EEF2FF;border-color:#C7D2FE"><h4 style="margin:0">🔄 보장 변경 안내</h4><div class="rm-fine">${esc(at)} 기준 · 지금 가입한 보험과 바꾼 뒤의 보험을 비교했어요</div></div>`];
+  if(B.premium){
+    const a = snap.afterTotal === null || snap.afterTotal === undefined ? null : num(snap.afterTotal), b = num(snap.beforeTotal), d = a === null ? null : a - b;
+    out.push(`<div class="cmp-card"><h4>💰 월 보험료</h4><div class="cmp-prem">
+      <div><div class="l">지금</div><div class="v">${wonN(b)}원</div></div>
+      <div><div class="l">바꾼 뒤</div><div class="v">${a === null ? '확인 중' : wonN(a) + '원'}</div></div>
+      <div><div class="l">차이</div><div class="v" style="color:${d === null ? '#64748B' : d < 0 ? '#047857' : d > 0 ? '#B91C1C' : '#334155'}">${d === null ? '-' : sign(d)}</div></div></div>
+      ${d === null ? '' : `<div class="rm-fine" style="text-align:center;margin-top:8px">1년이면 ${sign(d * 12)}</div>`}</div>`);
+  }
+  if(B.note && cs.note) out.push(`<div class="cmp-card"><h4>✍️ 담당 설계사 설명</h4><div class="cmp-note">${esc(cs.note)}</div></div>`);
+  if(B.changes){
+    const kinds = [['증가','📈 늘어나는 보장','cmp-up'],['신규','✨ 새로 생기는 보장','cmp-new'],['감소','📉 줄어드는 보장','cmp-down'],['삭제','✖️ 없어지는 보장','cmp-del']].concat(B.full ? [['동일','➖ 그대로인 보장','cmp-same']] : []);
+    const body = kinds.map(([k, t, c]) => {
+      const xs = items.filter(x => x.kind === k); if(!xs.length) return '';
+      return `<div class="cmp-k ${c}">${t} ${xs.length}개</div>` + xs.map(x => `<div class="cmp-row"><span>${esc(x.name)}</span><b>${num(x.before) > 0 ? manWon(x.before) : '없음'} → ${num(x.after) > 0 ? manWon(x.after) : '없음'}</b></div>`).join('');
+    }).join('');
+    out.push(`<div class="cmp-card"><h4>📈 보장이 이렇게 바뀌어요</h4>${body || '<div class="rm-fine">바뀌는 보장이 없어요</div>'}</div>`);
+  }
+  if(B.policies){
+    const groups = [['both','✅ 그대로 유지'],['endorse','✂️ 일부 특약만 정리'],['before','🗑️ 해지'],['after','🆕 새로 가입']];
+    const body = groups.map(([r, t]) => {
+      const ps = pols.filter(p => p.role === r); if(!ps.length) return '';
+      return `<div class="cmp-k cmp-same">${t} ${ps.length}건</div>` + ps.map(p => `<div class="cmp-row"><span>${esc(shortCo(p.co))} · ${esc(p.n)}${r === 'endorse' && p.excluded ? ` <small style="color:#B45309">(특약 ${num(p.excluded)}개 정리)</small>` : ''}</span><b>${r === 'endorse' ? (p.afterPremium === null ? '확인 중' : wonN(p.afterPremium) + '원') : wonN(p.pr) + '원'}/월</b></div>`).join('');
+    }).join('');
+    out.push(`<div class="cmp-card"><h4>📋 보험 정리</h4>${body || '<div class="rm-fine">정리할 보험이 없어요</div>'}</div>`);
+  }
+  if(B.caution) out.push(`<div class="cmp-card cmp-warn"><h4>⚠️ 바꾸기 전에 꼭 확인하세요</h4><ul>${COMPARE_CAUTIONS.map(t => `<li>${t}</li>`).join('')}</ul></div>`);
+  out.push('<p class="rm-fine" style="text-align:center;margin:4px 0 12px">이 안내는 상담용 비교 자료예요. 실제 보험료와 보장은 보험사 청약서·약관이 기준이에요.</p>');
+  return `<div class="cmp">${out.join('')}</div>`;
+}
+function cvTab(which){
+  const cov = document.getElementById('cv-pane-cov'), cmp = document.getElementById('cv-pane-cmp');
+  if(!cov || !cmp) return;
+  cov.style.display = which === 'cmp' ? 'none' : '';
+  cmp.style.display = which === 'cmp' ? '' : 'none';
+  document.querySelectorAll('.cv-tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === which));
 }
 
 // 증권번호: 내 계약은 계약에, 기존·외부 보험은 그 보험 기록에 저장해요
@@ -3718,12 +3940,12 @@ function renderCovDetail(name){                          // name 은 가입자 �
       <thead>
         <tr style="background:#1E3A8A">
           <th style="padding:10px 12px;text-align:left;color:#fff;font-weight:600;white-space:nowrap;position:sticky;left:0;background:#1E3A8A;min-width:130px">담보 항목</th>
+          <th style="padding:10px 12px;text-align:right;color:#FCD34D;font-weight:700;white-space:nowrap;background:#1a327a">합계</th>
           ${policyLabels.map(p=>`
             <th style="padding:8px 6px;text-align:center;color:#fff;font-weight:600;min-width:92px;max-width:130px;line-height:1.3" title="${esc(p.co+' · '+p.n)}">
               <div style="font-size:11px;opacity:.8;white-space:nowrap">${esc(shortCo(p.co))}</div>
               <div class="mtx-coln">${esc(p.n)}</div>
             </th>`).join('')}
-          <th style="padding:10px 12px;text-align:right;color:#fff;font-weight:700;white-space:nowrap;background:#1a327a">합계</th>
         </tr>
       </thead>
       <tbody>
@@ -3764,6 +3986,7 @@ function renderCovDetail(name){                          // name 은 가입자 �
                   <button onclick="deleteMatrixRow('${safeC}','${esc(safeItem)}')" style="border:none;background:none;color:var(--hint);cursor:pointer;font-size:11px;padding:0;opacity:.4;transition:opacity .15s" onmouseover="this.style.opacity=1;this.style.color='var(--red)'" onmouseout="this.style.opacity=.4;this.style.color='var(--hint)'" title="삭제">✕</button>
                 </div>
               </td>
+              <td style="padding:7px 12px;text-align:right;font-weight:700;color:var(--text);background:#F8FAFF;border-right:1px solid var(--border);white-space:nowrap">${manWon(rowTotal)}</td>
               ${policyLabels.map(p=>{
                 const cells=cellMap[itemName]?.[p.key]||[];
                 const mvVal = cData.matrixView?.[itemName]?.[p.key];
@@ -3786,7 +4009,6 @@ function renderCovDetail(name){                          // name 은 가입자 �
                   <span style="display:inline-block;min-width:72px;padding:4px 8px;border-radius:6px;color:#CBD5E1;transition:all .15s" onmouseover="this.style.background='var(--blue-l)';this.style.color='var(--blue)'" onmouseout="this.style.background='transparent';this.style.color='#CBD5E1'">+</span>
                 </td>`;
               }).join('')}
-              <td style="padding:7px 12px;text-align:right;font-weight:700;color:var(--text);border-left:1px solid var(--border);white-space:nowrap">${manWon(rowTotal)}</td>
             </tr>`;
           }).join('')}
         `).join('')}
@@ -3867,27 +4089,29 @@ function renderCovDetail(name){                          // name 은 가입자 �
   document.getElementById('cov-detail').innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div style="font-size:16px;font-weight:700">${esc(personLabel(name))} 님의 보장 분석</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn btn-secondary btn-sm" onclick="renamePerson('${name}')" title="이름을 바꿔도 보장분석·고객 링크는 그대로 유지돼요">✏️ 이름 변경</button>
-        <button class="btn btn-secondary btn-sm" onclick="mergePerson('${name}')" title="같은 사람이 둘로 나뉘어 있을 때 하나로 합치기">🔀 합치기</button>
-        <button class="btn btn-secondary btn-sm" onclick="splitPerson('${name}')" title="이름이 같은 다른 사람이 한 사람으로 묶여 있을 때 갈라내기">✂️ 분리</button>
-        <button class="btn btn-secondary btn-sm" onclick="openModal('docguide')">📋 청구 서류</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-secondary btn-sm" onclick="openAddOtherPolicy('${name}')">➕ 기존 보험 추가</button>
-        <button class="btn btn-secondary btn-sm" onclick="openModal('covgroups');renderCovGroupEditor()">⚙️ 그룹 설정</button>
         <button class="btn btn-primary btn-sm" data-name="${esc(name)}" onclick="copyShareLink(this.dataset.name)">📤 고객 링크 복사</button>
-        <button class="btn btn-secondary btn-sm" data-name="${esc(name)}" onclick="copyShareLink(this.dataset.name, true)" title="이전 링크를 무효로 하고 새 링크 만들기">🔄 링크 재발급</button>
+        <details class="more-menu">
+          <summary class="btn btn-secondary btn-sm">⋯ 더보기</summary>
+          <div class="more-pop" onclick="if(event.target.closest('.btn'))this.closest('details').open=false">
+            <button class="btn btn-secondary btn-sm" onclick="renamePerson('${name}')" title="이름을 바꿔도 보장분석·고객 링크는 그대로 유지돼요">✏️ 이름 변경</button>
+            <button class="btn btn-secondary btn-sm" onclick="mergePerson('${name}')" title="같은 사람이 둘로 나뉘어 있을 때 하나로 합치기">🔀 합치기</button>
+            <button class="btn btn-secondary btn-sm" onclick="splitPerson('${name}')" title="이름이 같은 다른 사람이 한 사람으로 묶여 있을 때 갈라내기">✂️ 분리</button>
+            <button class="btn btn-secondary btn-sm" onclick="openModal('docguide')">📋 청구 서류</button>
+            <button class="btn btn-secondary btn-sm" onclick="openModal('covgroups');renderCovGroupEditor()">⚙️ 그룹 설정</button>
+            <button class="btn btn-secondary btn-sm" data-name="${esc(name)}" onclick="copyShareLink(this.dataset.name, true)" title="이전 링크를 무효로 하고 새 링크 만들기">🔄 고객 링크 재발급</button>
+          </div>
+        </details>
       </div>
     </div>
 
-    <div class="policy-first-intro">보험 하나씩 제안서를 넣거나 보장을 입력한 뒤, 바로 그 보험의 상태와 특약 배서를 설정하세요.</div>
+    ${remodelSectionHtml(name)}
     ${bmCustomerHeadHtml(name, false)}
-    <p class="rm-fine" style="margin-bottom:8px">필요할 때 펼쳐보세요</p>
     ${allContracts.length>0?`<details class="policy-secondary" ${window._covOverviewOpen?'open':''} ontoggle="window._covOverviewOpen=this.open"><summary>📑 보험 개요 (원본 기록)</summary><div class="cov-sum"><div><div class="l">등록된 원본 월 보험료</div><div class="v">${wonN(totalPremium)}원</div><div class="s">연 ${wonN(totalPremium*12)}원</div></div><div><div class="l">등록 보험</div><div class="v">${allContracts.length}건</div></div><div><div class="l">원본 담보 항목</div><div class="v">${itemNames.length}개</div></div></div>${overviewTable}</details>`:''}
     ${itemNames.length>0?`<details class="policy-secondary" ${window._covMatrixOpen?'open':''} ontoggle="window._covMatrixOpen=this.open"><summary>📊 보장 합산 매트릭스 (원본 기록)</summary><div class="mtx-wrap">${mtxBar}<p class="rm-fine" style="padding:0 10px 8px">${mtxMode==='full'?'금액을 눌러 수정할 수 있습니다. 표 안에서 위아래·좌우로 스크롤돼요 (머리줄·담보 이름 고정).':'담보별 합계와 어느 보험에서 얼마인지 보여줘요. 수정은 "보험별 표"에서.'}</p>${mtxMode==='full'?matrixTable:matrixSum}</div></details>`:''}
     <div class="cov-sec" style="justify-content:space-between"><span>📋 보험별 담보 내역</span><button class="btn btn-secondary btn-sm" onclick="openAddExternalModal('${name}')">＋ 외부 보험 추가</button></div>
     ${policySections || '<div style="text-align:center;padding:30px;color:var(--hint)">등록된 보험이 없어요. 기존 보험이나 새 계약을 추가하세요.</div>'}
-    ${remodelSectionHtml(name)}
-    ${bmStdHtml(name, false)}
     ${bmEndedHtml(name)}
   `;
 }
@@ -4337,6 +4561,7 @@ async function handlePDFUpload(event, polId, coName, prodName){
 }
 
 // ── 고객 전용 보장 뷰 ───────────────────────────────────
+function cvFoldAll(open){ document.querySelectorAll('.cv-wrap details[data-fold]').forEach(d => { d.open = !!open; }); }
 function showCustomerView(name, displayName){             // name 은 서버가 알려준 열쇠(가입자 고유 번호), displayName 은 표시용 이름
   document.getElementById('lock-screen').style.display='none';
   document.getElementById('app-wrap').style.display='none';
@@ -4452,11 +4677,11 @@ function showCustomerView(name, displayName){             // name 은 서버가 
       <thead>
         <tr style="background:#1E3A8A">
           <th style="padding:10px 14px;text-align:left;color:#fff;font-weight:600;min-width:130px">담보 항목</th>
+          <th style="padding:10px 12px;text-align:right;color:#FCD34D;font-weight:700;background:#1a327a;white-space:nowrap">합계</th>
           ${cvShowCols.map(r=>`<th style="padding:8px 6px;text-align:center;color:#fff;font-weight:600;min-width:88px;max-width:130px;line-height:1.3" title="${esc(r.co+' · '+r.n)}">
             <div style="font-size:11px;opacity:.8;white-space:nowrap">${esc(shortCo(r.co))}</div>
             <div class="mtx-coln">${esc(r.n)}</div>
           </th>`).join('')}
-          <th style="padding:10px 12px;text-align:right;color:#fff;font-weight:700;background:#1a327a;white-space:nowrap">합계</th>
         </tr>
       </thead>
       <tbody>
@@ -4469,19 +4694,19 @@ function showCustomerView(name, displayName){             // name 은 서버가 
             const rowTotal = cvRowTotal(itemName);
             return`<tr style="background:#fff;border-bottom:1px solid #F1F5F9">
               <td style="padding:8px 14px 8px 20px;font-weight:500;color:#1E293B">${esc(displayName)}</td>
+              <td style="padding:8px 12px;text-align:right;font-weight:700;color:#0F172A;background:#F8FAFF;border-right:1px solid #E5E7EB;white-space:nowrap">${manWon(rowTotal)}</td>
               ${cvShowKeys.map(k=>{
                 const v=cvCell(itemName,k);
                 return`<td style="padding:8px;text-align:center;white-space:nowrap;color:${v>0?g.color:'#9CA3AF'};font-weight:${v>0?600:400}">
                   ${v>0?manWon(v):'-'}
                 </td>`;
               }).join('')}
-              <td style="padding:8px 12px;text-align:right;font-weight:700;color:#0F172A;border-left:1px solid #E5E7EB;white-space:nowrap">${manWon(rowTotal)}</td>
             </tr>`;
           }).join('')}`).join('')}
         <tr style="background:#1E3A8A">
           <td style="padding:11px 14px;color:#fff;font-weight:700">💰 총 납입 보험료</td>
-          <td colspan="${cvShowCols.length}" style="padding:11px 8px"></td>
           <td style="padding:11px 12px;color:#FCD34D;font-weight:800;font-size:15px;white-space:nowrap">${korWon(cvTotalPremium)}/월</td>
+          <td colspan="${cvShowCols.length}" style="padding:11px 8px"></td>
         </tr>
       </tbody>
     </table></div>
@@ -4513,8 +4738,8 @@ function showCustomerView(name, displayName){             // name 은 서버가 
           <span style="font-weight:600;color:#1E3A8A;white-space:nowrap">${parseFloat(item.amount)>0?manWon(item.amount):'-'}</span>
         </div>`;
     const CV_FIRST = 12;
-    return`<div class="cv-policy">
-      <div class="cv-policy-hdr">
+    return`<details class="cv-policy" data-fold>
+      <summary class="cv-policy-hdr">
         <div style="font-size:20px">${contract.co.includes('삼성')?'🟠':contract.co.includes('메리츠')?'🔵':contract.co.includes('현대')?'🟢':'🏦'}</div>
         <div style="min-width:0">
           <div style="font-weight:700;font-size:15px">${esc(contract.co)}</div>
@@ -4523,24 +4748,29 @@ function showCustomerView(name, displayName){             // name 은 서버가 
           ${bmPolicyInfoHtml(pol, true)}
           ${pUrlOf(contract)?`<div style="margin-top:6px"><a href="${esc(pUrlOf(contract))}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;color:#2563EB;text-decoration:none">📄 제안서 보기</a></div>`:''}
         </div>
-      </div>
+        <span class="cv-policy-hint">특약 ${items.length}개</span>
+      </summary>
       ${items.length ? items.slice(0,CV_FIRST).map(itemRow).join('') + (items.length>CV_FIRST ? `<details class="cv-more"><summary>특약 ${items.length-CV_FIRST}개 더 보기</summary>${items.slice(CV_FIRST).map(itemRow).join('')}</details>` : '') : '<div class="cv-item" style="color:#94A3B8">담보 정리 중이에요</div>'}
       ${bmExtraItemsHtml(pol)}
-    </div>`;
+    </details>`;
   };
   const cvHasItems = c => (polOf(c).items||[]).some(it=>it && it.name);
   const cvEmpty = allContracts.filter(c=>!cvHasItems(c));
   const policySections = allContracts.filter(cvHasItems).map(cvSecOf).join('') + (cvEmpty.length ? `
     <div class="cv-empty"><b>담보 내용을 정리 중인 보험 ${cvEmpty.length}건</b><div>${cvEmpty.map(c=>`<span>${esc(shortCo(c.co))} · ${esc(c.n)}</span>`).join('')}</div></div>` : '');
 
+  const cvCmp = compareShareOf(name);
+  const cvCmpHtml = cvCmp.on ? compareTabHtml(cvCmp.snap, cvCmp) : '';
   const html=`<div class="cv-wrap">
     <div class="cv-header">
       <div style="font-size:14px;opacity:.75;margin-bottom:4px">보험 보장 내역서</div>
       <div style="font-size:24px;font-weight:800;margin-bottom:4px">${esc(shownName)} 님</div>
       <div style="font-size:12px;opacity:.7">담당: 김성래 설계사</div>
     </div>
-    <div style="padding:16px 0 0">
-
+    ${cvCmpHtml ? `<div class="cv-tabs" role="tablist"><button type="button" class="on" data-tab="cov" onclick="cvTab('cov')">📋 내 보장</button><button type="button" data-tab="cmp" onclick="cvTab('cmp')">🔄 비교 분석</button></div>
+    <div id="cv-pane-cmp" style="display:none;padding:16px 0 0">${cvCmpHtml}</div>` : ''}
+    <div id="cv-pane-cov" style="padding:16px 0 0">
+      <div class="cv-toolbar"><button type="button" onclick="cvFoldAll(true)">모두 펼치기</button><button type="button" onclick="cvFoldAll(false)">모두 접기</button></div>
       <!-- 청구 서류 안내 (맨 위) -->
       <div style="margin:0 16px 16px">
         <details style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:12px">
@@ -4575,15 +4805,15 @@ function showCustomerView(name, displayName){             // name 은 서버가 
         <div style="border-top-color:var(--green)"><div class="l">📑 보험</div><div class="v">${allContracts.length}건</div><div class="s">${esc([...new Set(allContracts.map(r=>r.co))].slice(0,2).join(' · '))}${new Set(allContracts.map(r=>r.co)).size>2?' 외':''}</div></div>
         <div style="border-top-color:var(--purple)"><div class="l">📊 담보</div><div class="v">${cvVisCount}개</div><div class="s">${COV_GROUPS.filter(g=>(cvGrouped2[g.label]||[]).length).length}개 분야</div></div>
       </div>
-      <div class="cv-ovw"><div class="cv-sec">📑 보험 개요</div><div style="margin:0 16px 12px">${cvOverview}</div></div>`:''}
+      <details class="cv-ovw" data-fold open><summary class="cv-sec">📑 보험 개요</summary><div style="margin:0 16px 12px">${cvOverview}</div></details>`:''}
       ${bmCustomerHeadHtml(name, true)}
       ${cvVisCount>0?`
-      <div class="cv-sec">📊 분야별 보장 합계</div>
+      <details data-fold open><summary class="cv-sec">📊 분야별 보장 합계</summary>
       ${cvCards}
-      <details class="cv-mtx cv-mtx-d"><summary>보험별로 나눠 보기 (표)</summary><div style="margin-top:8px">${matrixTableCV}</div></details>`:''}
-      ${bmStdHtml(name, true)}
-      <div class="cv-sec">📋 보험별 담보 내역</div>
+      <details class="cv-mtx cv-mtx-d"><summary>보험별로 나눠 보기 (표)</summary><div style="margin-top:8px">${matrixTableCV}</div></details></details>`:''}
+      <details data-fold open><summary class="cv-sec">📋 보험별 담보 내역 <small>${allContracts.length}건 · 보험을 누르면 특약이 펼쳐져요</small></summary>
       ${policySections||'<div style="text-align:center;padding:30px;color:#9CA3AF">보장 데이터가 없습니다</div>'}
+      </details>
       <div style="text-align:center;margin-top:20px;font-size:12px;color:#9CA3AF">
         문의: 김성래 설계사 📞
       </div>
@@ -4663,7 +4893,11 @@ function getCovGroup(name) {
   return COV_GROUPS[COV_GROUPS.length-1];
 }
 
+document.addEventListener('click', e => {
+  document.querySelectorAll('details.more-menu[open]').forEach(d => { if(!d.contains(e.target)) d.open = false; });
+});
 function renderAll() {
+  syncRiderReminders();
   renderKPIs();
   renderTab(currentTab);
   refreshReminderUI();

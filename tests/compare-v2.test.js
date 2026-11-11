@@ -68,7 +68,7 @@ ok(E.get(`buildRemodel('${pid}').policies.find(p=>p.id===5).excludedCount`)===1,
 run(`renderCovDetail('${pid}')`);let h=D.el('cov-detail').innerHTML;
 ok(h.includes('아래 특약에서 ‘배서로 삭제’를 체크하세요.')&&h.includes('배서 후 월 보험료'),'배서 UI가 담보/보험료 구분');
 ok(h.includes('실제 계약을 해지하거나 원본 담보를 삭제하지 않습니다'),'실제 계약은 바뀌지 않는다고 명시');
-ok(h.indexOf('이 보험은 어떻게 할까요?')<h.indexOf('보험 변경 전 / 변경 후 비교'),'보험별 설정이 전체 비교보다 먼저');
+ok(h.indexOf('보험 변경 전 / 변경 후 비교')>=0&&h.indexOf('보험 변경 전 / 변경 후 비교')<h.indexOf('이 보험은 어떻게 할까요?'),'전체 비교 보기가 보장분석 맨 위 (사용자 요청 2026-11-11)');
 ok(h.includes('필요할 때만: 보험별 설정 결과 전체 비교 보기'),'전체 비교는 접힌 보조 화면');
 ok((h.match(/이 특약만 배서로 삭제/g)||[]).length===3,'배서 체크는 해당 보험의 특약 행마다 표시');
 role(3,'unassigned');run(`renderCovDetail('${pid}')`);h=D.el('cov-detail').innerHTML;

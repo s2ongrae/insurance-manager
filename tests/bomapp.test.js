@@ -57,7 +57,7 @@ ok(p1.bm.paid===13&&p1.bm.total===240&&p1.bm.paidAmt===623870&&p1.bm.remainAmt==
 ok(p1.bm.terms.startsWith('https://'),'약관 주소 저장');
 ok(rec.externalPolicies.find(x=>x.bm.id===2).bm.terms==='','javascript: 약관 주소는 버림');
 ok(rec.bomapp.memberId===901&&rec.bomapp.ended.length===1&&rec.bomapp.ended[0].status==='소멸','보맵 고객 번호·종료 보험 기록');
-ok(rec.bomapp.std.groups.length===2&&rec.bomapp.std.groups[0].items[0].by[0].id===p1.id,'보장 점검의 보험 번호가 관리툴 보험 번호로 연결');
+ok(!('std' in rec.bomapp),'보장 점검(또래 평균 대비) 데이터는 저장하지 않음 (기능 삭제 2026-11-11)');
 
 console.log('C) 관리 화면');
 D.run(`window._mtxMode='sum'; selectedCovCustomer=${JSON.stringify(pid)}; renderCoverageTab('보장분석')`);
@@ -71,7 +71,7 @@ ok(/📭 담보가 아직 없는 보험 1건/.test(cd),'담보 없는 보험은 
 ok(/class="mtx-sum"/.test(cd)&&/5천만원/.test(cd),'매트릭스 합계 보기 + 읽기 쉬운 금액');
 ok(/담보 없는 보험 1건은 표에서 뺐어요/.test(cd),'담보 없는 보험 열은 표에서 빠짐');
 ok(!/class="mtx-sum-n">특정부위부보장/.test(cd),'0원 특약 행은 기본으로 숨김');
-ok(/📈 보장 점검 \(30대 또래 평균 대비\) · 충분 1 · 부족 1/.test(cd),'보맵 보장 점검 표');
+ok(!/보장 점검|또래/.test(cd),'보맵 보장 점검 표 없음 (기능 삭제)');
 ok(/🗂️ 종료된 보험 \(보맵\) 1건/.test(cd),'종료된 보험 목록');
 ok(/만기됐거나 다른 피보험자의 특약 2개/.test(cd),'합계 밖 특약 표시');
 
@@ -81,7 +81,7 @@ let cv=D.bodyHtml;
 ok(/홍길동 님/.test(cv),'계약 없는 고객도 이름 표시 (person.name)');
 ok(/📜 약관 보기/.test(cv)&&/낸 보험료 62만 3,870원/.test(cv),'고객 화면에 약관·납입');
 ok(!/보맵에서 열기/.test(cv)&&!/플래너 사번/.test(cv),'고객 화면에 설계사용 링크·비밀번호 안내 없음');
-ok(/📈 보장 점검/.test(cv),'고객 화면 보장 점검');
+ok(!/보장 점검|또래/.test(cv),'고객 화면에 보장 점검 없음 (기능 삭제)');
 ok(/담보 내용을 정리 중인 보험 1건/.test(cv),'담보 없는 보험은 한 줄로');
 ok(!/class="cv-row-name">특정부위부보장/.test(cv),'0원 담보는 고객 합계 카드에 안 나옴');
 ok(!/분석 리포트/.test(cv),'리포트 주소가 없으면 리포트 칸 없음');
@@ -156,10 +156,10 @@ console.log('H) 부분 응답 보존 · 종료 담보 · 동일 계약 연결');
   ok(E.get('COVERAGES.pid_dup.otherPolicies.length')===1&&E.get('(COVERAGES.pid_dup.externalPolicies||[]).length')===0,'중복 보험 없음');
   ok(E.get('COVERAGES.pid_dup.otherPolicies[0].id')==='ext_x1'&&E.get('COVERAGES.pid_dup.otherPolicies[0].pn')==='번호-9'&&E.get('COVERAGES.pid_dup.otherPolicies[0].items.length')===3,'기존 id·증권번호 유지, 특약은 보맵 기준'); }
 console.log('I) 화면 요소 · 내보내기 스크립트');
-ok(/onclick="openModal\('bomapp'\)"/.test(html)&&/id="modal-bomapp"/.test(html),'📥 보맵 버튼과 가져오기 창');
+ok(/onclick="openBomappModal\(\)"/.test(html)&&/id="modal-bomapp"/.test(html),'📥 보맵 버튼과 가져오기 창');
 ok(/href="javascript:\(function\(\)\{var s=document\.createElement\('script'\);s\.src='https:\/\/s2ongrae\.github\.io\/insurance-manager\/bomapp-export\.js/.test(html),'북마크 버튼이 저장소의 bomapp-export.js 를 불러옴');
 { const js=fs.readFileSync(path.join(__dirname,'..','bomapp-export.js'),'utf8');
-  ok(/insurance-analysis-report\//.test(js)&&/\/contracts'/.test(js)&&/\/terms'/.test(js)&&/insurance-guarantees/.test(js),'내보내기: 특약·약관·보장분석·리포트');
+  ok(/insurance-analysis-report\//.test(js)&&/\/contracts'/.test(js)&&/\/terms'/.test(js)&&!/insurance-guarantees/.test(js),'내보내기: 특약·약관·리포트 (또래 평균 보장분석은 안 받음)');
   ok(!/mobile/.test(js.replace(/휴대폰 번호는 파일에 넣지 않아요/,'')),'내보내기 파일에 휴대폰 번호를 넣지 않음');
   ok(/bomapp\\\.co\\\.kr\$/.test(js),'보맵 화면에서만 동작');
   try{ new (require('vm').Script)(js); ok(true,'내보내기 스크립트 문법'); }catch(e){ ok(false,'내보내기 스크립트 문법 '+e.message); } }

@@ -1,5 +1,5 @@
 // 보맵 플래너 → 보험관리툴 내보내기 (북마크로 보맵 플래너 화면에서 실행)
-// - 고객 정보·계약·특약(담보) 전체·납입 정보·약관 주소·보맵 보장분석(또래 평균 대비)을 JSON 파일 하나로 받아요
+// - 고객 정보·계약·특약(담보) 전체·납입 정보·약관 주소를 JSON 파일 하나로 받아요
 // - 선택하면 보맵 "보험 분석 리포트" PDF 도 같이 넣어요 (관리툴이 Google Drive 에 저장)
 // - 리포트 PDF/Excel 을 고객별로 바로 내려받을 수도 있어요 (비밀번호: 플래너 사번)
 // 이 파일에는 비밀 정보가 없어요. 로그인한 내 브라우저의 보맵 세션으로만 동작해요.
@@ -71,7 +71,7 @@
     var m = det.member || {};
     var mid = m.memberId;
     var c = { plannerMemberId: it.plannerMemberId, memberId: mid, name: m.name || it.name, birthDate: m.birthDate || it.birthDate || '',
-      gender: m.gender || '', policies: [], guarantees: null, report: null };
+      gender: m.gender || '', policies: [], report: null };
     if (!mid) return c;
     var ins = await get('/members/' + mid + '/insurances');
     var pols = ins.insurances || [];
@@ -84,16 +84,6 @@
       catch (e) { p.termsUrl = ''; }
       c.policies.push(p);
     }
-    try {
-      var g = await get('/members/' + mid + '/insurance-guarantees');
-      c.guarantees = { ageGroup: g.ageGroup, basis: g.appliedAmountBasis, groups: (g.insuranceGuaranteeDetails || []).map(function (gr) {
-        return { g: gr.guaranteeCategoryGroupName, items: (gr.items || []).map(function (x) {
-          return { code: x.guaranteeCode, name: x.guaranteeName, status: x.guaranteeStatus, desc: x.description,
-            rec: x.recommendAmount, total: x.myTotalAmount,
-            by: (x.myInsurances || []).map(function (y) { return { id: y.insuranceId, amt: y.guaranteeAmount }; }) };
-        }) };
-      }) };
-    } catch (e) { c.guarantees = null; }
     if (withPdf) {
       try { log(c.name + ' · 분석 리포트 PDF'); c.report = { pdfB64: await b64(await blob('/members/' + mid + '/insurance-analysis-report/pdf')), at: new Date().toISOString() }; }
       catch (e) { c.report = { error: String(e.message || e) }; }

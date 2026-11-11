@@ -28,7 +28,9 @@
 - 탭: 계약 리스트 / 그룹별 / 고객별(계약자 기준) / 월별 실적 / 보장분석(가입자 기준). 상단에 요약 카드 5개. 계약 리스트·그룹별 표에 "2년 1개월"(가입일 + 25개월, 말일 보정 `milestoneOf`) 칸. 상단 🔔 알림 버튼(숫자 = 오늘까지 알림 + 7일 안 2년 1개월)과 확인할 알림이 있으면 화면 위 빨간 띠.
 - 헤더 링크(새 탭): 🏠 포털 · 📒 가계부 · 🩺 사전진단툴(`https://s2ongrae.github.io/prediag/`). 폰에서는 아이콘만. `app-wrap` 안에 있어서 고객 전용 화면(`#view=…`)에는 안 보인다.
 - 고객 전용 화면: `#view=이름&t=토큰&s=서버ID`. PIN 없이 열리고 그 고객의 보장만 보인다. 링크의 이름은 표시용이고 토큰이 그 사람을 정한다.
-- 보장분석: 고객 목록(동명이인 구분 표시) → 상세(요약표, 보장 합산 매트릭스, 🔄 기존 → 변경 비교, 계약별 담보 구역). 요약표·매트릭스는 계약완료·기존·외부 보험만, 계약별 담보 구역에는 해지·가입 예정 계약도 나온다(비교용 담보 입력·PDF 분석). 상세 버튼: ✏️ 이름 변경, 🔀 합치기, ✂️ 분리, 📋 청구 서류, ⚙️ 그룹 설정, 고객 링크 복사/재발급.
+- 보장분석: 고객 목록(동명이인 구분 표시) → 상세(요약표, 보장 합산 매트릭스, 🔄 기존 → 변경 비교, 계약별 담보 구역). 요약표·매트릭스는 계약완료·기존·외부 보험만, 계약별 담보 구역에는 해지·가입 예정 계약도 나온다(비교용 담보 입력·PDF 분석). 상세 버튼: ➕ 기존 보험 추가, 📤 고객 링크 복사는 밖에, 나머지(✏️ 이름 변경, 🔀 합치기, ✂️ 분리, 📋 청구 서류, ⚙️ 그룹 설정, 🔄 고객 링크 재발급)는 `⋯ 더보기`(`details.more-menu`) 안.
+- 화면 정리(사용자 요청 2026-11-11): 🔄 전체 비교 보기(`remodelSectionHtml`)는 보장분석 상세 **맨 위**. 보험별 표(관리·고객 모두)는 **합계 칸이 담보 이름 바로 오른쪽**. 상단 헤더는 🔔 알림 · ⚙️ 관리 ▾(동기화·보맵·백업·복원·서버 설정) · 월 수입 입력 · 계약 추가. 버튼 글자는 줄바꿈하지 않는다(`.btn` nowrap). 메뉴는 바깥을 누르면 닫힌다.
+- 고객 화면: 맨 위 "모두 펼치기 / 모두 접기"(`cvFoldAll`). 보험 개요·분야별 보장 합계·보험별 담보 내역 구역과 보험 카드 하나하나가 `details[data-fold]` — 구역은 처음에 펼침, 보험 카드는 처음에 접힘(머리에 "특약 n개").
 
 ## 데이터 (전역 ↔ localStorage 키 ↔ 서버 JSON 컬렉션)
 
@@ -38,9 +40,9 @@
 - `COVERAGES` / `ins_coverages` / `coverages`: `{pid: 기록}`. 기존·외부 보험 기록에도 `pn`(증권번호). `remodel:{roles:{'r'+보험id: 'before'|'both'|'after'|'none'}}` = 리모델링 비교에서 고른 역할(없으면 기본값). 기록 = `policies:[{id 계약id, items:[{name, amount, unit, price}], payPeriod, covPeriod, renewable}]`, `externalPolicies:[{id 음수, co, n, pr, items, …, proposalUrl}]`, `otherPolicies:[{id 'ext_…', co, name, price, payPeriod, items, proposalUrl}]`, `matrixView:{정규화 담보명:{보험키:값, __hidden, __group}}`(매트릭스 표시 전용 덮어쓰기 — 원본 items 를 바꾸지 않음), `matrixNames:{정규화명:표시명}`, `itemOrder:[...]`
 - `MEMOS` / `ins_memos` / `memos`: `{계약id: 메모}` (고객에게는 절대 안 감)
 - `SHARES` / `ins_shares` / `shares`: `{pid: 고객 링크 토큰 48자}`
-- `SETTINGS` / `ins_settings` / `settings`: `{covGroups:{list:[{label, color, bg, border, keys[]}]}}` (담보 그룹 설정. 예전 `ins_cov_groups` 는 이전용으로만 읽음)
+- `SETTINGS` / `ins_settings` / `settings`: `{covGroups:{list:[{label, color, bg, border, keys[]}]}, bomapp:{reportPw}}` (담보 그룹 설정. 예전 `ins_cov_groups` 는 이전용으로만 읽음). `bomapp.reportPw` = 보맵 분석 리포트 비밀번호(📥 보맵 창에서 입력, 최대 20자) — 공개 저장소라 **코드에 숫자를 쓰지 않고** 여기에만 둔다. 관리 화면 리포트 안내에만 보이고, 서버 `getCustomerView` 는 settings 중 covGroups 만 보내므로 고객에게 안 간다(사용자 결정 2026-11-11).
 - `TOMBS` / `ins_tombs` / `tombstones`: 삭제 기록 `{컬렉션:{키: 시각}}`, 60일 보관
-- `REMINDERS` / `ins_reminders` / `reminders`: 날짜 알림 `{id: {id, date:'YYYY-MM-DD', memo, done, cid 연결 계약 id, at}}`. 고객 화면·고객 응답에는 절대 안 감. 서버는 이 칸이 없이 들어온 저장(옛 화면)이면 기존 알림을 유지한다. 브라우저 알림 창은 PC에서 앱을 열 때 하루 한 번(`notifyDueOnOpen`), 폰은 서비스 워커가 없어 화면 안 빨간 띠로만.
+- `REMINDERS` / `ins_reminders` / `reminders`: 날짜 알림 `{id: {id, date:'YYYY-MM-DD', memo, done, cid 연결 계약 id, at}}`. **특약 만기·갱신 자동 알림**(2026-11-11): `syncRiderReminders()`(renderAll 때 실행)가 담보 `until`(보맵에서 가져온 특약 만기일)이 90일 안인 특약을 만기 30일 전 날짜로 등록 — id `rauto_`+해시(pid·보험·특약명·만기일)라 기기·횟수와 상관없이 한 건, `auto:'rider'`, `until`. 계약완료 계약·기존·외부 보험의 정상 특약만(해지·가입 예정 계약, `bm.extra`, 종료 보험 제외). 보험이 갱신형이거나 특약명에 갱신 → "갱신", 아니면 "만기". 🗑 는 `{done:true, off:true}` 로 남겨 다시 안 생기게 하고, 만기일이 바뀐 옛 자동 알림은 미완료면 지운다. 고객 화면·고객 응답에는 절대 안 감. 서버는 이 칸이 없이 들어온 저장(옛 화면)이면 기존 알림을 유지한다. 브라우저 알림 창은 PC에서 앱을 열 때 하루 한 번(`notifyDueOnOpen`), 폰은 서비스 워커가 없어 화면 안 빨간 띠로만.
 - 이 기기에만: `ins_server_url`, `ins_server_key`, `ins_sync_base`(마지막 동기화 기준 해시), `ins_cp_*`(체크포인트 최대 3개), `gemini_key`, `gemini_model`
 
 ## 가입자 고유 번호 (pid)
@@ -81,7 +83,8 @@
 - 대상: 그 사람의 모든 계약(완료·가입 예정·해지) + 기존·외부 보험. 계산은 `buildRemodel(pid)` (화면과 무관), 화면은 `remodelSectionHtml(pid)`.
 - 숫자는 매트릭스와 같은 규칙: 매트릭스에 열이 있는 보험(계약완료·기존·외부)은 직접 고친 값(`matrixView`)을 쓰고, 해지·가입 예정은 담보 원본을 쓴다. 보험사+상품명이 같은 보험이 매트릭스에 둘 이상이면(한 칸으로 합쳐짐) 원본을 쓴다. 숨긴 담보(`__hidden`)는 빼고, 표시 이름(`matrixNames`)·그룹(`__group` → `getCovGroup`)·순서(`itemOrder`)를 따른다.
 - 담보 변화: 신규(기존 0) · 삭제(변경 후 0) · 증가 · 감소 · 동일. 기본은 바뀐 담보만, "전체 담보 보기"로 동일도 표시(`REMODEL_SHOW_ALL`, 저장 안 함).
-- 고객 화면에는 아직 안 보인다(사용자 결정 전). 내 계약의 증권번호(`pn`)도 서버가 고객에게 보내지 않는다(`getCustomerView` 최소 필드). 기존·외부 보험 기록의 `pn` 은 보장분석 기록째로 고객 응답 데이터에 들어가지만 화면에는 안 나온다.
+- **고객용 비교 분석 자료**(사용자 결정 2026-11-11: 필요할 때만, 같은 고객 링크 안 별도 탭): `COVERAGES[pid].compareShare = {make, on, blocks{premium, changes, policies, note, caution, full}, note, snap}`. 전체 비교 칸 맨 위 패널(`compareSharePanelHtml`)에서 "고객용 비교 분석 자료 만들기" 켜기 → 블록 체크·설계사 한마디 → 👀 미리보기 → 📤 공개(`publishCompare`: 그 순간 숫자를 `snap` 으로 고정) / 공개 중지. 고객 링크는 `on && snap` 일 때만 "📋 내 보장 | 🔄 비교 분석" 탭(`cvTab`, 내용은 `compareTabHtml` — 미리보기와 같은 함수). 블록·한마디는 즉시 반영, 숫자는 다시 공개해야 반영(`compareIsStale` → "최신 아님"). **공개하지 않은 숫자는 저장하지 않는다**(보장분석 기록은 통째로 고객 응답에 들어가므로 끄면 `snap` 삭제). 서버 수정 없음(`getCustomerView` 가 기록째 보냄 — `compare-share` 테스트 H). 공개 시각은 ISO 로 저장, 표시는 `localStamp`(한국 시간). ⚠️ 해지 불이익 문구(`COMPARE_CAUTIONS`)는 일반 안내 — 확정 전 준법 담당 확인 권장.
+- 위 비교 자료 말고는 리모델링 계산이 고객 화면에 안 보인다. 내 계약의 증권번호(`pn`)도 서버가 고객에게 보내지 않는다(`getCustomerView` 최소 필드). 기존·외부 보험 기록의 `pn` 은 보장분석 기록째로 고객 응답 데이터에 들어가지만 화면에는 안 나온다.
 
 ## 증권번호
 
@@ -124,4 +127,5 @@
 - `tests/lib/ins_smoke_harness.js`: `makeDevice({ls, session, fetch, hash})` — 가짜 DOM·localStorage 로 **실제 index.html 스크립트**를 실행한다. `dev.run(코드)`, `dev.get(식)`(값이 undefined 면 실패하므로 참/거짓으로 물을 것), `dev.el(id)`, `dev.confirmQ`/`dev.promptQ`(대화상자 응답을 순서대로), `dev.bodyHtml`(고객 화면), `dev.downloads`(💾 백업 파일).
 - 시간대는 Asia/Seoul 고정(`run-all.js` 가 설정). 컨테이너가 UTC 면 일정 시간이 어긋난다.
 - 일부 테스트는 일부러 실패 상황을 만들어서, 앱이 `PDF 분석 실패` 로그를 남긴다(정상).
-- 테스트 종류: `server`(서버), `merge`(병합·번호 이전·옛 데이터 정리 규칙), `sync`(동기화 코드 ↔ 서버), `smoke`(모든 탭 렌더링), `app`(설정 동기화·백업 왕복·삭제), `people`(동명이인·이름 변경·합치기·분리·링크), `files`(제안서 파일·기존 보험), `reminders`(2년 1개월 날짜·알림 병합·서버 유지·고객 화면 차단), `remodel`(리모델링 비교 계산·역할 저장·동기화·화면·증권번호).
+- 테스트 종류: `server`(서버), `merge`(병합·번호 이전·옛 데이터 정리 규칙), `sync`(동기화 코드 ↔ 서버), `smoke`(모든 탭 렌더링), `app`(설정 동기화·백업 왕복·삭제), `people`(동명이인·이름 변경·합치기·분리·링크), `files`(제안서 파일·기존 보험), `reminders`(2년 1개월 날짜·알림 병합·서버 유지·고객 화면 차단), `remodel`(리모델링 비교 계산·역할 저장·동기화·화면·증권번호), `rider-reminders`(특약 만기·갱신 자동 알림, 보맵 보장 점검 삭제 확인), `ui-cleanup`(전체 비교 맨 위·합계 칸 위치·리포트 비밀번호 설정·메뉴·고객 화면 펼치기/접기), `compare-share`(고객용 비교 분석 자료: 스위치·블록·공개·최신 아님·공개 중지·고객 탭·서버 응답).
+- 보맵 "보장 점검(또래 평균 대비)" 표는 사용자 요청으로 삭제했다(2026-11-11). 내보내기(`bomapp-export.js`)도 그 데이터를 받지 않고, 가져오기는 `bomapp.std` 를 저장하지 않는다. 다시 넣지 않는다.

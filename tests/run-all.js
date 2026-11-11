@@ -9,7 +9,7 @@ const m = html.match(/\/\/ <SYNC_CORE>([\s\S]*?)\/\/ <\/SYNC_CORE>/);
 if (!m) { console.error('index.html 에서 // <SYNC_CORE> 표시를 찾지 못했어요 (병합 핵심 코드 경계 표시는 지우면 안 돼요)'); process.exit(1); }
 fs.writeFileSync(path.join(BUILD, 'sync_core.js'), m[1]);
 fs.copyFileSync(path.join(ROOT, 'apps-script', 'Code.gs'), path.join(BUILD, 'code_gs.js'));
-const order = ['server', 'merge', 'sync', 'smoke', 'app', 'people', 'files', 'reminders', 'remodel', 'compare-v2', 'freellm', 'bomapp', 'pdf-batches'];
+const order = ['server', 'merge', 'sync', 'smoke', 'app', 'people', 'files', 'reminders', 'remodel', 'compare-v2', 'freellm', 'bomapp', 'pdf-batches', 'rider-reminders', 'ui-cleanup', 'compare-share'];
 const only = process.argv[2]; let failed = 0;
 for (const name of order) {
   if (only && only !== name) continue;
