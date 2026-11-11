@@ -3488,7 +3488,7 @@ let REMODEL_SHOW_ALL=false;
 function remodelPolicies(pid){
   const cData=COVERAGES[pid]||{};
   return [
-    ...CONTRACTS.filter(r=>cpid(r)===pid).map(r=>({id:r.id,co:r.co||'',n:r.n||'',pr:Number(r.pr)||0,pn:r.pn||'',s:r.s||'',mine:true,inMatrix:r.s==='계약완료'})),
+    ...CONTRACTS.filter(r=>cpid(r)===pid && r.s!=='계약해지').map(r=>({id:r.id,co:r.co||'',n:r.n||'',pr:Number(r.pr)||0,pn:r.pn||'',s:r.s||'',mine:true,inMatrix:r.s==='계약완료'})),
     ...[...(cData.otherPolicies||[]),...(cData.externalPolicies||[])].filter(x=>x&&x.id!==undefined).map(op=>({id:op.id,co:op.co||'',n:op.n||op.name||'',pr:Number(op.pr||op.price)||0,pn:op.pn||'',s:'기존·외부 보험',mine:false,inMatrix:true}))
   ];
 }
@@ -4068,8 +4068,8 @@ function renderCovDetail(name){                          // name 은 가입자 �
       ${hiddenColCount?`<span class="rm-fine">담보 없는 보험 ${hiddenColCount}건은 표에서 뺐어요</span>`:''}
     </div>`;
 
-  // 해지·가입 예정 계약도 담보를 넣을 수 있게 (리모델링 비교용). 보험 개요·매트릭스는 지금처럼 계약완료만
-  const extraContracts = CONTRACTS.filter(r=>cpid(r)===name && r.s!=='계약완료');
+  // 가입 예정 계약만 추가로 담보를 넣을 수 있게 (리모델링 비교용). 해지된 계약은 보장 분석에서 제외
+  const extraContracts = CONTRACTS.filter(r=>cpid(r)===name && r.s==='가입 예정');
   const plan = buildRemodel(name);
   const sectionOf = contract=>{
     const polId = contract.id;
