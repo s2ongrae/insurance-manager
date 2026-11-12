@@ -4918,17 +4918,84 @@ function showCustomerView(name, displayName){             // name 은 서버가 
   document.body.insertAdjacentHTML('beforeend', `<div id="cv-screen">${html}</div>`);
 }
 
-// ── 담보명 정규화 (괄호 제거, 유사항목 합산용) ──────────────
+// ── 담보명 정규화 (유사항목 표준 통합 합산) ──────────────
 function normCovName(name) {
   if(!name) return '';
   try {
-    return name
-      // 종류 표시(1종,2종,1-5종 등)는 유지, 그 외 부가설명 괄호만 제거
+    let s = String(name)
+      .replace(/^\s*(\[.*?\]|\(.*?\))\s*/, '')
+      .replace(/\s*(무배당|\(무\)|갱신형|\(갱신형\)|\(최초\)|최초1회한|\(연만기\)|무\))\s*/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // 1. 암 관련
+    if(/표적항암약물|표적항암/.test(s)) return '표적항암약물허가 치료비';
+    if(/항암(약물|방사선|양성자)/.test(s)) return '항암약물방사선 치료비';
+    if(/암수술|암\s*수술/.test(s)) return '암 수술비 (일반암)';
+    if(/암입원|암\s*입원/.test(s)) return '암 입원 일당';
+    if(/소액암|유사암|소액\/유사암|기타피부암|갑상선암|경계성종양|제자리암/.test(s)) return '유사암·소액암 진단비';
+    if(/(일반암|통합암|특정암|주요암|암)\s*진단/.test(s)) return '일반암 진단비';
+
+    // 2. 뇌·심장
+    if(/뇌혈관.*수술/.test(s)) return '뇌혈관질환 수술비';
+    if(/허혈.*수술/.test(s)) return '허혈성심장질환 수술비';
+    if(/뇌혈관.*진단/.test(s)) return '뇌혈관질환 진단비';
+    if(/뇌졸중.*진단|뇌경색.*진단/.test(s)) return '뇌졸중 진단비';
+    if(/뇌출혈.*진단/.test(s)) return '뇌출혈 진단비';
+    if(/허혈.*진단/.test(s)) return '허혈성심장질환 진단비';
+    if(/급성심근경색.*진단/.test(s)) return '급성심근경색 진단비';
+
+    // 3. 사망·장해
+    if(/종신사망|종신\s*사망|주계약.*종신/.test(s)) return '종신 사망보험금';
+    if(/질병.*사망/.test(s)) return '질병 사망';
+    if(/상해.*사망/.test(s)) return '상해 사망';
+    if(/상해.*후유장해/.test(s)) return '상해후유장해 (3%이상)';
+    if(/질병.*후유장해/.test(s)) return '질병후유장해 (3%이상)';
+
+    // 4. 수술비
+    if(/(위|대장|십이지장|폴립|용종).*진단/.test(s) || (/폴립|용종/.test(s) && !/12대/.test(s))) return '위·대장 양성종양(폴립) 진단·수술비';
+    if(/12대기관.*양성|통합양성신생물/.test(s)) return '12대기관·통합 양성신생물 수술비';
+    if(/질병.*1[~-]5종.*1종|질병.*1종수술/.test(s)) return '질병 1~5종 수술비 (1종)';
+    if(/질병.*1[~-]5종.*2종|질병.*2종수술/.test(s)) return '질병 1~5종 수술비 (2종)';
+    if(/질병.*1[~-]5종.*3종|질병.*3종수술/.test(s)) return '질병 1~5종 수술비 (3종)';
+    if(/질병.*1[~-]5종.*4종|질병.*4종수술/.test(s)) return '질병 1~5종 수술비 (4종)';
+    if(/질병.*1[~-]5종.*5종|질병.*5종수술/.test(s)) return '질병 1~5종 수술비 (5종)';
+    if(/상해.*1[~-]5종.*1종/.test(s)) return '상해 1~5종 수술비 (1종)';
+    if(/상해.*1[~-]5종.*2종/.test(s)) return '상해 1~5종 수술비 (2종)';
+    if(/상해.*1[~-]5종.*3종/.test(s)) return '상해 1~5종 수술비 (3종)';
+    if(/상해.*1[~-]5종.*4종/.test(s)) return '상해 1~5종 수술비 (4종)';
+    if(/상해.*1[~-]5종.*5종/.test(s)) return '상해 1~5종 수술비 (5종)';
+    if(/질병.*수술/.test(s)) return '질병 수술비 (기본)';
+    if(/상해.*수술/.test(s)) return '상해 수술비 (기본)';
+
+    // 5. 교통·상해
+    if(/골절.*진단/.test(s)) return '골절 진단비';
+    if(/화상.*진단/.test(s)) return '화상 진단비';
+    if(/일상생활.*배상책임|배상책임/.test(s)) return '가족일상생활배상책임';
+    if(/교통사고처리지원금/.test(s)) return '교통사고 처리 지원금 (형사합의)';
+    if(/변호사선임/.test(s)) return '변호사 선임 비용 (운전자)';
+    if(/벌금/.test(s)) return '운전자 벌금 (대인/스쿨존)';
+    if(/자동차사고.*부상|자부상/.test(s)) return '자동차사고 부상치료지원금';
+
+    // 6. 입원
+    if(/입원일당|입원비/.test(s)) return '질병·상해 입원일당';
+
+    // 7. 치아
+    if(/보철치료|임플란트|틀니|브릿지/.test(s)) return '치아 보철 치료비';
+    if(/보존치료|크라운|인레이|온레이|충전/.test(s)) return '치아 보존 치료비';
+
+    // 8. 실손
+    if(/상해입원의료비|상해입원실손/.test(s)) return '상해입원 의료비';
+    if(/상해통원의료비|상해통원실손/.test(s)) return '상해통원 의료비';
+    if(/질병입원의료비|질병입원실손/.test(s)) return '질병입원 의료비';
+    if(/질병통원의료비|질병통원실손/.test(s)) return '질병통원 의료비';
+
+    return s
       .replace(/\s*\(([^)]*)\)/g, (m,inner) => {
         if(/[0-9]+[-~]?[0-9]*종|종류|형|급/.test(inner)) return ' '+inner.trim();
         return '';
       })
-      .replace(/\s*[IVX]{2,}\s*$/i, '')  // 끝 로마자 2자 이상만 제거
+      .replace(/\s*[IVX]{2,}\s*$/i, '')
       .replace(/\s+/g, ' ')
       .trim()
       .slice(0, 32) || name.slice(0, 32);
@@ -4941,10 +5008,11 @@ const DEFAULT_COV_GROUPS = [
   {label:'💀 사망·장해·후유',   color:'#374151', bg:'#F1F5F9', border:'#94A3B8', keys:['사망보험금','사망','유족','후유장해','후유','장해']},
   {label:'🎗️ 암 관련 보장',    color:'#DC2626', bg:'#FEF2F2', border:'#FCA5A5', keys:['암진단','유사암','소액암','암치료','암수술','암특약','암']},
   {label:'🧠 뇌·심장 관련',    color:'#7C3AED', bg:'#F5F3FF', border:'#C4B5FD', keys:['뇌혈관','뇌졸중','뇌출혈','뇌경색','뇌','심장','심근경색','허혈성','심혈관']},
-  {label:'⚕️ 수술비',          color:'#D97706', bg:'#FFFBEB', border:'#FDE68A', keys:['수술비','수술']},
+  {label:'⚕️ 수술비',          color:'#D97706', bg:'#FFFBEB', border:'#FDE68A', keys:['수술비','수술','양성신생물','폴립','용종']},
   {label:'🛏️ 입원 관련',       color:'#059669', bg:'#ECFDF5', border:'#6EE7B7', keys:['입원일당','입원료','입원']},
   {label:'👵 간병·치매',        color:'#9333EA', bg:'#FAF5FF', border:'#DDD6FE', keys:['간병','치매','요양']},
-  {label:'🚗 교통·상해',        color:'#B45309', bg:'#FEFCE8', border:'#FDE047', keys:['교통','상해','재활치료','재활','자동차','운전자','벌금','변호사선임','보복운전','강력범죄','급발진','부상보장','자동차사고']},
+  {label:'🦷 치아 보장',        color:'#0D9488', bg:'#F0FDFA', border:'#5EEAD4', keys:['치아','보철','보존','임플란트','크라운']},
+  {label:'🚗 교통·상해',        color:'#B45309', bg:'#FEFCE8', border:'#FDE047', keys:['교통','상해','재활치료','재활','자동차','운전자','벌금','변호사선임','보복운전','강력범죄','급발진','부상보장','자동차사고','배상책임','일배책','골절','화상']},
   {label:'📋 기타 보장',        color:'#6B7280', bg:'#F9FAFB', border:'#E5E7EB', keys:[]},
 ];
 // 담보 그룹 설정은 "설정(SETTINGS)"에 담아 서버 동기화·백업·고객 화면에 함께 반영해요
