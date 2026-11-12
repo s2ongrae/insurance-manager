@@ -579,6 +579,7 @@ if(_viewHash.startsWith('#view=')) {
       <div class="more-pop" onclick="if(event.target.closest('.btn'))this.closest('details').open=false">
         <button class="btn btn-secondary" onclick="manualSync()" title="지금 즉시 저장">🔄 지금 동기화</button>
         <button class="btn btn-secondary" onclick="pullFromServer()" title="서버에 저장된 데이터를 합치지 않고 그대로 이 기기로 받아요 (이 기기 데이터가 이상할 때)">☁️ 서버 데이터로 되돌리기</button>
+        <button class="btn btn-secondary" onclick="openCovTidy()" title="담보 이름 다듬기·남은 기록 정리·중복 의심 보험 찾기">🧹 보장분석 자료 정리</button>
         <button class="btn btn-secondary" onclick="openBomappModal()" title="보맵 플래너 고객의 보험·특약·납입·약관·분석리포트 가져오기">📥 보맵 가져오기</button>
         <button class="btn btn-secondary" onclick="exportData()" title="데이터 백업">💾 백업 파일 받기</button>
         <label class="btn btn-secondary" title="백업 파일 불러오기" style="cursor:pointer">
@@ -722,8 +723,13 @@ if(_viewHash.startsWith('#view=')) {
     </div>
     <div id="srv-msg" style="font-size:12px;margin-top:6px;line-height:1.5"></div>
     <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
-      <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px">🕘 이 기기 체크포인트 <span style="font-weight:400">(합치기·복원 직전 상태, 최대 3개)</span></div>
+      <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px">🕘 이 기기 체크포인트 <span style="font-weight:400">(합치기·복원·삭제 직전 상태 최대 5개 + 하루 자동 백업 최근 3일)</span></div>
       <div id="srv-cps"></div>
+    </div>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px"><span style="font-size:12px;font-weight:700;color:var(--muted)">☁️ 서버 백업 <span style="font-weight:400">(최근 30일 · 하루 1번 + 지우기·합치기 직전)</span></span>
+        <button class="btn btn-secondary btn-sm" onclick="loadServerBackups()">목록 불러오기</button></div>
+      <div id="srv-backups" style="font-size:12px;color:var(--hint)">목록을 불러오면 날짜별로 계약 수를 보고 되돌릴 수 있어요.</div>
     </div>
     <div class="form-btns">
       <button class="btn btn-secondary" onclick="closeModal('server')">닫기</button>
@@ -1294,20 +1300,31 @@ function commitBase(maps, rev){
 }
 
 // 체크포인트: 병합·복원 직전의 이 기기 상태를 최대 3개까지 보관
-function saveCheckpoint(label){
+function saveCheckpoint(label, daily){
+  if(CUSTOMER_MODE) return;
   try {
     const snap = JSON.stringify({label: label, at: new Date().toISOString(), data: collectLocal()});
     if(snap.length > 1500000) return;
-    const idx = load('ins_cp_index', []);
-    const id = 'ins_cp_' + Date.now();
+    const key = daily ? 'ins_daily_index' : 'ins_cp_index';
+    const idx = load(key, []);
+    const id = (daily ? 'ins_daily_' : 'ins_cp_') + Date.now();
     localStorage.setItem(id, snap);
     idx.push(id);
-    while(idx.length > 3){ localStorage.removeItem(idx.shift()); }
-    save('ins_cp_index', idx);
+    while(idx.length > (daily ? 3 : 5)){ localStorage.removeItem(idx.shift()); }
+    save(key, idx);
   } catch(e) { /* 저장 공간이 부족하면 건너뜀 */ }
 }
+// 하루 한 번, 서버와 맞춘 직후의 정상 상태를 이 기기에 따로 남김 (최근 3일)
+function dailySnapshot(){
+  try {
+    const today = isoDay(todayStart());
+    if(localStorage.getItem('ins_daily_last') === today || !CONTRACTS.length) return;
+    saveCheckpoint('하루 자동 백업', true);
+    localStorage.setItem('ins_daily_last', today);
+  } catch(e) {}
+}
 function listCheckpoints(){
-  return load('ins_cp_index', []).map(id => {
+  return [...load('ins_daily_index', []), ...load('ins_cp_index', [])].sort((a, b) => Number(a.replace(/\D/g, '')) - Number(b.replace(/\D/g, ''))).map(id => {
     try { const o = JSON.parse(localStorage.getItem(id)); return {id: id, label: o.label, at: o.at, n: (o.data.contracts||[]).length}; }
     catch(e) { return null; }
   }).filter(Boolean).reverse();
@@ -1360,6 +1377,7 @@ async function _syncOnce(opts){
     }
     if(!res.ok) throw new Error('다른 기기와 동시에 저장 중이라 끝내지 못했어요. 잠시 후 다시 시도해주세요');
     lastSyncedAt = new Date();
+    if(typeof dailySnapshot === 'function') dailySnapshot();
     const t = lastSyncedAt.toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
     setSyncStatus('ok', `동기화됨 ${t}`);
     return res;
@@ -1411,7 +1429,7 @@ function _showShrinkBanner(msg){
   let b = document.getElementById('shrink-banner');
   if(!b){ const host = document.getElementById('rem-banner'); if(!host || !host.insertAdjacentHTML) return; host.insertAdjacentHTML('beforebegin', '<div id="shrink-banner" class="shrink-banner"></div>'); b = document.getElementById('shrink-banner'); }
   if(!b) return;
-  b.innerHTML = `<b>⚠️ 이 기기 데이터가 서버보다 크게 줄어 있어요</b><div>${safe}</div><div>서버에 저장된 데이터는 그대로예요. 아래 버튼으로 서버 데이터를 이 기기로 다시 받으세요.</div><button class="btn btn-primary btn-sm" onclick="pullFromServer()">☁️ 서버 데이터로 되돌리기</button>`;
+  b.innerHTML = `<b>⚠️ 이 기기 데이터가 서버보다 크게 줄어 있어요</b><div>${safe}</div><div>서버에 저장된 데이터는 그대로예요. 아래 버튼으로 서버 데이터를 이 기기로 다시 받으세요.</div><button class="btn btn-primary btn-sm" onclick="pullFromServer()">☁️ 서버 데이터로 되돌리기</button> <button class="btn btn-secondary btn-sm" onclick="openServerSettings();loadServerBackups()">날짜별 서버 백업 보기</button>`;
   b.style.display = '';
 }
 async function pullFromServer(){
@@ -1430,6 +1448,47 @@ async function pullFromServer(){
   setSyncStatus('ok', '서버 데이터로 되돌림');
   showToast(`☁️ 서버 데이터로 되돌렸어요 (계약 ${n}건)`);
   return true;
+}
+// ── ☁️ 서버 백업에서 되돌리기 ──
+async function loadServerBackups(){
+  const box = document.getElementById('srv-backups'); if(!box) return;
+  if(!serverConfigured()){ box.textContent = '먼저 서버 주소와 비밀 키를 저장해주세요.'; return; }
+  box.textContent = '불러오는 중...';
+  let r; try { r = await serverCall('listBackups'); } catch(e){ r = null; }
+  if(!r || !r.ok || !Array.isArray(r.backups)){ box.textContent = (r && /알 수 없는 요청/.test(String(r.error || ''))) ? '서버를 새 버전으로 배포해야 쓸 수 있어요 (Code.gs 재배포).' : '목록을 불러오지 못했어요.'; return; }
+  if(!r.backups.length){ box.textContent = '아직 서버 백업이 없어요.'; return; }
+  box.innerHTML = r.backups.map(b => {
+    const kind = /_복원전\.json$/.test(b.name) ? '복원 직전' : /_줄어들기전\.json$/.test(b.name) ? '지우기·합치기 직전' : '하루 백업';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed var(--border)"><span style="flex:1;color:var(--text)">${esc(localStamp(b.at, true))} · ${kind} · 계약 ${b.contracts == null ? '?' : b.contracts}건 · 보장분석 ${b.people == null ? '?' : b.people}명</span>
+      <button class="btn btn-secondary btn-sm" data-name="${esc(b.name)}" onclick="restoreServerBackup(this.dataset.name)">이 백업으로 되돌리기</button></div>`;
+  }).join('');
+}
+async function restoreServerBackup(name){
+  if(CUSTOMER_MODE || !serverConfigured()) return false;
+  let r; try { r = await serverCall('getBackup', {name}); } catch(e){ r = null; }
+  if(!r || !r.ok || !isPlain(r.data)){ showToast('❌ 백업을 불러오지 못했어요' + (r && r.error ? ' — ' + r.error : '')); return false; }
+  const d = r.data, n = (d.contracts || []).length, m = Object.keys(isPlain(d.coverages) ? d.coverages : {}).length;
+  if(!confirm(`이 서버 백업으로 되돌릴까요?\n\n☁️ 백업: 계약 ${n}건 · 보장분석 ${m}명\n📱 지금: 계약 ${CONTRACTS.length}건 · 보장분석 ${Object.keys(COVERAGES).length}명\n\n이 기기와 서버가 모두 이 백업 상태로 바뀌어요. 바꾸기 직전 상태는 이 기기 체크포인트와 서버 백업(복원 직전)으로 남아요.`)) return false;
+  saveCheckpoint('서버 백업 복원 전');
+  applyData(Object.assign({}, normalizeData(d), {tombstones: d.tombstones}));
+  const okPush = await forcePushLocal('서버 백업 복원');
+  const b = document.getElementById('shrink-banner'); if(b) b.style.display = 'none';
+  renderAll();
+  showToast(okPush ? `☁️ 서버 백업으로 되돌렸어요 (계약 ${n}건)` : '이 기기는 되돌렸지만 서버 저장은 실패했어요. 동기화를 다시 해주세요');
+  return okPush;
+}
+// 앱을 켜 두는 동안 5분마다, 그리고 다른 창에서 돌아올 때 자동 동기화 (다른 기기 변경을 받아오고, 이 기기 변경을 놓치지 않게)
+let _autoSyncTimer = null;
+function autoSyncTick(){
+  if(CUSTOMER_MODE || !serverConfigured() || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) return;
+  syncNow().then(r => {
+    if(r && r.ok && r.changedLocal){ const t = document.activeElement && document.activeElement.tagName; if(!['INPUT','TEXTAREA','SELECT'].includes(t)) renderAll(); }
+  });
+}
+function startAutoSync(){
+  if(CUSTOMER_MODE || _autoSyncTimer || typeof setInterval !== 'function') return;
+  _autoSyncTimer = setInterval(autoSyncTick, 5 * 60 * 1000);
+  if(typeof document !== 'undefined' && document.addEventListener) document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') autoSyncTick(); });
 }
 function manualSync(){
   if(!serverConfigured()){ showToast('⚙️ 먼저 서버 설정을 해주세요'); openServerSettings(); return; }
@@ -3300,6 +3359,84 @@ function deletePolicy(pid, polId){
   }
   saveCoverages(); renderAll();
   showToast(msg);
+}
+// ── 🧹 보장분석 자료 점검·정리 (사용자 요청 2026-11-12) ─────────────
+// 계획(covTidyPlan)은 데이터를 바꾸지 않고 세기만 하고, 적용(covTidyApply)은 체크포인트를 남긴 뒤 한 번에 고친다.
+// 중복 의심 보험은 자동으로 지우지 않고 목록만 보여준다 (어느 쪽이 맞는지는 설계사가 판단).
+function covTidyPlan(){
+  const plan = {names: [], moves: [], drops: [], roles: [], empties: [], dups: []};
+  Object.keys(COVERAGES).forEach(pid => {
+    const r = COVERAGES[pid]; if(!isPlain(r)) return;
+    if(migrateCovNames(r, CONTRACTS.filter(c => cpid(c) === pid)).changed) plan.names.push(pid);
+    (Array.isArray(r.policies) ? r.policies : []).forEach(p => {
+      if(!isPlain(p)) return;
+      const c = CONTRACTS.find(x => String(x.id) === String(p.id));
+      if(c && cpid(c) === pid) return;
+      if(c){                                                   // 다른 사람으로 옮겨진 계약의 담보가 여기 남아 있음
+        const to = cpid(c), dst = COVERAGES[to];
+        const has = isPlain(dst) && Array.isArray(dst.policies) && dst.policies.some(x => isPlain(x) && String(x.id) === String(p.id));
+        (has ? plan.drops : plan.moves).push({pid, id: p.id, to, why: has ? '옮겨 간 사람 쪽에 이미 있음' : '계약이 옮겨 간 사람 쪽으로'});
+      } else plan.drops.push({pid, id: p.id, why: '계약이 삭제됨'});
+    });
+    const roles = isPlain(r.remodel) && isPlain(r.remodel.roles) ? r.remodel.roles : {};
+    const leaving = id => [...plan.drops, ...plan.moves].some(d => d.pid === pid && String(d.id) === String(id));   // 곧 정리·이동될 기록은 빼고 판단
+    const live = new Set([...(r.policies || []).filter(x => isPlain(x) && !leaving(x.id)), ...(r.externalPolicies || []), ...(r.otherPolicies || [])].filter(isPlain).map(x => 'r' + String(x.id)));
+    CONTRACTS.filter(c => cpid(c) === pid).forEach(c => live.add('r' + String(c.id)));
+    Object.keys(roles).filter(k => !live.has(k)).forEach(k => plan.roles.push({pid, k}));
+    const hasAny = CONTRACTS.some(c => cpid(c) === pid) || ['policies', 'externalPolicies', 'otherPolicies'].some(k => (Array.isArray(r[k]) ? r[k] : []).some(x => isPlain(x) && !plan.drops.some(d => d.pid === pid && String(d.id) === String(x.id)) && !plan.moves.some(d => d.pid === pid && String(d.id) === String(x.id))));
+    if(!hasAny && !(isPlain(r.person) && r.person.name) && !SHARES[pid] && !isPlain(r.bomapp)) plan.empties.push(pid);
+    const items = [...CONTRACTS.filter(c => cpid(c) === pid && c.s !== '계약해지'), ...[...(r.externalPolicies || []), ...(r.otherPolicies || [])].filter(isPlain).map(x => ({id: x.id, co: x.co, n: x.n || x.name, _isOther: true}))];
+    const cnt = {}; items.forEach(c => { const k = polDupKey(c, polIn(r, c.id)); (cnt[k] = cnt[k] || []).push(c); });
+    Object.values(cnt).filter(g => g.length > 1).forEach(g => plan.dups.push({pid, label: `${shortCo(g[0].co)} ${g[0].n || ''}`.trim(), n: g.length}));
+  });
+  return plan;
+}
+function covTidyApply(plan){
+  saveCheckpoint('보장분석 정리 전');
+  plan.names.forEach(pid => ensureCovNames(pid));
+  plan.moves.forEach(m => {
+    const src = COVERAGES[m.pid]; if(!isPlain(src) || !Array.isArray(src.policies)) return;
+    const p = src.policies.find(x => isPlain(x) && String(x.id) === String(m.id)); if(!p) return;
+    COVERAGES[m.pid] = Object.assign({}, src, {policies: src.policies.filter(x => x !== p)});
+    const dst = isPlain(COVERAGES[m.to]) ? COVERAGES[m.to] : {policies: []};
+    COVERAGES[m.to] = Object.assign({}, dst, {policies: [...(Array.isArray(dst.policies) ? dst.policies : []), p]});
+  });
+  plan.drops.forEach(d => { const r = COVERAGES[d.pid]; if(isPlain(r) && Array.isArray(r.policies)) COVERAGES[d.pid] = Object.assign({}, r, {policies: r.policies.filter(x => !(isPlain(x) && String(x.id) === String(d.id)))}); });
+  plan.roles.forEach(x => { const r = COVERAGES[x.pid]; if(!isPlain(r) || !isPlain(r.remodel) || !isPlain(r.remodel.roles)) return;
+    const roles = Object.assign({}, r.remodel.roles); delete roles[x.k]; COVERAGES[x.pid] = Object.assign({}, r, {remodel: Object.assign({}, r.remodel, {roles})}); });
+  plan.empties.forEach(pid => { delete COVERAGES[pid]; });
+  saveCoverages(); renderAll();
+}
+function openCovTidy(){
+  const plan = covTidyPlan();
+  const total = plan.names.length + plan.moves.length + plan.drops.length + plan.roles.length + plan.empties.length;
+  const lines = [
+    `· 담보 이름 표준 규칙으로 다듬을 고객: ${plan.names.length}명`,
+    `· 다른 사람에게 옮겨진 계약의 담보 기록 → 그 사람에게 옮김: ${plan.moves.length}건`,
+    `· 계약이 삭제됐거나 이미 옮겨 간 담보 기록 정리: ${plan.drops.length}건`,
+    `· 없는 보험을 가리키는 비교(기존·해지·신규) 설정 정리: ${plan.roles.length}건`,
+    `· 아무 내용도 없는 빈 보장분석 기록 정리: ${plan.empties.length}건`,
+    `· 중복 의심 보험: ${plan.dups.length}건 (자동으로 지우지 않아요)`];
+  if(!total){
+    showCovTidyResult(plan, '정리할 것이 없어요. 보장분석 자료가 깔끔해요 ✨');
+    return;
+  }
+  if(!confirm(`🧹 보장분석 자료 점검 결과\n\n${lines.join('\n')}\n\n지금 정리할까요? (정리 직전 상태는 이 기기 체크포인트로 남겨요)`)) return;
+  covTidyApply(plan);
+  showCovTidyResult(plan, `정리했어요: 이름 다듬기 ${plan.names.length}명 · 옮김 ${plan.moves.length}건 · 정리 ${plan.drops.length + plan.roles.length + plan.empties.length}건`);
+}
+function showCovTidyResult(plan, headline){
+  document.getElementById('cov-tidy')?.remove();
+  const ov = document.createElement('div'); ov.id = 'cov-tidy';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';
+  const dupHtml = plan.dups.length ? plan.dups.map(d => `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dashed var(--border)"><span style="flex:1">${esc(personLabel(d.pid))} · ${esc(d.label)} <b style="color:#B45309">${d.n}건</b></span>
+      <button class="btn btn-secondary btn-sm" data-pid="${esc(d.pid)}" onclick="document.getElementById('cov-tidy').remove();selectedCovCustomer=this.dataset.pid;window._covSubTab='보장분석';switchTab('보장분석',document.querySelectorAll('.tab')[4]);">보러 가기</button></div>`).join('')
+    : '<div style="color:var(--hint)">중복 의심 보험이 없어요</div>';
+  ov.innerHTML = `<section role="dialog" aria-modal="true" style="background:var(--surface,#fff);border-radius:14px;padding:22px;width:560px;max-width:100%;max-height:85vh;overflow:auto">
+    <h3 style="margin:0 0 8px">🧹 보장분석 자료 점검·정리</h3><p style="font-size:13px;line-height:1.7">${esc(headline)}</p>
+    <div style="font-size:13px;font-weight:700;margin:14px 0 6px">⚠️ 중복 의심 보험 (카드 아래 🗑 삭제로 하나를 지우세요)</div><div style="font-size:13px">${dupHtml}</div>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn btn-primary" onclick="document.getElementById('cov-tidy').remove()">닫기</button></div></section>`;
+  document.body.appendChild(ov);
 }
 function clearBmSkip(pid){
   const r = COVERAGES[pid]; const n = isPlain(r) && Array.isArray(r.bmSkip) ? r.bmSkip.length : 0;
@@ -5661,6 +5798,7 @@ function renderAll() {
   if(!serverConfigured()){ setSyncStatus('idle', '서버 설정 필요 (⚙️)'); openServerSettings(); return; }
   const loaded = await loadFromCloud();
   if(loaded){ renderAll(); }
+  startAutoSync();
 })();
 </script>
 </div><!-- /app-wrap -->

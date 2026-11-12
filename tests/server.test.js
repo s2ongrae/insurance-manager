@@ -116,8 +116,12 @@ const first = bdir.files.find(f=>f.name==='보험관리툴_데이터_2026-10-13.
 ok(JSON.parse(first.content).rev===0 || JSON.parse(first.content).contracts.length===0, '백업은 저장 "직전" 상태');
 CLOCK += 20*86400e3;  // 20일 뒤
 r = post({action:'save', key:KEY, baseRev:6, data:sample()}); ok(r.ok, '20일 뒤 저장');
-ok(bdir.files.filter(f=>!f.trashed&&/2026-10-13/.test(f.name)).length===0, '14일 지난 백업은 휴지통으로');
+ok(bdir.files.filter(f=>!f.trashed&&/2026-10-13/.test(f.name)).length>0, '20일 지난 백업은 아직 보관 (2026-11-12부터 30일 보관)');
 ok(bdir.files.some(f=>!f.trashed&&/2026-11-02/.test(f.name)), '새 날짜 백업 생성');
+CLOCK += 12*86400e3;  // 처음부터 32일 뒤
+r = post({action:'save', key:KEY, baseRev:7, data:sample()}); ok(r.ok, '32일 뒤 저장');
+ok(bdir.files.filter(f=>!f.trashed&&/2026-10-13/.test(f.name)).length===0, '30일 지난 백업은 휴지통으로');
+ok(bdir.files.some(f=>!f.trashed&&/2026-11-02/.test(f.name)), '30일 안 백업은 그대로');
 
 // ───────── 5) 고객 링크 ─────────
 console.log('5) 고객 링크(고객별 토큰)');

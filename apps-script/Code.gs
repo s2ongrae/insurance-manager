@@ -14,7 +14,7 @@ const ROOT_FOLDER  = '보험관리툴';
 const DATA_FILE    = '보험관리툴_데이터.json';
 const PDF_SUB      = '제안서';
 const BACKUP_SUB   = '백업';
-const KEEP_DAYS    = 14;                    // 백업 보관 일수
+const KEEP_DAYS    = 30;                    // 백업 보관 일수 (2026-11-12: 14 → 30일)
 const MAX_JSON_LEN = 10 * 1024 * 1024;      // 데이터 파일 상한
 const MAX_B64_LEN  = 22 * 1024 * 1024;      // PDF(base64) 상한 ≈ 16MB
 const TZ           = 'Asia/Seoul';
@@ -47,6 +47,8 @@ function doPost(e) {
       case 'load':       return out(loadData());
       case 'save':       return out(saveData(body));
       case 'uploadFile': return out(handleUpload(body));
+      case 'listBackups': return out(listBackups());
+      case 'getBackup':  return out(getBackup(body));
       default:           return out({ ok: false, error: '알 수 없는 요청이에요.' });
     }
   } catch (err) {
@@ -191,7 +193,9 @@ function saveData(body) {
     const text = JSON.stringify(next);
     if (text.length > MAX_JSON_LEN) return { ok: false, error: '데이터가 너무 커요.' };
 
-    backupBefore(file, force);
+    // 계약·보장분석 고객이 줄어드는 저장(삭제·합치기 등)은 하루 백업과 별개로 항상 직전 상태를 남김
+    const fewer = inc.contracts.length < cur.contracts.length || Object.keys(inc.coverages).length < Object.keys(cur.coverages).length;
+    backupBefore(file, force, fewer);
     file.setContent(text);
     return { ok: true, rev: next.rev, savedAt: next.savedAt };
   } finally {
@@ -200,19 +204,46 @@ function saveData(body) {
 }
 
 // ── 백업 (하루 1회, 14일 보관 / 복원 저장 직전엔 항상) ─
-function backupBefore(file, force) {
+function backupBefore(file, force, fewer) {
   const folder = getFolder(BACKUP_SUB, getRoot());
   const now = new Date();
   const day = Utilities.formatDate(now, TZ, 'yyyy-MM-dd');
   let name;
   if (force) {
     name = '보험관리툴_데이터_' + day + '_' + Utilities.formatDate(now, TZ, 'HHmmss') + '_복원전.json';
+  } else if (fewer) {
+    name = '보험관리툴_데이터_' + day + '_' + Utilities.formatDate(now, TZ, 'HHmmss') + '_줄어들기전.json';
   } else {
     name = '보험관리툴_데이터_' + day + '.json';
     if (folder.getFilesByName(name).hasNext()) { pruneBackups(folder); return; }
   }
   file.makeCopy(name, folder);
   pruneBackups(folder);
+}
+
+// ── 백업 목록 / 꺼내기 (앱의 "☁️ 서버 백업에서 되돌리기") ─────
+const BACKUP_NAME = /^보험관리툴_데이터_[0-9]{4}-[0-9]{2}-[0-9]{2}(_[0-9]{6}_(복원전|줄어들기전))?\.json$/;
+function listBackups() {
+  const folder = getFolder(BACKUP_SUB, getRoot());
+  const it = folder.getFiles(), files = [];
+  while (it.hasNext()) { const f = it.next(); if (BACKUP_NAME.test(f.getName())) files.push(f); }
+  files.sort(function (a, b) { return b.getDateCreated().getTime() - a.getDateCreated().getTime(); });
+  const list = files.slice(0, 60).map(function (f) {
+    let c = null, p = null;
+    try { const d = JSON.parse(f.getBlob().getDataAsString()); c = Array.isArray(d.contracts) ? d.contracts.length : null; p = isObj(d.coverages) ? Object.keys(d.coverages).length : null; } catch (_) {}
+    return { name: f.getName(), at: f.getDateCreated().toISOString(), contracts: c, people: p };
+  });
+  return { ok: true, backups: list };
+}
+function getBackup(body) {
+  const name = String((body && body.name) || '');
+  if (!BACKUP_NAME.test(name)) return { ok: false, error: '백업 이름이 올바르지 않아요.' };
+  const it = getFolder(BACKUP_SUB, getRoot()).getFilesByName(name);
+  if (!it.hasNext()) return { ok: false, error: '그 백업을 찾지 못했어요.' };
+  let d;
+  try { d = JSON.parse(it.next().getBlob().getDataAsString()); } catch (_) { return { ok: false, error: '백업 파일을 읽지 못했어요.' }; }
+  if (!isObj(d) || !Array.isArray(d.contracts)) return { ok: false, error: '백업 파일 모양이 올바르지 않아요.' };
+  return { ok: true, name: name, data: d };
 }
 
 function pruneBackups(folder) {

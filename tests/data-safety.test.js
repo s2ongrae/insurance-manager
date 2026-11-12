@@ -54,6 +54,25 @@ r = await A.run('syncNow()');
 ok(r.ok && JSON.parse(S.dataFile().content).contracts.length === 10, '되돌린 뒤 동기화 정상');
 ok(/pullFromServer\(\)/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8').match(/<details class="more-menu hdr-menu">[\s\S]*?<\/details>/)[0]), '⚙️ 관리 메뉴에 "서버 데이터로 되돌리기"');
 
+console.log('D) 서버 백업: 줄어드는 저장 직전엔 항상 백업 · 목록 · 날짜별 되돌리기');
+const bfolder = () => { const r0 = S.ROOT.folders.find(f => f.name === '보험관리툴'); return r0 && r0.folders.find(f => f.name === '백업'); };
+const nBackups = () => (bfolder() ? bfolder().files.filter(f => !f.trashed).length : 0);
+const b0 = nBackups();
+A.run(`CONTRACTS = CONTRACTS.filter(c => c.id !== 10); persistLocal();`);
+r = await A.run('syncNow()');
+ok(r.ok && bfolder().files.some(f => !f.trashed && /_줄어들기전\.json$/.test(f.name)) && nBackups() > b0, '계약이 줄어드는 저장(10→9건) 직전 상태가 "줄어들기전" 백업으로 남음');
+const lb = S.post({ action: 'listBackups', key: S.KEY });
+ok(lb.ok && lb.backups.length >= 1 && lb.backups.some(b => b.contracts === 10), '백업 목록: 날짜·계약 수 (10건짜리 백업 있음)');
+ok(S.post({ action: 'listBackups', key: 'wrong' }).ok === false && S.post({ action: 'getBackup', key: S.KEY, name: '../보험관리툴_데이터.json' }).ok === false, '비밀 키 없거나 이상한 이름이면 거절');
+await A.run('openServerSettings(); loadServerBackups()');
+ok(/이 백업으로 되돌리기/.test(A.el('srv-backups').innerHTML), '서버 설정 창에 날짜별 백업 목록');
+const name10 = lb.backups.find(b => b.contracts === 10).name;
+A.confirmQ.push(true);
+const rb = await A.run(`restoreServerBackup(${JSON.stringify(name10)})`);
+ok(rb === true && A.get('CONTRACTS.length') === 10 && JSON.parse(S.dataFile().content).contracts.length === 10, '그 백업으로 이 기기·서버 모두 되돌림 (계약 10건)');
+ok(bfolder().files.some(f => !f.trashed && /_복원전\.json$/.test(f.name)), '되돌리기 직전 서버 상태도 "복원전" 백업으로 남음');
+ok(A.get(`load('ins_daily_index', []).length`) >= 1, '동기화 성공 뒤 하루 자동 백업이 이 기기에 남음');
+
 console.log(`\n데이터 보호 테스트: ${pass}건 통과, ${fail}건 실패`);
 process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });
