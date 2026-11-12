@@ -58,6 +58,24 @@ summary.cv-sec small{order:3;flex-basis:100%;white-space:normal;font-size:12px;f
 .cmp-k{font-size:13px;font-weight:700;margin:12px 0 2px;padding:3px 10px;border-radius:999px;display:inline-block}
 .cmp-up{background:#DCFCE7;color:#047857}.cmp-new{background:#DBEAFE;color:#1D4ED8}.cmp-down{background:#FEF3C7;color:#B45309}.cmp-del{background:#FEE2E2;color:#B91C1C}.cmp-same{background:#F1F5F9;color:#475569}
 .cmp-tw{overflow-x:auto;border:1px solid #E2E8F0;border-radius:10px}
+.pol-fold{scroll-margin-top:72px}
+.pol-fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:12px 14px;background:#F0F4FC}
+.pol-fold>summary::-webkit-details-marker{display:none}
+.pol-fold>summary::after{content:'▾';font-size:20px;line-height:1;color:#64748B;transition:transform .15s}
+.pol-fold:not([open])>summary::after{transform:rotate(-90deg)}
+.pol-fold>summary:hover{background:#E6EDFB}
+.pol-fold[open]>summary{border-bottom:1px solid #DCE4F0}
+.pol-fold .cov-policy-hdr{background:#fff}
+.pol-title{font-weight:700;font-size:15px;color:#1E293B}
+.pol-meta{font-size:12px;color:var(--muted);margin-top:4px}
+.pol-busy{font-size:11px;font-weight:700;color:#1D4ED8;background:#DBEAFE;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.pol-busy.fail{color:#B91C1C;background:#FEE2E2}
+.pol-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-4px 0 10px}
+.pol-chip{border:1px solid #DCE4F0;background:#fff;border-radius:999px;padding:4px 10px;font-size:12px;color:#334155;cursor:pointer;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pol-chip:hover{border-color:#3B5BDB;color:#1D3FAA}
+.pol-chip small{color:#94A3B8;margin-left:4px}
+.pol-flash{animation:polFlash 1.2s ease}
+@keyframes polFlash{0%{box-shadow:0 0 0 3px #93C5FD}100%{box-shadow:0 0 0 0 transparent}}
 .cmp-t{width:100%;border-collapse:collapse;font-size:12.5px}
 .cmp-t th{background:#1E3A8A;color:#fff;font-weight:600;padding:8px;text-align:left;white-space:nowrap}
 .cmp-t td{padding:8px;border-top:1px solid #EEF2F7;color:#1E293B;vertical-align:top;word-break:keep-all}
@@ -4077,11 +4095,19 @@ function renderCovDetail(name){                          // name 은 가입자 �
     const items = pol.items||[];
     const pUrl = proposalUrlOf(contract);
     const policyPlan = plan.policies.find(p=>String(p.id)===String(polId));
-    return`<article class="cov-policy policy-first-card" data-policy-id="${esc(polId)}">
+    const roleLabel = policyPlan ? (REMODEL_ROLES.find(r=>r.v===policyPlan.role)?.label || '미설정') : '';
+    const busy = PDF_ANALYSIS_STATUS[name+':'+String(polId)];
+    return`<details class="cov-policy policy-first-card pol-fold" data-policy-id="${esc(polId)}" ${polFoldOpen(name, polId) ? 'open' : ''} ontoggle="polFoldSet('${name}',this.dataset.policyId,this.open)">
+      <summary>
+        <div style="flex:1;min-width:0">
+          <div class="pol-title">${esc(contract.co)} · ${esc(contract.n)}</div>
+          <div class="pol-meta">월 ${korWon(contract.pr)} · 특약 ${items.length}개${contract._isOther?(pol.bm?' · 보맵 연동':' · 외부 보험'):' · '+esc(contract.d)}${contract.s&&contract.s!=='계약완료'?' · '+esc(contract.s):''}${pUrl?' · 📄 제안서 있음':''}</div>
+        </div>
+        ${busy && (busy.status === 'running' || busy.status === 'error') ?`<span class="pol-busy${busy.status==='error'?' fail':''}">${busy.status==='error'?'분석 실패':'분석 중'}</span>` : ''}
+        ${roleLabel ? `<span class="rm-state rm-state-${policyPlan.role}">${esc(roleLabel)}</span>` : ''}
+      </summary>
       <div class="cov-policy-hdr">
         <div style="flex:1;min-width:140px">
-          <div style="font-weight:700;font-size:15px">${esc(contract.co)} · ${esc(contract.n)}</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:5px">원본 월 보험료 ${korWon(contract.pr)} · 특약 ${items.length}개${contract._isOther?(pol.bm?' · 보맵 연동':' · 외부 보험'):' · '+esc(contract.d)}${contract.s&&contract.s!=='계약완료'?' · '+esc(contract.s):''}</div>
           ${bmPolicyInfoHtml(pol, false)}
         </div>
         ${pUrl?`<a href="${esc(pUrl)}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">📄 제안서 보기</a>`:''}
@@ -4108,7 +4134,7 @@ function renderCovDetail(name){                          // name 은 가입자 �
         <div style="padding:12px 14px"><button class="btn btn-secondary btn-sm" onclick="addCovItem('${name}',${jsId(polId)})">＋ 담보 추가 / 직접 입력</button></div>
         ${bmExtraItemsHtml(pol)}
       </div>
-    </article>`;
+    </details>`;
   };
   // 담보가 없는 보험은 아래에 접어서 짧게
   const secAll = [...allContracts, ...extraContracts];
@@ -4144,7 +4170,13 @@ function renderCovDetail(name){                          // name 은 가입자 �
     ${bmCustomerHeadHtml(name, false)}
     ${allContracts.length>0?`<details class="policy-secondary" ${window._covOverviewOpen?'open':''} ontoggle="window._covOverviewOpen=this.open"><summary>📑 보험 개요 (원본 기록)</summary><div class="cov-sum"><div><div class="l">등록된 원본 월 보험료</div><div class="v">${wonN(totalPremium)}원</div><div class="s">연 ${wonN(totalPremium*12)}원</div></div><div><div class="l">등록 보험</div><div class="v">${allContracts.length}건</div></div><div><div class="l">원본 담보 항목</div><div class="v">${itemNames.length}개</div></div></div>${overviewTable}</details>`:''}
     ${itemNames.length>0?`<details class="policy-secondary" ${window._covMatrixOpen?'open':''} ontoggle="window._covMatrixOpen=this.open"><summary>📊 보장 합산 매트릭스 (원본 기록)</summary><div class="mtx-wrap">${mtxBar}<p class="rm-fine" style="padding:0 10px 8px">${mtxMode==='full'?'금액을 눌러 수정할 수 있습니다. 표 안에서 위아래·좌우로 스크롤돼요 (머리줄·담보 이름 고정).':'담보별 합계와 어느 보험에서 얼마인지 보여줘요. 수정은 "보험별 표"에서.'}</p>${mtxMode==='full'?matrixTable:matrixSum}</div></details>`:''}
-    <div class="cov-sec" style="justify-content:space-between"><span>📋 보험별 담보 내역</span><button class="btn btn-secondary btn-sm" onclick="openAddExternalModal('${name}')">＋ 외부 보험 추가</button></div>
+    <div class="cov-sec" style="justify-content:space-between"><span>📋 보험별 담보 내역 <span class="rm-fine" style="font-weight:400">${secAll.length}건</span></span><button class="btn btn-secondary btn-sm" onclick="openAddExternalModal('${name}')">＋ 외부 보험 추가</button></div>
+    ${secAll.length > 1 ? `<div class="pol-tools">
+      <button class="btn btn-secondary btn-sm" onclick="polFoldAll('${name}',true)">모두 펼치기</button>
+      <button class="btn btn-secondary btn-sm" onclick="polFoldAll('${name}',false)">모두 접기</button>
+      <span class="rm-fine" style="margin-left:4px">바로가기</span>
+      ${secAll.map(c=>`<button class="pol-chip" title="${esc(c.co+' · '+c.n)}" onclick="polJump('${name}',${jsId(c.id)})">${esc(shortCo(c.co))} ${esc(c.n)}<small>${((polIn(cData,c.id)||{}).items||[]).length}</small></button>`).join('')}
+    </div>` : ''}
     ${policySections || '<div style="text-align:center;padding:30px;color:var(--hint)">등록된 보험이 없어요. 기존 보험이나 새 계약을 추가하세요.</div>'}
     ${bmEndedHtml(name)}
   `;
@@ -4492,6 +4524,33 @@ async function splitPDFBase64(base64, threshold, chunkSize){
   return {chunks, total};
 }
 
+// 보험 카드 접기 상태: 화면을 다시 그려도(담보 수정 때마다) 유지. 저장·동기화는 안 함(화면 편의).
+// 처음 상태: 담보가 있는 보험이 3건 이하면 펼침, 더 많으면 접음(스크롤이 길어지지 않게)
+const POL_FOLD = {};
+const POL_FOLD_AUTO_MAX = 3;
+function polFoldOpen(pid, polId){
+  const k = pid + ':' + String(polId);
+  if(k in POL_FOLD) return POL_FOLD[k];
+  const c = COVERAGES[pid] || {};
+  const n = CONTRACTS.filter(r => cpid(r) === pid).concat(c.externalPolicies || [], c.otherPolicies || [])
+    .filter(r => ((polIn(c, r.id) || {}).items || []).some(it => it && it.name)).length;
+  return n <= POL_FOLD_AUTO_MAX;
+}
+function polFoldSet(pid, polId, open){ POL_FOLD[pid + ':' + String(polId)] = !!open; }
+function polCards(){ return Array.from(document.querySelectorAll('#cov-detail details.pol-fold')); }
+function polFoldAll(pid, open){
+  polCards().forEach(d => {
+    d.open = !!open; polFoldSet(pid, d.dataset.policyId, open);
+    if(open) for(let p = d.parentElement; p; p = p.parentElement) if(p.tagName === 'DETAILS') p.open = true;   // "담보 없는 보험" 묶음도 펼침
+  });
+}
+function polJump(pid, polId){
+  const d = polCards().find(x => x.dataset.policyId === String(polId)); if(!d) return;
+  for(let p = d.parentElement; p; p = p.parentElement) if(p.tagName === 'DETAILS') p.open = true;   // "담보 없는 보험" 묶음 안이면 그것도 펼침
+  d.open = true; polFoldSet(pid, polId, true);
+  d.scrollIntoView({behavior: 'smooth', block: 'start'});
+  d.classList.remove('pol-flash'); void d.offsetWidth; d.classList.add('pol-flash');
+}
 function pdfAnalysisStatusHtml(customer,id){
   const state=PDF_ANALYSIS_STATUS[customer+':'+String(id)];
   return `<div id="pdf-state-${esc(String(id))}" class="pdf-analysis-state${state?' pdf-analysis-'+state.status:''}" role="status" ${state?'':'hidden'}>${state?esc(state.message):''}</div>`;
@@ -4502,6 +4561,8 @@ function setPDFAnalysisStatus(customer,id,status,message){
   const el=document.getElementById('pdf-state-'+String(id));
   if(!el)return;
   el.hidden=false;el.className='pdf-analysis-state pdf-analysis-'+status;el.textContent=String(message);
+  const card=el.closest('details.pol-fold');                 // 접힌 카드에서 분석이 시작돼도 진행 상황이 보이게 펼침
+  if(card&&!card.open){card.open=true;polFoldSet(customer,id,true);}
 }
 
 async function handlePDFUpload(event, polId, coName, prodName){
