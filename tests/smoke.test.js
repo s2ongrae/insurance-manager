@@ -79,11 +79,11 @@ try{
   ok((cd.match(/📋 보험별 담보 내역/g)||[]).length===1,'"보험별 담보 내역" 제목이 한 번만');
   ok(/updateCovItem\([^)]*'price'/.test(cd),'담보 줄에 보험료 입력칸 (머리줄 5칸과 맞음)');
   ok(!/실손<b>X<\/b>/.test(cd)&&/실손&lt;b&gt;X/.test(cd),'관리 화면 보험명은 글자 그대로(태그 실행 안 됨)');
-  ok(/실손의료비[\s\S]{0,400}질병입원의료비/.test(cd.replace(/<[^>]+>/g,' ')),'기본 그룹에서 "의료비" 담보는 실손의료비로 분류');
+  ok(/실손의료비[\s\S]{0,400}질병입원 ?의료비/.test(cd.replace(/<[^>]+>/g,' ')),'기본 그룹에서 "의료비" 담보는 실손의료비로 분류');
   G.run(`showCustomerView('pid_g1','갑')`); const cv=G.bodyHtml;
   ok(/168,000원/.test(cv),'고객 화면 월 보험료에 외부 보험 포함 (168,000원)');
   ok(/class="cv-cards"/.test(cv)&&/class="cv-mtx cv-mtx-d"/.test(cv),'고객 화면: 합계 카드(cv-cards) + 접힌 보험별 표(cv-mtx)');
-  ok(/class="cv-row-name">질병입원의료비/.test(cv),'폰 카드에 외부 보험 담보도 나옴');
+  ok(/class="cv-row-name">질병입원 ?의료비/.test(cv),'폰 카드에 외부 보험 담보도 나옴');
   ok((cv.match(/class="cv-policy"/g)||[]).length===3,'보험별 담보 내역에 외부 보험까지 3건');
   ok(!/실손<b>X<\/b>/.test(cv),'고객 화면 보험명 태그 실행 안 됨');
   ok(/<span>20년납<\/span><span>100세<\/span><span>비갱신<\/span>/.test(cv),'보험별 카드에 납입·보험기간·갱신 표시');

@@ -31,7 +31,7 @@ ok(/📤 고객 링크 복사/.test(cd) && /➕ 기존 보험 추가/.test(cd), 
 console.log('B) 보험별 표(관리): 합계 칸이 담보 이름 바로 오른쪽');
 const thead = cd.slice(cd.indexOf('>담보 항목</th>'), cd.indexOf('</thead>', cd.indexOf('>담보 항목</th>')));
 ok(thead.indexOf('합계') > 0 && thead.indexOf('합계') < thead.indexOf('실손의료비'), '머리줄: 담보 항목 → 합계 → 보험들');
-const row = cd.slice(cd.indexOf('>암진단비<'), cd.indexOf('</tr>', cd.indexOf('>암진단비<')));
+const row = cd.slice(cd.indexOf('>일반암 진단비<'), cd.indexOf('</tr>', cd.indexOf('>일반암 진단비<')));
 ok(row.indexOf('5천만원') >= 0 && row.indexOf('5천만원') < row.indexOf('3천만원'), '행: 합계(5천만원)가 보험별 금액(3천만원)보다 먼저');
 
 console.log('C) 보맵 리포트 비밀번호: 설정에 저장, 관리 화면에만');

@@ -44,8 +44,8 @@ ok(/class="cv-tabs"/.test(cv) && /📋 내 보장/.test(cv) && /🔄 비교 분�
 ok(/id="cv-pane-cmp" style="display:none/.test(cv), '처음엔 내 보장 탭이 보이고 비교 분석은 숨김');
 const cmp = cv.slice(cv.indexOf('id="cv-pane-cmp"'), cv.indexOf('id="cv-pane-cov"'));
 ok(/23,000원/.test(cmp) && /85,000원/.test(cmp) && /\+62,000원/.test(cmp), '보험료 요약: 지금 → 바꾼 뒤 → 차이');
-ok(/📈 늘어나는 보장 1개/.test(cmp) && /암진단비/.test(cmp) && /3천만원 → 5천만원/.test(cmp), '늘어나는 보장: 암진단비 3천만원 → 5천만원');
-ok(/✖️ 없어지는 보장 1개/.test(cmp) && /질병입원의료비/.test(cmp), '없어지는 보장: 질병입원의료비');
+ok(/📈 늘어나는 보장 1개/.test(cmp) && /일반암 진단비/.test(cmp) && /3천만원 → 5천만원/.test(cmp), '늘어나는 보장: 암진단비 3천만원 → 5천만원');
+ok(/✖️ 없어지는 보장 1개/.test(cmp) && /질병입원 의료비/.test(cmp), '없어지는 보장: 질병입원의료비');
 ok(/🗑️ 해지 1건/.test(cmp) && /🆕 새로 가입 1건/.test(cmp), '보험 정리: 해지 1 · 신규 1');
 ok(/바꾸기 전에 꼭 확인하세요/.test(cmp), '바꿀 때 알아둘 점 (기본 켜짐)');
 ok(!/담당 설계사 설명/.test(cmp), '설계사 한마디는 기본 꺼짐');
@@ -53,8 +53,8 @@ const tbl = cmp.slice(cmp.indexOf('📊 상세 비교표'), cmp.indexOf('📋 �
 ok(cmp.indexOf('📊 상세 비교표') > cmp.indexOf('📈 보장이 이렇게 바뀌어요'), '상세 비교표는 요약(보장 변화) 아래 (기본 켜짐)');
 const rowOf = n => { const i = tbl.indexOf('<td>' + n + '</td>'); return i < 0 ? '' : tbl.slice(i, tbl.indexOf('</tr>', i)); };
 const cells = r => (r.match(/<td[^>]*>[\s\S]*?<\/td>/g) || []).map(c => c.replace(/<[^>]+>/g, '').trim());   // 행의 칸 글자만
-ok(cells(rowOf('암진단비')).join('|') === '암진단비|3천만원|5천만원|+2천만원', '표: 암진단비 | 3천만원 | 5천만원 | +2천만원');
-ok(cells(rowOf('질병입원의료비')).join('|') === '질병입원의료비|5천만원|-|없어짐', '표: 질병입원의료비 | 5천만원 | - | 없어짐');
+ok(cells(rowOf('일반암 진단비')).join('|') === '일반암 진단비|3천만원|5천만원|+2천만원', '표: 암진단비 | 3천만원 | 5천만원 | +2천만원');
+ok(cells(rowOf('질병입원 의료비')).join('|') === '질병입원 의료비|5천만원|-|없어짐', '표: 질병입원의료비 | 5천만원 | - | 없어짐');
 ok(/그대로/.test(rowOf('일반사망')) && /cmp-tsame/.test(tbl), '표에는 바뀌지 않은 보장(일반사망)도 "그대로"로 나옴');
 ok(!/일반사망/.test(cmp.slice(0, cmp.indexOf('📊 상세 비교표'))), '위 요약에는 바뀐 보장만 (일반사망 없음)');
 ok(/class="cmp-tg"/.test(tbl), '표는 보장 분야별로 묶음');

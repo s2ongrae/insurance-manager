@@ -47,10 +47,10 @@ ok(JSON.stringify(r.roles) === JSON.stringify({ '1': 'after', '3': 'after', 'ext
 ok(r.bt === 70000 && r.bn === 2, '기존: 2건 · 월 70,000원 (기존 50,000 + 외부 20,000, 해지 계약 제외)');
 ok(r.at === 80000 && r.an === 2, '변경 후: 2건 · 월 80,000원 (신규 70,000 + 가입 예정 10,000)');
 ok(!('9999' in r.items) && JSON.stringify(r.items).indexOf('9999') < 0 && r.roles['4'] === undefined, '다른 사람(이순신)의 계약·담보는 섞이지 않음');
-ok(JSON.stringify(r.items['암진단비']) === JSON.stringify([3000, 5000, '증가']), '암진단비 3,000만 → 5,000만 증가');
-ok(JSON.stringify(r.items['뇌혈관진단비']) === JSON.stringify([1000, 2000, '증가']), '뇌혈관진단비 증가');
+ok(JSON.stringify(r.items['일반암 진단비']) === JSON.stringify([3000, 5000, '증가']), '암진단비 3,000만 → 5,000만 증가');
+ok(JSON.stringify(r.items['뇌혈관질환 진단비']) === JSON.stringify([1000, 2000, '증가']), '뇌혈관진단비 증가');
 ok(!('상해사망' in r.items), '해지된 계약에만 있던 담보(상해사망)는 비교에 안 나옴');
-ok(JSON.stringify(r.items['질병사망']) === JSON.stringify([3000, 0, '삭제']), '기존 보험에만 있던 담보는 삭제');
+ok(JSON.stringify(r.items['질병 사망']) === JSON.stringify([3000, 0, '삭제']), '기존 보험에만 있던 담보는 삭제');
 ok(JSON.stringify(r.items['실손의료비']) === JSON.stringify([0, 1, '신규']) && JSON.stringify(r.items['수술비']) === JSON.stringify([0, 100, '신규']), '새 보험에만 있는 담보는 신규 (가입 예정 포함)');
 ok(JSON.stringify(r.c) === JSON.stringify({ 증가: 2, 감소: 0, 신규: 2, 삭제: 1, 동일: 0 }), '담보 변화 개수: ' + JSON.stringify(r.c));
 
@@ -58,7 +58,7 @@ console.log('B) 역할 바꾸기 (유지·제외) → 저장·동기화');
 D.run(`setRemodelRole('${hp}',-9,'both')`);
 r = R(D, hp);
 ok(r.roles['-9'] === 'both' && r.bt === 70000 && r.at === 100000, '외부 보험을 "유지"로: 기존·변경 후 모두에 들어감 (월 70,000 → 100,000)');
-ok(JSON.stringify(r.items['질병사망']) === JSON.stringify([3000, 3000, '동일']), '유지한 보험의 담보는 변동 없음');
+ok(JSON.stringify(r.items['질병 사망']) === JSON.stringify([3000, 3000, '동일']), '유지한 보험의 담보는 변동 없음');
 D.run(`setRemodelRole('${hp}',3,'none')`);
 r = R(D, hp);
 ok(r.at === 90000 && !('수술비' in r.items), '가입 예정을 "제외": 변경 후에서 빠지고 그 담보도 사라짐');
@@ -80,14 +80,14 @@ console.log('C) 매트릭스와 같은 숫자 (직접 고친 값 · 숨긴 담�
 D.run(`COVERAGES['${hp}'].matrixView={'암진단비':{'삼성화재\\n리모델 종합':6000},'수술비':{'KB손해보험\\n수술비':999},'실손의료비':{__hidden:true}}; COVERAGES['${hp}'].matrixNames={'뇌혈관진단비':'뇌혈관 진단(표시명)'}`);
 D.run(`setRemodelRole('${hp}',3,'after')`);
 r = R(D, hp);
-ok(JSON.stringify(r.items['암진단비']) === JSON.stringify([3000, 6000, '증가']), '매트릭스에서 직접 고친 값(6,000만)을 그대로 씀');
+ok(JSON.stringify(r.items['일반암 진단비']) === JSON.stringify([3000, 6000, '증가']), '매트릭스에서 직접 고친 값(6,000만)을 그대로 씀');
 ok(r.items['수술비'] && r.items['수술비'][1] === 100, '가입 예정 보험은 매트릭스에 없으니 담보 원본(100만)을 씀');
 ok(!('실손의료비' in r.items), '매트릭스에서 숨긴 담보는 비교에서도 빠짐');
 ok('뇌혈관 진단(표시명)' in r.items && !('뇌혈관진단비' in r.items), '매트릭스에서 바꾼 표시 이름을 씀');
 D.run(`COVERAGES['${hp}'].externalPolicies.push({id:-10,co:'삼성화재',n:'리모델 종합',pr:0,items:[{name:'암진단비',amount:100}]})`);
 D.run(`setRemodelRole('${hp}',-10,'before')`);
 r = R(D, hp);
-ok(JSON.stringify(r.items['암진단비']) === JSON.stringify([3100, 5000, '증가']), '보험사+상품명이 같은 보험이 둘이면(매트릭스에서 한 칸) 고친 값 대신 원본으로 계산');
+ok(JSON.stringify(r.items['일반암 진단비']) === JSON.stringify([3100, 5000, '증가']), '보험사+상품명이 같은 보험이 둘이면(매트릭스에서 한 칸) 고친 값 대신 원본으로 계산');
 D.run(`COVERAGES['${hp}'].externalPolicies=COVERAGES['${hp}'].externalPolicies.filter(x=>x.id!==-10)`);
 
 console.log('D) 화면');

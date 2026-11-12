@@ -44,6 +44,15 @@ details[data-fold]:not([open])>summary::after{transform:rotate(-90deg)}
 summary.cv-sec{display:flex;align-items:center;gap:2px 6px;flex-wrap:wrap;white-space:nowrap}
 summary.cv-sec small{order:3;flex-basis:100%;white-space:normal;font-size:12px;font-weight:500;color:#64748B}
 .cv-toolbar{display:flex;justify-content:flex-end;gap:6px;margin:0 16px 10px}
+.cg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.cg-card{background:#fff;border:1px solid #E2E8F0;border-top:3px solid #CBD5E1;border-radius:10px;padding:12px 12px 10px}
+.cg-h{font-size:13px;font-weight:700;margin-bottom:6px}
+.cg-card ul{margin:0;padding-left:16px}
+.cg-card li{font-size:12.5px;line-height:1.65;color:#334155}
+.cg-note{font-size:12px;color:#92400E;background:#FFFBEB;border-radius:6px;padding:6px 8px;margin-top:6px;line-height:1.55}
+.cg-src{font-size:11px;color:#94A3B8;margin-top:10px;line-height:1.6}
+.cv-notice{margin:0 16px 14px;padding:12px 14px;background:#FFF7ED;border:1px solid #FDBA74;border-radius:12px;font-size:13px;line-height:1.65;color:#7C2D12}
+.cv-notice b{color:#9A3412}
 .cv-tabs{display:flex;gap:6px;margin:14px 16px 0;background:#E2E8F0;padding:4px;border-radius:12px}
 .cv-tabs button{flex:1;border:none;background:none;padding:10px 8px;border-radius:9px;font-size:14px;font-weight:700;color:#475569;cursor:pointer}
 .cv-tabs button.on{background:#fff;color:#1E3A8A;box-shadow:0 1px 3px rgba(15,23,42,.12)}
@@ -496,6 +505,7 @@ function pinPress(n) {
 function pinForgot() {
   if (!confirm('PIN을 새로 정할까요?\n\n보안을 위해 이 기기에 저장된 서버 비밀 키도 같이 지워져요.\n새 PIN을 정한 뒤 ⚙️ 서버에서 비밀 키를 다시 입력해야 서버 데이터와 동기화돼요.')) return;
   localStorage.removeItem('ins_server_key');
+  ['freellm_key', 'ins_gemini_key'].forEach(n => { localStorage.removeItem(n); sessionStorage.removeItem(n); });   // AI 연결 키도 함께
   localStorage.removeItem(PIN_STORE);
   localStorage.removeItem(PIN_FAIL);
   pinStartMode(); pinInput = ''; updateDots(); pinMsg('');
@@ -630,43 +640,12 @@ if(_viewHash.startsWith('#view=')) {
 
 <!-- 청구 서류 안내 모달 -->
 <div class="overlay" id="modal-docguide">
-<div class="modal" style="max-width:540px">
+<div class="modal" style="max-width:860px">
   <div class="modal-header">
     <div class="modal-title">📋 보험 청구 서류 안내</div>
     <button class="modal-close" onclick="closeModal('docguide')">✕</button>
   </div>
-  <div class="modal-body">
-    <div style="display:flex;flex-direction:column;gap:14px">
-      <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:12px;padding:14px">
-        <div style="font-size:14px;font-weight:700;color:#1E3A8A;margin-bottom:10px">🏥 실손 청구</div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          ${['진료비 세부내역서','진료비 영수증','약봉투','처방전','입금 통장 사본'].map(d=>`<div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="width:6px;height:6px;border-radius:3px;background:#2563EB;flex-shrink:0;display:inline-block"></span>${d}</div>`).join('')}
-        </div>
-      </div>
-      <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:12px;padding:14px">
-        <div style="font-size:14px;font-weight:700;color:#92400E;margin-bottom:10px">⚕️ 수술 청구</div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          ${['초진차트 (상세 내용 기재 요청)','수술확인서 (또는 수술기록지)','진료비 세부내역서','진료비 영수증','입금 통장 사본'].map(d=>`<div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="width:6px;height:6px;border-radius:3px;background:#D97706;flex-shrink:0;display:inline-block"></span>${d}</div>`).join('')}
-        </div>
-      </div>
-      <div style="background:#ECFDF5;border:1px solid #A7F3D0;border-radius:12px;padding:14px">
-        <div style="font-size:14px;font-weight:700;color:#065F46;margin-bottom:8px">💡 서류 비용 절감 팁</div>
-        <div style="font-size:13px;color:#064E3B;line-height:1.7">
-          <strong>진단서 발급은 가급적 피하세요!</strong><br>
-          진단서 대신 <strong>초진차트에 진단명·치료내용을 상세하게 기재</strong>해달라고 요청하면 서류 발급 비용을 크게 줄일 수 있습니다.<br>
-          <span style="color:#059669;font-size:12px">진단서: 약 1~3만원 → 초진차트: 무료 또는 소액</span>
-        </div>
-      </div>
-      <div style="background:#F5F3FF;border:1px solid #DDD6FE;border-radius:12px;padding:14px">
-        <div style="font-size:14px;font-weight:700;color:#4C1D95;margin-bottom:8px">📌 기타 서류</div>
-        <div style="font-size:13px;color:#3C1D9A;line-height:1.7">
-          <strong>입원:</strong> 입퇴원확인서, 진료비 세부내역서, 영수증<br>
-          <strong>골절:</strong> X-ray 결과지 (가능하면), 진료비 세부내역서<br>
-          <strong>교통사고:</strong> 교통사고 확인서 (경찰서 발급)
-        </div>
-      </div>
-    </div>
-  </div>
+  <div class="modal-body" id="docguide-body"></div>
 </div>
 </div>
 
@@ -1862,12 +1841,28 @@ let sortK='d', sortD=-1, sq='';
 let fStatus=new Set(), fGroups=new Set(), fMonths=new Set(), fCos=new Set();
 let filterOpen=false;
 let COVERAGES = load('ins_coverages', {});
-let FREELLM_KEY = sessionStorage.getItem('freellm_key') || '';
+// AI 키: "이 기기에 기억하기"(기본 켜짐)면 localStorage 에 남겨 다시 입력하지 않게, 끄면 이 탭(sessionStorage)에만
+const AI_KEY_NAMES = ['freellm_key', 'ins_gemini_key'];
+let AI_KEY_REMEMBER = localStorage.getItem('ins_ai_key_remember') !== '0';
+const loadAiKey = name => localStorage.getItem(name) || sessionStorage.getItem(name) || '';
+function saveAiKey(name, value, remember){
+  sessionStorage.setItem(name, value);
+  if(remember) localStorage.setItem(name, value); else localStorage.removeItem(name);
+}
+function forgetAiKeys(){
+  if(!confirm('이 기기에 저장된 AI 연결 키(FreeLLMAPI·Gemini)를 지울까요?\n다음에 PDF 분석할 때 다시 입력해야 해요.')) return;
+  AI_KEY_NAMES.forEach(n => { localStorage.removeItem(n); sessionStorage.removeItem(n); });
+  FREELLM_KEY = ''; GEMINI_SESSION_KEY = '';
+  document.getElementById('freellm-settings')?.remove();
+  showToast('🔑 이 기기의 AI 연결 키를 지웠어요');
+  if(typeof renderCoverageTab === 'function' && document.getElementById('cov-detail')) renderCoverageTab();
+}
+let FREELLM_KEY = loadAiKey('freellm_key');
 let FREELLM_BASE_URL = localStorage.getItem('freellm_base_url') || 'http://127.0.0.1:31415/v1';
 let FREELLM_MODEL = localStorage.getItem('freellm_model') || 'auto';
 let FREELLM_PDF_MODE = localStorage.getItem('freellm_pdf_mode') || 'auto';
 let AI_PROVIDER = localStorage.getItem('ins_ai_provider') === 'gemini' ? 'gemini' : 'freellm';
-let GEMINI_SESSION_KEY = sessionStorage.getItem('ins_gemini_key') || '';
+let GEMINI_SESSION_KEY = loadAiKey('ins_gemini_key');
 let GEMINI_DIRECT_MODEL = localStorage.getItem('ins_gemini_model') || 'gemini-2.5-flash';
 const PDF_ANALYSIS_STATUS = {};
 let selectedCovCustomer = null;
@@ -3098,38 +3093,8 @@ function renderCoverageTab(subTab){
       <button class="btn btn-secondary btn-sm" onclick="openFreeLLMSettings()">AI 연결 설정</button>
     </div>`;
 
-  // 청구서류 탭 내용
-  const claimGuideHTML = `
-    <div style="max-width:800px">
-      <h3 style="font-size:16px;font-weight:700;color:var(--navy,#1E3A8A);margin-bottom:16px">📄 보험금 청구 서류 안내</h3>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--blue)">
-          <div style="font-size:14px;font-weight:700;color:var(--blue);margin-bottom:10px">🏥 실손 / 외래 청구</div>
-          ${['✅ 진료비 세부내역서','✅ 영수증','✅ 약봉투 또는 처방전','💡 원외처방은 처방전 + 약국영수증'].map(d=>`<div style="font-size:13px;padding:5px 0;border-bottom:1px dashed var(--border);color:${d.startsWith('💡')?'#D97706':'var(--text)'}">${d}</div>`).join('')}
-        </div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid #DC2626">
-          <div style="font-size:14px;font-weight:700;color:#DC2626;margin-bottom:10px">⚕️ 수술 청구</div>
-          ${['✅ 초진차트 (상세 기재 요청)','✅ 수술확인서','✅ 진료비 세부내역서','✅ 영수증','💡 마취기록지, 간호기록지 추가요청 권장'].map(d=>`<div style="font-size:13px;padding:5px 0;border-bottom:1px dashed var(--border);color:${d.startsWith('💡')?'#D97706':'var(--text)'}">${d}</div>`).join('')}
-        </div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid #7C3AED">
-          <div style="font-size:14px;font-weight:700;color:#7C3AED;margin-bottom:10px">🎗️ 암 / 중증질환</div>
-          ${['✅ 조직검사 결과지 또는 진단서','✅ 수술확인서 (수술 시)','✅ 입원확인서 (입원 시)','✅ 진료비 세부내역서','💡 진단서 최초 1회만 필요 — 추가청구 시 생략 가능'].map(d=>`<div style="font-size:13px;padding:5px 0;border-bottom:1px dashed var(--border);color:${d.startsWith('💡')?'#D97706':'var(--text)'}">${d}</div>`).join('')}
-        </div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid #059669">
-          <div style="font-size:14px;font-weight:700;color:#059669;margin-bottom:10px">🚗 자동차사고 / 상해</div>
-          ${['✅ 사고사실확인원 (경찰서)','✅ 진단서 또는 소견서','✅ 진료비 세부내역서','✅ 영수증','💡 사고일자 기재 필수'].map(d=>`<div style="font-size:13px;padding:5px 0;border-bottom:1px dashed var(--border);color:${d.startsWith('💡')?'#D97706':'var(--text)'}">${d}</div>`).join('')}
-        </div>
-      </div>
-      <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:16px">
-        <div style="font-size:14px;font-weight:700;color:#D97706;margin-bottom:8px">💡 비용 절감 핵심 팁</div>
-        <div style="font-size:13px;color:#92400E;line-height:1.8">
-          • 진단서(1~3만원) 대신 <strong>초진차트에 내용을 자세히 기재</strong>해 달라고 요청하세요<br>
-          • 병원 방문 시 미리 "보험 청구 목적으로 차트 상세 기재 부탁드린다"고 말씀하세요<br>
-          • 세부내역서는 항상 <strong>건강보험 + 비급여 모두 포함</strong>된 것으로 요청하세요<br>
-          • 장기입원은 중간에 한 번씩 중간정산 청구도 가능합니다
-        </div>
-      </div>
-    </div>`;
+  // 청구서류 탭 내용 (고객 링크·팝업과 같은 내용: CLAIM_GUIDE)
+  const claimGuideHTML = `<div style="max-width:1000px"><h3 style="font-size:16px;font-weight:700;color:var(--navy,#1E3A8A);margin-bottom:12px">📄 보험금 청구 서류 안내</h3>${claimGuideHtml('admin')}</div>`;
 
   const leftList = people.map(p=>`
     <div class="cov-cust ${p.pid===selectedCovCustomer?'on':''}" onclick="selectedCovCustomer='${p.pid}';window._covSubTab='보장분석';renderCoverageTab('보장분석')">
@@ -3562,6 +3527,7 @@ function setRemodelAfterPremium(pid,id,value){
 }
 function toggleRemodelAll(pid){REMODEL_SHOW_ALL=!REMODEL_SHOW_ALL;renderCovDetail(pid);}
 function buildRemodel(pid){
+  ensureCovNames(pid);
   const cData=COVERAGES[pid]||{},mv=cData.matrixView||{};
   const pols=remodelPolicies(pid).map(p=>Object.assign(p,{role:remodelRoleOf(pid,p)}));
   const labelCount={};pols.filter(p=>p.inMatrix).forEach(p=>{const k=p.co+'\n'+p.n;labelCount[k]=(labelCount[k]||0)+1;});
@@ -3835,7 +3801,7 @@ function compareTabHtml(snap, cs){
     out.push(`<div class="cmp-card"><h4>📋 보험 정리</h4>${body || '<div class="rm-fine">정리할 보험이 없어요</div>'}</div>`);
   }
   if(B.caution) out.push(`<div class="cmp-card cmp-warn"><h4>⚠️ 바꾸기 전에 꼭 확인하세요</h4><ul>${COMPARE_CAUTIONS.map(t => `<li>${t}</li>`).join('')}</ul></div>`);
-  out.push('<p class="rm-fine" style="text-align:center;margin:4px 0 12px">이 안내는 상담용 비교 자료예요. 실제 보험료와 보장은 보험사 청약서·약관이 기준이에요.</p>');
+  out.push('<p class="rm-fine" style="text-align:center;margin:4px 0 12px">이 안내는 상담용 비교 자료라 실제와 다를 수 있어요. 실제 보험료와 보장은 보험사 청약서·약관이 기준이니, 결정 전에 반드시 담당 설계사에게 확인해 주세요.</p>');
   return `<div class="cmp">${out.join('')}</div>`;
 }
 function cvTab(which){
@@ -3860,6 +3826,7 @@ function setPolicyNo(pid, id, value){
 }
 
 function renderCovDetail(name){                          // name 은 가입자 고유 번호
+  ensureCovNames(name);
   const cData = COVERAGES[name] || {policies:[], otherPolicies:[]};
   const contracts = CONTRACTS.filter(r=>cpid(r)===name && r.s==='계약완료');
 
@@ -4158,7 +4125,7 @@ function renderCovDetail(name){                          // name 은 가입자 �
             <button class="btn btn-secondary btn-sm" onclick="renamePerson('${name}')" title="이름을 바꿔도 보장분석·고객 링크는 그대로 유지돼요">✏️ 이름 변경</button>
             <button class="btn btn-secondary btn-sm" onclick="mergePerson('${name}')" title="같은 사람이 둘로 나뉘어 있을 때 하나로 합치기">🔀 합치기</button>
             <button class="btn btn-secondary btn-sm" onclick="splitPerson('${name}')" title="이름이 같은 다른 사람이 한 사람으로 묶여 있을 때 갈라내기">✂️ 분리</button>
-            <button class="btn btn-secondary btn-sm" onclick="openModal('docguide')">📋 청구 서류</button>
+            <button class="btn btn-secondary btn-sm" onclick="openDocGuide()">📋 청구 서류</button>
             <button class="btn btn-secondary btn-sm" onclick="openModal('covgroups');renderCovGroupEditor()">⚙️ 그룹 설정</button>
             <button class="btn btn-secondary btn-sm" data-name="${esc(name)}" onclick="copyShareLink(this.dataset.name, true)" title="이전 링크를 무효로 하고 새 링크 만들기">🔄 고객 링크 재발급</button>
           </div>
@@ -4413,7 +4380,7 @@ function openFreeLLMSettings(){
     <label style="display:block;margin-top:12px">이 기기의 분석 방식
       <select id="ai-provider" style="display:block;width:100%;margin:6px 0"><option value="freellm" ${AI_PROVIDER==='freellm'?'selected':''}>FreeLLMAPI (기본 · 이 PC의 라우터)</option><option value="gemini" ${AI_PROVIDER==='gemini'?'selected':''}>Gemini 예비 모드 (라우터 없는 회사 PC)</option></select></label>
     <details ${AI_PROVIDER==='gemini'?'open':''} style="padding:8px 0"><summary style="cursor:pointer;font-size:12px">Gemini 예비 모드 설정</summary>
-      <p class="rm-fine">위에서 Gemini를 선택했을 때만 Google로 문서를 보냅니다. FreeLLMAPI 실패 시 자동 전환하지 않습니다. 키는 이 탭의 세션에만 저장됩니다.</p>
+      <p class="rm-fine">위에서 Gemini를 선택했을 때만 Google로 문서를 보냅니다. FreeLLMAPI 실패 시 자동 전환하지 않습니다. 키 저장 방식은 아래 "이 기기에 키 기억하기"를 따릅니다.</p>
       <label>Gemini API 키<input id="gemini-direct-key" type="password" autocomplete="off" spellcheck="false" value="${esc(GEMINI_SESSION_KEY)}" style="display:block;width:100%;margin:6px 0"></label>
       <label>Gemini 모델 ID<input id="gemini-direct-model" value="${esc(GEMINI_DIRECT_MODEL)}" placeholder="gemini-2.5-flash" style="display:block;width:100%;margin:6px 0"></label>
     </details>
@@ -4423,7 +4390,11 @@ function openFreeLLMSettings(){
     <p style="font-size:11px;color:var(--muted);margin-bottom:12px">데스크톱 기본: 127.0.0.1:31415 · 직접 설치 서버 기본: localhost:3001. 라우터의 실제 API 주소를 입력하세요.</p>
     <label for="freellm-key">통합 API 키</label>
     <input id="freellm-key" type="password" autocomplete="off" spellcheck="false" value="${esc(FREELLM_KEY)}" placeholder="freellmapi-..." style="display:block;width:100%;margin:6px 0 12px">
-    <p style="font-size:11px;color:var(--muted);margin-bottom:12px">키는 이 탭의 세션에만 저장됩니다. 탭을 닫으면 다시 입력해야 합니다.</p>
+    <div style="background:var(--surface2,#F1F5F9);border-radius:10px;padding:10px 12px;margin-bottom:12px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;cursor:pointer"><input type="checkbox" id="ai-key-remember" ${AI_KEY_REMEMBER?'checked':''} style="width:16px;height:16px"> 이 기기에 키 기억하기 (앱을 다시 열어도 입력 안 해도 됨)</label>
+      <p style="font-size:11px;color:var(--muted);margin:6px 0 0;line-height:1.6">위 FreeLLMAPI 통합 키와 Gemini 키 모두에 적용돼요. 여러 사람이 같이 쓰는 PC라면 끄세요(탭을 닫으면 지워져요). PIN을 새로 정하면 함께 지워져요.
+        ${(FREELLM_KEY||GEMINI_SESSION_KEY)?'<button type="button" class="rm-text-btn" onclick="forgetAiKeys()">이 기기에서 키 지우기</button>':''}</p>
+    </div>
     <label for="freellm-model">모델 ID</label>
     <input id="freellm-model" list="freellm-model-list" value="${esc(FREELLM_MODEL)}" placeholder="auto 또는 라우터의 모델 ID" style="display:block;width:100%;margin:6px 0 12px">
     <datalist id="freellm-model-list"></datalist>
@@ -4485,7 +4456,8 @@ async function saveFreeLLMSettings(){
       status.textContent='Gemini 연결 확인 후 저장합니다. 고객 문서는 전송하지 않습니다.';
       const cfg=await checkGeminiDirectSettings();
       GEMINI_SESSION_KEY=cfg.key;GEMINI_DIRECT_MODEL=cfg.model;AI_PROVIDER='gemini';
-      sessionStorage.setItem('ins_gemini_key',cfg.key);localStorage.setItem('ins_gemini_model',cfg.model);localStorage.setItem('ins_ai_provider','gemini');
+      AI_KEY_REMEMBER=document.getElementById('ai-key-remember')?.checked!==false;localStorage.setItem('ins_ai_key_remember',AI_KEY_REMEMBER?'1':'0');
+      saveAiKey('ins_gemini_key',cfg.key,AI_KEY_REMEMBER);if(!AI_KEY_REMEMBER)localStorage.removeItem('freellm_key');localStorage.setItem('ins_gemini_model',cfg.model);localStorage.setItem('ins_ai_provider','gemini');
       FREELLM_PDF_MODE=document.getElementById('freellm-pdf-mode')?.value==='vision'?'vision':'auto';localStorage.setItem('freellm_pdf_mode',FREELLM_PDF_MODE);
       document.getElementById('freellm-settings')?.remove();renderCoverageTab();showToast('Gemini 예비 모드 저장. 고객 문서는 선택한 Google 모델로 전송됩니다.');return;
     }
@@ -4493,7 +4465,8 @@ async function saveFreeLLMSettings(){
     status.textContent='라우터 연결을 확인한 뒤 저장합니다. 고객 문서는 전송하지 않습니다.';
     const models=await listFreeLLMModels(cfg);
     if(!models.length)throw new Error('라우터에는 연결됐지만 사용 가능한 모델이 없어요. 라우터에 공급자 키를 등록하세요');
-    sessionStorage.setItem('freellm_key',cfg.key);
+    AI_KEY_REMEMBER=document.getElementById('ai-key-remember')?.checked!==false;localStorage.setItem('ins_ai_key_remember',AI_KEY_REMEMBER?'1':'0');
+    saveAiKey('freellm_key',cfg.key,AI_KEY_REMEMBER);if(!AI_KEY_REMEMBER)localStorage.removeItem('ins_gemini_key');
     localStorage.setItem('freellm_base_url',cfg.base);
     localStorage.setItem('freellm_model',cfg.model);
     localStorage.setItem('freellm_pdf_mode',cfg.pdfMode);
@@ -4656,12 +4629,50 @@ async function handlePDFUpload(event, polId, coName, prodName){
 }
 
 // ── 고객 전용 보장 뷰 ───────────────────────────────────
+// ── 보험금 청구 서류 안내 (관리 팝업·관리 탭·고객 링크 공통) ─────────────
+// 확인한 출처(2026-11-12): 손해보험협회 소비자포털 "실손의료보험금 청구서류 표준화"(생보·손보 공통, 2014.1.1 시행),
+// 금융위원회 실손24 보도자료(2024.10.25 병원급, 2025.10.25 의원·약국), 보험사 청구서류 안내(KB손보·현대해상·삼성생명), 상법 제662조.
+// 초진차트·세부내역서·중간정산 팁은 설계사(레이)가 원래 넣어 둔 실무 팁.
+const CLAIM_GUIDE = [
+  {icon:'📝', title:'공통 서류 (모든 청구)', color:'#1E3A8A', items:['보험금 청구서 (받을 계좌번호 기재)', '개인(신용)정보 처리 동의서', '청구하는 사람 신분증 사본'],
+    notes:['가족이 대신 청구하면 위임장·인감증명서, 미성년 자녀는 가족관계증명서가 더 필요할 수 있어요']},
+  {icon:'🏥', title:'실손 — 통원(외래)', color:'#0284C7', items:['3만원 이하: 청구서 + 병원 영수증', '3만원 초과 ~ 10만원 이하: + 질병분류기호(진단코드)가 적힌 처방전', '10만원 초과: + 진단서·통원확인서·진료확인서·소견서 중 보험사가 요구하는 서류', '약값: 처방전 + 약국 영수증'],
+    notes:['금액은 같은 사고(질병) 1건의 영수증 합계 기준이에요', '산부인과·항문외과·비뇨기과·피부과는 금액이 적어도 추가 서류를 요구할 수 있어요', '비급여 진료가 있으면 진료비 세부내역서(건강보험 + 비급여 모두 포함)를 함께 받으세요']},
+  {icon:'🛏️', title:'실손 — 입원', color:'#059669', items:['진료비 영수증(계산서)', '진료비 세부내역서', '진단서'],
+    notes:['입원비가 50만원 이하면 진단서 대신 진단명이 적힌 입퇴원확인서나 진료확인서로 낼 수 있어요', '장기 입원은 중간에 나눠서(중간정산) 청구할 수 있어요']},
+  {icon:'📅', title:'입원일당', color:'#16A34A', items:['입퇴원확인서 (진단명 포함)', '진단서에 입원 기간이 적혀 있으면 진단서로 대신 가능']},
+  {icon:'⚕️', title:'수술비', color:'#D97706', items:['수술확인서 (수술명·수술일 기재)', '진단서 또는 소견서 (질병분류기호 기재)', '실손도 함께 청구하면 영수증·진료비 세부내역서'],
+    notes:['보험사에 따라 수술기록지·마취기록지를 추가로 요청할 수 있어요']},
+  {icon:'🎗️', title:'진단비 (암·뇌·심장 등)', color:'#DC2626', items:['진단서 (질병분류기호 기재)', '암: 조직검사 결과지 (조직검사를 못 했으면 CT·MRI·PET 판독지, 혈액검사 결과지 등)', '뇌졸중·심근경색 등: 진단 근거가 되는 검사 결과지를 요구할 수 있어요'],
+    notes:['표적항암제 등 특정 치료비 담보는 해당 치료확인서가 따로 필요할 수 있어요']},
+  {icon:'🚗', title:'교통사고·상해', color:'#B45309', items:['사고 사실 확인 서류 (교통사고는 경찰서 교통사고사실확인원 등)', '진단서 또는 소견서', '영수증·진료비 세부내역서'],
+    notes:['사고 날짜를 꼭 적어 주세요', '골절은 X-ray 등 검사 결과지가 있으면 함께 내세요']},
+  {icon:'🦽', title:'후유장해', color:'#475569', items:['후유장해진단서 (약관의 장해분류표 기준)'],
+    notes:['장해 정도에 따라 보험금이 달라서 보험사가 추가 검사·자료를 요구할 수 있어요']},
+  {icon:'🕯️', title:'사망', color:'#334155', items:['사망진단서 또는 사체검안서', '사망 사실이 적힌 기본증명서', '가족관계증명서 (받을 사람·상속인 확인)', '받는 사람 신분증·통장 사본'],
+    notes:['상속인이 여럿이면 각자의 위임장·인감증명서가 필요할 수 있어요']},
+  {icon:'📱', title:'실손24로 간편 청구', color:'#7C3AED', items:['실손24 앱 또는 silson24.or.kr 에서 병원·진료일을 고르면, 영수증·세부내역서·처방전이 병원에서 보험사로 바로 전송돼요', '병원급은 2024.10.25부터, 의원·약국은 2025.10.25부터 대상 (아직 연결 안 된 병원·약국도 많아요)', '진단서·입퇴원확인서 같은 추가 서류는 사진으로 따로 첨부해요']},
+  {icon:'💡', title:'꼭 알아두세요', color:'#CA8A04', items:['보험금은 사고(진단)일로부터 3년 안에 청구해야 해요 (상법 제662조 · 2015년 3월 전 계약은 2년일 수 있어요)', '모든 서류에 진단명(질병분류기호)이 적혀 있는지 확인하세요', '진료 후 질병분류기호가 적힌 처방전을 2부 받아 두면 편해요', '진단서(약 1~3만원) 대신 초진차트에 진단명·치료내용을 자세히 적어 달라고 요청하면 발급 비용을 줄일 수 있어요', '필요한 서류는 보험사·상품마다 달라요. 발급 전에 담당 설계사에게 먼저 물어보세요']}
+];
+function claimGuideHtml(mode){
+  const cards = CLAIM_GUIDE.map(g => `<div class="cg-card" style="border-top-color:${g.color}"><div class="cg-h" style="color:${g.color}">${g.icon} ${esc(g.title)}</div>
+    <ul>${g.items.map(t => `<li>${esc(t)}</li>`).join('')}</ul>${(g.notes || []).map(t => `<p class="cg-note">💡 ${esc(t)}</p>`).join('')}</div>`).join('');
+  const foot = mode === 'customer'
+    ? '서류는 보험사·상품마다 다를 수 있어요. 청구 전에 담당 설계사에게 연락 주시면 필요한 서류를 정확히 알려 드릴게요.'
+    : '출처: 손해보험협회 소비자포털 「실손의료보험금 청구서류 표준화」, 금융위원회 실손24 안내, 보험사 청구서류 안내, 상법 제662조 (2026.11 확인). 보험사·상품마다 다를 수 있어 고객에게는 보험사 확인을 함께 안내하세요.';
+  return `<div class="cg-grid">${cards}</div><p class="cg-src">${foot}</p>`;
+}
+function openDocGuide(){
+  const b = document.getElementById('docguide-body'); if(b) b.innerHTML = claimGuideHtml('admin');
+  openModal('docguide');
+}
 function cvFoldAll(open){ document.querySelectorAll('.cv-wrap details[data-fold]').forEach(d => { d.open = !!open; }); }
 function showCustomerView(name, displayName){             // name 은 서버가 알려준 열쇠(가입자 고유 번호), displayName 은 표시용 이름
   document.getElementById('lock-screen').style.display='none';
   document.getElementById('app-wrap').style.display='none';
 
-  const cData = COVERAGES[name] || {policies:[]};
+  // 설계사가 아직 새 버전을 안 열어서 예전 이름으로 남은 데이터도 화면에서는 새 이름으로 맞춰서 보여줌 (고객 화면은 저장하지 않음)
+  const cData = migrateCovNames(COVERAGES[name] || {policies:[]}, CONTRACTS.filter(r=>(isPid(name) ? cpid(r)===name : r.p===name))).rec;
   const contracts = CONTRACTS.filter(r=>(isPid(name) ? cpid(r)===name : r.p===name) && r.s==='계약완료');
   const shownName = displayName || (isPid(name) ? personNameOfContracts(contracts) : name) || (cData.person && cData.person.name) || name;
   // renderCovDetail과 동일하게 externalPolicies 포함
@@ -4866,31 +4877,15 @@ function showCustomerView(name, displayName){             // name 은 서버가 
     <div id="cv-pane-cmp" style="display:none;padding:16px 0 0">${cvCmpHtml}</div>` : ''}
     <div id="cv-pane-cov" style="padding:16px 0 0">
       <div class="cv-toolbar"><button type="button" onclick="cvFoldAll(true)">모두 펼치기</button><button type="button" onclick="cvFoldAll(false)">모두 접기</button></div>
+      <div class="cv-notice" role="note">⚠️ <b>보장 내용은 꼭 담당 설계사에게 확인해 주세요.</b><br>이 화면의 담보와 금액은 증권·제안서를 옮겨 정리한 참고 자료라 실제 계약과 다를 수 있어요. 보험금 청구나 보험 변경 전에는 반드시 담당 설계사(김성래)에게 먼저 확인해 주세요.</div>
       <!-- 청구 서류 안내 (맨 위) -->
       <div style="margin:0 16px 16px">
-        <details style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:12px">
-          <summary style="padding:12px 16px;cursor:pointer;font-size:13px;font-weight:700;color:#1E3A8A;list-style:none;display:flex;align-items:center;gap:8px">
-            <span>📋</span> 보험금 청구 서류 안내
-            <span style="margin-left:auto;font-size:11px;font-weight:400;color:#60A5FA">탭하여 펼치기</span>
+        <details data-fold style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:12px">
+          <summary style="padding:12px 16px;font-size:13px;font-weight:700;color:#1E3A8A;display:flex;align-items:center;gap:8px">
+            <span>📋</span> <span style="white-space:nowrap">보험금 청구 서류 안내</span>
+            <span style="margin-left:auto;font-size:11px;font-weight:400;color:#60A5FA;text-align:right">실손·입원·수술·진단·사망 등</span>
           </summary>
-          <div style="padding:0 14px 14px;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
-            <div style="background:#fff;border-radius:8px;padding:12px;border-top:3px solid #0284C7">
-              <div style="font-size:12px;font-weight:700;color:#0284C7;margin-bottom:6px">🏥 실손 / 외래</div>
-              ${['진료비 세부내역서','영수증','약봉투 또는 처방전'].map(d=>`<div style="font-size:11px;padding:3px 0;color:#374151">✅ ${d}</div>`).join('')}
-            </div>
-            <div style="background:#fff;border-radius:8px;padding:12px;border-top:3px solid #DC2626">
-              <div style="font-size:12px;font-weight:700;color:#DC2626;margin-bottom:6px">⚕️ 수술</div>
-              ${['초진차트 (상세 기재)','수술확인서','진료비 세부내역서','영수증'].map(d=>`<div style="font-size:11px;padding:3px 0;color:#374151">✅ ${d}</div>`).join('')}
-            </div>
-            <div style="background:#fff;border-radius:8px;padding:12px;border-top:3px solid #7C3AED">
-              <div style="font-size:12px;font-weight:700;color:#7C3AED;margin-bottom:6px">🎗️ 암 / 중증</div>
-              ${['진단서 또는 조직검사 결과지','수술·입원확인서','진료비 세부내역서'].map(d=>`<div style="font-size:11px;padding:3px 0;color:#374151">✅ ${d}</div>`).join('')}
-            </div>
-            <div style="background:#FFFBEB;border-radius:8px;padding:12px">
-              <div style="font-size:12px;font-weight:700;color:#D97706;margin-bottom:6px">💡 비용 절감 팁</div>
-              <div style="font-size:11px;color:#92400E;line-height:1.6">진단서 대신 <strong>초진차트</strong>에 자세히 기재 요청하면 비용 절감!</div>
-            </div>
-          </div>
+          <div style="padding:4px 12px 12px">${claimGuideHtml('customer')}</div>
         </details>
       </div>
 
@@ -4906,7 +4901,7 @@ function showCustomerView(name, displayName){             // name 은 서버가 
       <details data-fold open><summary class="cv-sec">📊 분야별 보장 합계</summary>
       ${cvCards}
       <details class="cv-mtx cv-mtx-d"><summary>보험별로 나눠 보기 (표)</summary><div style="margin-top:8px">${matrixTableCV}</div></details></details>`:''}
-      <details data-fold open><summary class="cv-sec">📋 보험별 담보 내역 <small>${allContracts.length}건 · 보험을 누르면 특약이 펼쳐져요</small></summary>
+      <details data-fold open><summary class="cv-sec">📋 보험별 담보 내역 <small>${allContracts.length}건 · 보험을 누르면 특약이 펼쳐져요 · 정확한 내용은 담당 설계사에게 꼭 확인하세요</small></summary>
       ${policySections||'<div style="text-align:center;padding:30px;color:#9CA3AF">보장 데이터가 없습니다</div>'}
       </details>
       <div style="text-align:center;margin-top:20px;font-size:12px;color:#9CA3AF">
@@ -4918,6 +4913,87 @@ function showCustomerView(name, displayName){             // name 은 서버가 
   document.body.insertAdjacentHTML('beforeend', `<div id="cv-screen">${html}</div>`);
 }
 
+// ── 예전 담보 이름 규칙 (2026-11-12 표준 통합 이전 그대로) ──────────────
+// 예전 이름으로 저장된 표 수정값(matrixView·matrixNames·itemOrder)을 옮길 때 "어느 담보가 어느 예전 줄이었는지" 계산하는 데만 씀
+function legacyNormCovName(name) {
+  if(!name) return '';
+  try {
+    return String(name)
+      .replace(/\s*\(([^)]*)\)/g, (m,inner) => {
+        if(/[0-9]+[-~]?[0-9]*종|종류|형|급/.test(inner)) return ' '+inner.trim();
+        return '';
+      })
+      .replace(/\s*[IVX]{2,}\s*$/i, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 32) || String(name).slice(0, 32);
+  } catch(e) { return String(name).slice(0, 32); }
+}
+// 보장분석 기록의 표 수정값 열쇠를 지금 이름 규칙으로 옮김 (원본은 건드리지 않고 새 객체, 여러 번 해도 같음)
+// 예전 이름 여러 개가 새 이름 하나로 합쳐지면, 칸마다 "예전에 보이던 값(수정값 또는 원본, 숨긴 줄은 0)"을 더해서 합계가 그대로 나오게 함
+function migrateCovNames(rec, contracts){
+  if(!isPlain(rec)) return {rec, changed: false};
+  const mv = isPlain(rec.matrixView) ? rec.matrixView : {}, names = isPlain(rec.matrixNames) ? rec.matrixNames : {}, order = Array.isArray(rec.itemOrder) ? rec.itemOrder : [];
+  const keyOf = k => normCovName(k) || k;
+  if(![...Object.keys(mv), ...Object.keys(names), ...order].some(k => keyOf(k) !== k)) return {rec, changed: false};
+  const pols = [];
+  (contracts || []).forEach(c => { const p = (rec.policies || []).find(x => isPlain(x) && String(x.id) === String(c.id)); if(p) pols.push({key: `${c.co}\n${c.n}`, items: p.items || []}); });
+  [...(rec.otherPolicies || []), ...(rec.externalPolicies || [])].filter(isPlain).forEach(op => pols.push({key: `${op.co}\n${op.n || op.name}`, items: op.items || []}));
+  const itemsOf = pk => pols.filter(p => p.key === pk).flatMap(p => p.items).filter(it => isPlain(it) && it.name);
+  const amt = it => parseFloat(it.amount) || 0;
+  const groups = {};
+  Object.keys(mv).forEach(k => { const n = keyOf(k); (groups[n] = groups[n] || []).push(k); });
+  const nmv = {};
+  Object.entries(groups).forEach(([n, ks]) => {
+    if(ks.length === 1 && ks[0] === n){ nmv[n] = mv[n]; return; }
+    const cur = isPlain(mv[n]) ? mv[n] : null;                       // 새 이름으로 이미 고친 값이 있으면 그게 우선
+    const olds = ks.filter(k => k !== n);
+    const entry = {};
+    if(cur) Object.keys(cur).forEach(x => { entry[x] = cur[x]; });
+    if(!cur || !cur.__hidden){
+      // 이 새 이름으로 합쳐지는 예전 이름 전부(표 수정값이 없는 예전 줄 포함)가 숨김일 때만 합친 줄도 숨김
+      const allOld = new Set(olds);
+      pols.forEach(p => p.items.forEach(it => { if(isPlain(it) && it.name && keyOf(it.name) === n) allOld.add(legacyNormCovName(it.name) || it.name); }));
+      allOld.delete(n);
+      const allHidden = [...allOld].every(k => isPlain(mv[k]) && mv[k].__hidden);
+      if(allHidden && !cur) entry.__hidden = true;
+    }
+    if(!entry.__group){ const g = olds.map(k => isPlain(mv[k]) && mv[k].__group).find(Boolean); if(g) entry.__group = g; }
+    if(!entry.__hidden){
+      const polKeys = new Set();
+      olds.forEach(k => Object.keys(isPlain(mv[k]) ? mv[k] : {}).filter(x => !x.startsWith('__')).forEach(x => polKeys.add(x)));
+      if(olds.some(k => isPlain(mv[k]) && mv[k].__hidden)) pols.forEach(p => polKeys.add(p.key));   // 일부만 숨겼으면 모든 보험 칸에서 숨긴 몫을 뺌
+      polKeys.forEach(pk => {
+        if(cur && cur[pk] !== undefined) return;
+        const its = itemsOf(pk).filter(it => keyOf(it.name) === n);
+        const ls = new Set(its.map(it => legacyNormCovName(it.name) || it.name));
+        olds.forEach(k => { if(isPlain(mv[k]) && mv[k][pk] !== undefined) ls.add(k); });
+        let v = 0;
+        ls.forEach(l => {
+          const o = isPlain(mv[l]) ? mv[l] : null;
+          if(o && o.__hidden) return;
+          v += o && o[pk] !== undefined ? (parseFloat(o[pk]) || 0) : its.filter(it => (legacyNormCovName(it.name) || it.name) === l).reduce((s, it) => s + amt(it), 0);
+        });
+        const raw = its.reduce((s, it) => s + amt(it), 0);
+        if(Math.abs(v - raw) > 1e-9 || olds.some(k => isPlain(mv[k]) && mv[k][pk] !== undefined)) entry[pk] = Math.round(v * 100) / 100;   // 직접 고친 칸은(0 포함) 그대로 남김
+      });
+    }
+    if(Object.keys(entry).length) nmv[n] = entry;
+  });
+  const nnames = {};
+  Object.keys(names).forEach(k => { const n = keyOf(k); if(k === n) nnames[n] = names[k]; });
+  Object.keys(names).forEach(k => { const n = keyOf(k); if(k !== n && nnames[n] === undefined) nnames[n] = names[k]; });
+  const norder = [...new Set(order.map(keyOf))];
+  const out = Object.assign({}, rec);
+  if(isPlain(rec.matrixView)) out.matrixView = nmv;
+  if(isPlain(rec.matrixNames)) out.matrixNames = nnames;
+  if(Array.isArray(rec.itemOrder)) out.itemOrder = norder;
+  return {rec: out, changed: true};
+}
+function ensureCovNames(pid){                             // 관리 화면: 옮긴 결과를 저장·동기화
+  const r = migrateCovNames(COVERAGES[pid], CONTRACTS.filter(c => cpid(c) === pid));
+  if(r.changed){ COVERAGES[pid] = r.rec; saveCoverages(); }
+}
 // ── 담보명 정규화 (유사항목 표준 통합 합산) ──────────────
 function normCovName(name) {
   if(!name) return '';
@@ -4972,13 +5048,20 @@ function normCovName(name) {
     if(/골절.*진단/.test(s)) return '골절 진단비';
     if(/화상.*진단/.test(s)) return '화상 진단비';
     if(/일상생활.*배상책임|배상책임/.test(s)) return '가족일상생활배상책임';
-    if(/교통사고처리지원금/.test(s)) return '교통사고 처리 지원금 (형사합의)';
-    if(/변호사선임/.test(s)) return '변호사 선임 비용 (운전자)';
+    if(/교통사고\s*처리\s*지원금/.test(s)) return '교통사고 처리 지원금 (형사합의)';
+    if(/변호사\s*선임/.test(s)) return '변호사 선임 비용 (운전자)';
     if(/벌금/.test(s)) return '운전자 벌금 (대인/스쿨존)';
     if(/자동차사고.*부상|자부상/.test(s)) return '자동차사고 부상치료지원금';
 
     // 6. 입원
-    if(/입원일당|입원비/.test(s)) return '질병·상해 입원일당';
+    // 질병·상해 입원일당은 받는 조건이 달라서 따로 둔다 (사용자 요청 2026-11-12: 한 줄로 더하면 하루 금액을 오해함)
+    if(/입원일당|입원비/.test(s)){
+      const sick = /질병/.test(s), hurt = /상해/.test(s);
+      if(sick && hurt) return '질병·상해 입원일당';     // 한 담보가 둘 다 보장하는 경우만
+      if(hurt) return '상해 입원일당';
+      if(sick) return '질병 입원일당';
+      return '입원일당';
+    }
 
     // 7. 치아
     if(/보철치료|임플란트|틀니|브릿지/.test(s)) return '치아 보철 치료비';
@@ -5060,6 +5143,7 @@ document.addEventListener('click', e => {
   document.querySelectorAll('details.more-menu[open]').forEach(d => { if(!d.contains(e.target)) d.open = false; });
 });
 function renderAll() {
+  Object.keys(COVERAGES).forEach(ensureCovNames);           // 예전 담보 이름으로 저장된 표 수정값을 새 이름으로 (한 번만 바뀜)
   syncRiderReminders();
   renderKPIs();
   renderTab(currentTab);

@@ -30,7 +30,7 @@ ok(A.errors.length===0,'앱 로드 오류 없음 '+A.errors.join('|'));
 ok(A.get('CONTRACTS.every(r=>isPid(r.pid))'),'모든 계약에 가입자 번호가 붙음');
 ok(A.get('Object.keys(COVERAGES).every(isPid)')&&A.get('Object.keys(SHARES).every(isPid)'),'보장분석·링크 토큰이 번호 열쇠로 옮겨짐');
 let pl=people(A); ok(pl.length===2 && byLabel(A,'홍길동').n===3 && byLabel(A,'이순신').n===1,'사람 2명 (예전과 똑같이 묶여서 시작: 홍길동 3건, 이순신 1건)');
-ok(A.get(`COVERAGES[${L('홍길동')}].policies.length`)===3 && A.get(`COVERAGES[${L('홍길동')}].matrixNames['암진단비']`)==='암','보장분석 내용 하나도 안 사라짐');
+ok(A.get(`COVERAGES[${L('홍길동')}].policies.length`)===3 && A.get(`COVERAGES[${L('홍길동')}].matrixNames['일반암 진단비']`)==='암','보장분석 내용 하나도 안 사라짐 (표시 이름은 새 담보 이름 열쇠로 옮겨짐)');
 await sleep(50); await A.run('syncNow()');
 let srv=JSON.parse(S.dataFile().content);
 ok(Object.keys(srv.shares).every(k=>/^pid_/.test(k))&&srv.contracts.every(r=>r.pid)&&Object.keys(srv.coverages).every(k=>/^pid_/.test(k)),'서버 데이터도 번호 기준으로 바뀜');
