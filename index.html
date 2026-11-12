@@ -52,6 +52,9 @@ summary.cv-sec small{order:3;flex-basis:100%;white-space:normal;font-size:12px;f
 .cov-search input{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface)}
 .cov-fam>summary{cursor:pointer;padding:9px 14px;font-size:12px;font-weight:700;color:#334155;background:#F8FAFC;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
 .cov-cust-fam{padding-left:26px!important}
+.pol-dup{font-size:11px;font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.pol-del{border:1px solid #FECACA;background:#FEF2F2;color:#B91C1C;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer}
+.pol-del:hover{background:#FEE2E2}
 .mtx-orig{display:block;font-size:11px;font-weight:400;color:#94A3B8;margin-top:2px;white-space:normal;line-height:1.4}
 .cg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
 .cg-card{background:#fff;border:1px solid #E2E8F0;border-top:3px solid #CBD5E1;border-radius:10px;padding:12px 12px 10px}
@@ -3024,7 +3027,9 @@ function importBomappData(data){
     };
     prep(mainPid);
     const pols = (Array.isArray(c.policies) ? c.policies : []).filter(isPlain);
-    const active = pols.filter(p=>p.insuranceStatus==='정상');
+    const skipIds = new Set(); Object.keys(COVERAGES).forEach(k => { const r = COVERAGES[k]; if(isPlain(r) && Array.isArray(r.bmSkip)) r.bmSkip.forEach(i => skipIds.add(i)); });
+    const active = pols.filter(p=>p.insuranceStatus==='정상' && !skipIds.has(p.insuranceId));
+    res.skipped = (res.skipped || 0) + pols.filter(p=>p.insuranceStatus==='정상' && skipIds.has(p.insuranceId)).length;
     const ended = pols.filter(p=>p.insuranceStatus!=='정상');
     const activeIds = new Set(active.map(p=>p.insuranceId));
     // 보험마다 넣을 사람: 이미 들어가 있는 곳 > 피보험자가 가족이면 그 가족 > 고객 본인
@@ -3142,7 +3147,8 @@ async function importBomappFile(event){
     (res.warnings.length ? ' · 주의: '+res.warnings.join(', ') : '') +
     (res.ended ? ` · 종료된 보험 ${res.ended}건 따로 보관` : '') + (res.ambiguous.length ? ` · 동명이인이라 새로 만든 고객: ${res.ambiguous.join(', ')} (🔀 합치기로 정리)` : '') +
     (res.family.length ? ` · 가족 보험을 따로 나눈 사람: ${res.family.join(', ')} (👪 가족으로 묶여 보여요)` : '') +
-    (res.moved ? ` · 고객 쪽에 같이 들어가 있던 가족 보험 ${res.moved}건을 가족 쪽으로 옮김` : '');
+    (res.moved ? ` · 고객 쪽에 같이 들어가 있던 가족 보험 ${res.moved}건을 가족 쪽으로 옮김` : '') +
+    (res.skipped ? ` · 완전 삭제해 둔 보험 ${res.skipped}건은 건너뜀` : '');
   say(msg); showToast(msg);
   if(!res.reports.length) return;
   // 분석 리포트 PDF → Drive (서버 연결이 있을 때만)
@@ -3202,7 +3208,55 @@ function bmCustomerHeadHtml(pid, forCustomer){
   return `<div class="bm-head"><span class="bm-badge" style="font-size:11px;font-weight:700;color:#1D4ED8;background:#DBEAFE;border-radius:4px;padding:1px 6px">보맵 연동</span>
     <span>${esc(String(b.at||'').replace('T',' ').slice(0,16))} 기준</span>
     ${rep?`<a class="bm-link" href="${esc(rep)}" target="_blank" rel="noopener">📊 보맵 분석 리포트 (PDF, 비밀번호: ${esc(bmReportPw() || '플래너 사번')})</a>`:'<span class="rm-fine">분석 리포트: 보맵 창에서 "리포트 PDF 받기" 또는 파일 만들 때 PDF 포함</span>'}
-    <a class="bm-link" href="https://dplanner.bomapp.co.kr/customer/detail/relationship/${encodeURIComponent(b.plannerMemberId||'')}" target="_blank" rel="noopener">보맵에서 열기 ↗</a></div>`;
+    <a class="bm-link" href="https://dplanner.bomapp.co.kr/customer/detail/relationship/${encodeURIComponent(b.plannerMemberId||'')}" target="_blank" rel="noopener">보맵에서 열기 ↗</a>
+    ${Array.isArray(r.bmSkip) && r.bmSkip.length ? `<button class="rm-text-btn" onclick="clearBmSkip('${pid}')">🚫 보맵에서 빼 둔 보험 ${r.bmSkip.length}건 · 다시 가져오게 하기</button>` : ''}</div>`;
+}
+// ── 보험 삭제 (사용자 요청 2026-11-12: 중복으로 들어간 보험도 지울 수 있게) ─────────────
+// 내 계약: 계약 리스트·보장분석에서 모두 지움(완전 삭제). 외부·기존·보맵 보험: 그 기록을 지움.
+// 보맵 보험은 같은 보험이 다른 곳에 남아 있으면 중복 정리로 보고 그냥 지우고, 아니면 "다시 가져와도 빼 둘지"(bmSkip) 물음.
+// 지우기 직전 상태는 체크포인트로 남김(⚙️ 서버 설정 → 이 기기 체크포인트에서 되돌리기).
+function polDupKey(contract, pol){
+  return isPlain(pol) && isPlain(pol.bm) && pol.bm.id != null ? 'bm' + pol.bm.id : bmCorpKey(contract.co) + '|' + bmProdKey(contract.n);
+}
+function deletePolicy(pid, polId){
+  const rec = isPlain(COVERAGES[pid]) ? COVERAGES[pid] : {policies: []};
+  const dropRole = r => { if(!isPlain(r.remodel) || !isPlain(r.remodel.roles)) return r; const roles = Object.assign({}, r.remodel.roles); delete roles['r' + String(polId)]; return Object.assign({}, r, {remodel: Object.assign({}, r.remodel, {roles})}); };
+  const c = CONTRACTS.find(x => String(x.id) === String(polId) && cpid(x) === pid);
+  if(c){
+    if(!confirm(`'${c.co} · ${c.n}' 계약을 완전히 삭제할까요?\n\n계약 리스트·월별 실적 집계·보장분석에서 모두 사라져요.\n(삭제 직전 상태는 이 기기 체크포인트로 남겨요)`)) return;
+    saveCheckpoint('보험 삭제 전');
+    CONTRACTS = CONTRACTS.filter(x => x !== c);
+    delete MEMOS[c.id];
+    COVERAGES[pid] = dropRole(Object.assign({}, rec, {policies: (rec.policies || []).filter(p => !(isPlain(p) && String(p.id) === String(polId)))}));
+    save('ins_contracts', CONTRACTS); saveCoverages(); renderAll();
+    showToast('🗑️ 계약을 완전히 삭제했어요');
+    return;
+  }
+  let fld = null, x = null;
+  for(const k of ['externalPolicies', 'otherPolicies']){ const hit = (Array.isArray(rec[k]) ? rec[k] : []).find(p => isPlain(p) && String(p.id) === String(polId)); if(hit){ fld = k; x = hit; break; } }
+  if(!x) return;
+  const label = `${shortCo(x.co)} ${x.n || x.name || ''}`.trim();
+  if(!confirm(`'${label}' 보험을 삭제할까요?\n이 보험의 담보도 함께 지워져요.\n(삭제 직전 상태는 이 기기 체크포인트로 남겨요)`)) return;
+  saveCheckpoint('보험 삭제 전');
+  let next = dropRole(Object.assign({}, rec, {[fld]: rec[fld].filter(p => p !== x)}));
+  COVERAGES[pid] = next;
+  const bmId = isPlain(x.bm) ? x.bm.id : null;
+  let msg = '🗑️ 보험을 삭제했어요';
+  if(bmId != null){
+    if(bmPolicyHome(bmId)) msg = '🗑️ 중복으로 들어간 보험 하나를 지웠어요 (같은 보험은 남아 있어요)';
+    else if(confirm('보맵에서 다시 가져올 때도 이 보험을 빼 둘까요?\n\n[확인] 완전 삭제 — 다시 가져와도 안 생겨요\n[취소] 이번만 삭제 — 다음에 가져오면 다시 생겨요')){
+      COVERAGES[pid] = Object.assign({}, next, {bmSkip: [...new Set([...(Array.isArray(next.bmSkip) ? next.bmSkip : []), bmId])]});
+      msg = '🗑️ 완전히 삭제했어요 (보맵에서 다시 가져와도 빼 둬요)';
+    }
+  }
+  saveCoverages(); renderAll();
+  showToast(msg);
+}
+function clearBmSkip(pid){
+  const r = COVERAGES[pid]; const n = isPlain(r) && Array.isArray(r.bmSkip) ? r.bmSkip.length : 0;
+  if(!n || !confirm(`보맵에서 빼 둔 보험 ${n}건을 다음에 가져올 때 다시 넣을까요?`)) return;
+  const next = Object.assign({}, r); delete next.bmSkip; COVERAGES[pid] = next;
+  saveCoverages(); renderAll(); showToast('다음 보맵 가져오기부터 다시 들어와요');
 }
 function bmEndedHtml(pid){
   const r = COVERAGES[pid];
@@ -4226,6 +4280,8 @@ function renderCovDetail(name){                          // name 은 가입자 �
     const pUrl = proposalUrlOf(contract);
     const policyPlan = plan.policies.find(p=>String(p.id)===String(polId));
     const roleLabel = policyPlan ? (REMODEL_ROLES.find(r=>r.v===policyPlan.role)?.label || '미설정') : '';
+    const dupN = dupCount[polDupKey(contract, pol)] || 0;
+    const isMine = !contract._isOther;
     const busy = PDF_ANALYSIS_STATUS[name+':'+String(polId)];
     return`<details class="cov-policy policy-first-card pol-fold" data-policy-id="${esc(polId)}" ${polFoldOpen(name, polId) ? 'open' : ''} ontoggle="polFoldSet('${name}',this.dataset.policyId,this.open)">
       <summary>
@@ -4233,6 +4289,7 @@ function renderCovDetail(name){                          // name 은 가입자 �
           <div class="pol-title">${esc(contract.co)} · ${esc(contract.n)}</div>
           <div class="pol-meta">월 ${korWon(contract.pr)} · 특약 ${items.length}개${contract._isOther?(pol.bm?' · 보맵 연동':' · 외부 보험'):' · '+esc(contract.d)}${contract.s&&contract.s!=='계약완료'?' · '+esc(contract.s):''}${pUrl?' · 📄 제안서 있음':''}</div>
         </div>
+        ${dupN > 1 ? `<span class="pol-dup" title="같은 보험(보험사+상품명 또는 같은 보맵 보험)이 ${dupN}건 있어요. 중복이면 하나를 삭제하세요">⚠️ 중복 의심 ${dupN}건</span>` : ''}
         ${termsLinkHtml(pol, 'pol-terms')}
         ${busy && (busy.status === 'running' || busy.status === 'error') ?`<span class="pol-busy${busy.status==='error'?' fail':''}">${busy.status==='error'?'분석 실패':'분석 중'}</span>` : ''}
         ${roleLabel ? `<span class="rm-state rm-state-${policyPlan.role}">${esc(roleLabel)}</span>` : ''}
@@ -4265,13 +4322,16 @@ function renderCovDetail(name){                          // name 은 가입자 �
             ${remodelRiderActionHtml(name,policyPlan,idx)}
           </div>`).join('')}
         ${items.length?'':'<div style="padding:16px;font-size:13px;color:var(--muted)">아직 특약이 없습니다. 이 보험의 제안서를 넣거나 보장을 직접 추가하세요.</div>'}
-        <div style="padding:12px 14px"><button class="btn btn-secondary btn-sm" onclick="addCovItem('${name}',${jsId(polId)})">＋ 담보 추가 / 직접 입력</button></div>
+        <div style="padding:12px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn btn-secondary btn-sm" onclick="addCovItem('${name}',${jsId(polId)})">＋ 담보 추가 / 직접 입력</button>
+          <span style="flex:1"></span><button class="pol-del" onclick="deletePolicy('${name}',${jsId(polId)})">${isMine ? '🗑 계약까지 완전 삭제' : '🗑 이 보험 삭제'}</button></div>
         ${bmExtraItemsHtml(pol)}
       </div>
     </details>`;
   };
   // 담보가 없는 보험은 아래에 접어서 짧게
   const secAll = [...allContracts, ...extraContracts];
+  const dupCount = {};
+  secAll.forEach(c => { const k = polDupKey(c, polIn(cData, c.id)); dupCount[k] = (dupCount[k] || 0) + 1; });
   const hasItems = c => ((polIn(cData, c.id)||{}).items||[]).some(it=>it && it.name);
   const secEmpty = secAll.filter(c=>!hasItems(c));
   const policySections = secAll.filter(hasItems).map(sectionOf).join('') + (secEmpty.length ? `
