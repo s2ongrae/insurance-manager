@@ -155,7 +155,8 @@ console.log('H) 이 기기 데이터가 실수로 비워지면 서버가 막아�
 A.run(`CONTRACTS = []; COVERAGES = {}; MEMOS = {}`);
 const serverBefore = S.dataFile().content;
 r = await A.run('syncNow()');
-ok(r.ok===false && r.reason==='shrink', '줄어듦 방지 작동: 동기화 중단');
+ok(r.ok===false && r.reason==='localShrink', '줄어듦 방지 작동: 이 기기에서 먼저 동기화 중단 (2026-11-12부터 — 예전엔 서버 거부(shrink)만 있어 이 기기는 줄어든 채 덮어써졌음)');
+ok(A.get('CONTRACTS').length===0, '줄어든 합친 결과를 이 기기에 적용하지도 않음 (지금 상태 그대로, 서버 데이터로 되돌리기로 복구)');
 ok(S.dataFile().content===serverBefore, '서버 데이터는 그대로');
 A.run(`SYNC_BASE=null; localStorage.removeItem('ins_sync_base')`);
 r = await A.run('syncNow()');

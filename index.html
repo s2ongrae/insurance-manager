@@ -55,6 +55,8 @@ summary.cv-sec small{order:3;flex-basis:100%;white-space:normal;font-size:12px;f
 .pol-dup{font-size:11px;font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:2px 8px;white-space:nowrap}
 .pol-del{border:1px solid #FECACA;background:#FEF2F2;color:#B91C1C;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer}
 .pol-del:hover{background:#FEE2E2}
+.shrink-banner{margin:0 0 12px;padding:14px 16px;background:#FEF2F2;border:2px solid #F87171;border-radius:12px;color:#7F1D1D;font-size:13px;line-height:1.7}
+.shrink-banner b{font-size:15px;color:#991B1B}.shrink-banner .btn{margin-top:8px}
 .mtx-orig{display:block;font-size:11px;font-weight:400;color:#94A3B8;margin-top:2px;white-space:normal;line-height:1.4}
 .cg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
 .cg-card{background:#fff;border:1px solid #E2E8F0;border-top:3px solid #CBD5E1;border-radius:10px;padding:12px 12px 10px}
@@ -576,6 +578,7 @@ if(_viewHash.startsWith('#view=')) {
       <summary class="btn btn-secondary" title="서버 · 동기화 · 보맵 · 백업 · 복원">⚙️ 관리 ▾</summary>
       <div class="more-pop" onclick="if(event.target.closest('.btn'))this.closest('details').open=false">
         <button class="btn btn-secondary" onclick="manualSync()" title="지금 즉시 저장">🔄 지금 동기화</button>
+        <button class="btn btn-secondary" onclick="pullFromServer()" title="서버에 저장된 데이터를 합치지 않고 그대로 이 기기로 받아요 (이 기기 데이터가 이상할 때)">☁️ 서버 데이터로 되돌리기</button>
         <button class="btn btn-secondary" onclick="openBomappModal()" title="보맵 플래너 고객의 보험·특약·납입·약관·분석리포트 가져오기">📥 보맵 가져오기</button>
         <button class="btn btn-secondary" onclick="exportData()" title="데이터 백업">💾 백업 파일 받기</button>
         <label class="btn btn-secondary" title="백업 파일 불러오기" style="cursor:pointer">
@@ -980,6 +983,9 @@ const DEFAULT_GROUPS    = {"지인들":"#868E96"};
 // ════════════════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════
 // 구글 드라이브 클라우드 연동 (보안 강화판)
+// 고객 전용 화면 여부 — 고객 화면은 메모리의 계약·보장분석을 그 고객 것만으로 바꿔 쓰므로, 이 화면에서는 저장·동기화를 절대 하지 않는다
+// (var: 이 구간만 떼어 쓰는 테스트에서도 정의되게)
+var CUSTOMER_MODE = /^#view=/.test(String((typeof location !== 'undefined' && location.hash) || ''));
 //  · 서버 주소·비밀 키는 이 기기의 ⚙️ 서버 설정에서 입력 (코드에 박지 않음)
 //  · 동기화는 "통째 교체"가 아니라 항목(id) 단위 3-way 병합
 // ════════════════════════════════════════════════════════════
@@ -1310,6 +1316,7 @@ function listCheckpoints(){
 // ── 동기화 (요청이 겹치면 순서대로 하나씩) ─────────────────
 let _syncQueue = Promise.resolve();
 function syncNow(opts){
+  if(CUSTOMER_MODE) return Promise.resolve({ok: false, reason: 'customer'});
   const p = _syncQueue.then(() => _syncOnce(opts || {}));
   _syncQueue = p.catch(() => {});
   return p;
@@ -1327,6 +1334,15 @@ async function _syncOnce(opts){
       const local = collectLocal();                     // await 이후의 최신 이 기기 상태
       const merged = mergeAll(base, local, r.data);
       res.conflicts += merged.conflicts;
+      {
+        const sC = Array.isArray(r.data && r.data.contracts) ? r.data.contracts.length : 0, mC = merged.data.contracts.length;
+        const sP = Object.keys((r.data && r.data.coverages) || {}).length, mP = Object.keys(merged.data.coverages || {}).length;
+        if((sC >= 4 && mC < sC * 0.5) || (sP >= 4 && mP < sP * 0.5)){
+          res.reason = 'localShrink';
+          const e = new Error(`이 기기 데이터가 서버보다 크게 줄어 있어 동기화를 멈췄어요 (계약 ${mC}/${sC}건). 서버 데이터는 그대로예요`); e.code = 'localShrink';
+          throw e;
+        }
+      }
       const dataChanged = !sameData(merged.data, local);
       const tombChanged = stableStringify(normTombs(merged.data.tombstones)) !== stableStringify(normTombs(local.tombstones));
       if(dataChanged){ saveCheckpoint('병합 전'); res.changedLocal = true; }
@@ -1351,12 +1367,14 @@ async function _syncOnce(opts){
     res.error = e.message; res.reason = res.reason || e.code || 'error';
     if(e.code === 'unauthorized') setSyncStatus('error', '비밀 키 오류 — ⚙️ 서버 설정');
     else setSyncStatus('error', '동기화 실패 — ' + String(e.message || '').slice(0, 40));
+    if(res.reason === 'localShrink' || res.reason === 'shrink') showShrinkBanner(e.message);
     return res;
   }
 }
 
 // 복원처럼 "서버를 이 상태로 바꾸겠다"는 의도가 분명할 때만 (서버는 직전 상태를 백업)
 function forcePushLocal(label){
+  if(CUSTOMER_MODE) return Promise.resolve(false);
   const p = _syncQueue.then(() => _forcePush(label));
   _syncQueue = p.catch(() => {});
   return p;
@@ -1383,6 +1401,36 @@ async function loadFromCloud(){
   return !!(r && r.ok && r.changedLocal);
 }
 
+// ── ☁️ 서버 데이터로 되돌리기: 서버에 있는 데이터를 합치지 않고 그대로 이 기기로 받음 (서버는 바뀌지 않음) ──
+function showShrinkBanner(msg){
+  try { _showShrinkBanner(msg); } catch(e) { /* 경고 띠 오류가 동기화를 막지 않게 */ }
+}
+function _showShrinkBanner(msg){
+  if(CUSTOMER_MODE || typeof document === 'undefined') return;
+  const safe = String(msg || '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  let b = document.getElementById('shrink-banner');
+  if(!b){ const host = document.getElementById('rem-banner'); if(!host || !host.insertAdjacentHTML) return; host.insertAdjacentHTML('beforebegin', '<div id="shrink-banner" class="shrink-banner"></div>'); b = document.getElementById('shrink-banner'); }
+  if(!b) return;
+  b.innerHTML = `<b>⚠️ 이 기기 데이터가 서버보다 크게 줄어 있어요</b><div>${safe}</div><div>서버에 저장된 데이터는 그대로예요. 아래 버튼으로 서버 데이터를 이 기기로 다시 받으세요.</div><button class="btn btn-primary btn-sm" onclick="pullFromServer()">☁️ 서버 데이터로 되돌리기</button>`;
+  b.style.display = '';
+}
+async function pullFromServer(){
+  if(CUSTOMER_MODE) return false;
+  if(!serverConfigured()){ showToast('⚙️ 먼저 서버 설정을 해주세요'); openServerSettings(); return false; }
+  let r;
+  try { r = await serverCall('load'); } catch(e){ r = null; }
+  if(!r || !r.ok || !isPlain(r.data)){ showToast('❌ 서버에서 불러오지 못했어요 — 인터넷·서버 설정을 확인해주세요'); return false; }
+  const d = r.data, n = Array.isArray(d.contracts) ? d.contracts.length : 0, m = Object.keys(isPlain(d.coverages) ? d.coverages : {}).length;
+  if(!confirm(`서버에 있는 데이터로 이 기기를 되돌릴까요?\n\n☁️ 서버: 계약 ${n}건 · 보장분석 ${m}명\n📱 이 기기 지금: 계약 ${CONTRACTS.length}건 · 보장분석 ${Object.keys(COVERAGES).length}명\n\n서버는 바뀌지 않아요. 이 기기의 지금 상태는 체크포인트로 남겨요.`)) return false;
+  saveCheckpoint('서버에서 받기 전');
+  applyData(Object.assign({}, normalizeData(d), {tombstones: d.tombstones}));
+  commitBase(makeBase(d), r.rev);
+  const b = document.getElementById('shrink-banner'); if(b) b.style.display = 'none';
+  renderAll();
+  setSyncStatus('ok', '서버 데이터로 되돌림');
+  showToast(`☁️ 서버 데이터로 되돌렸어요 (계약 ${n}건)`);
+  return true;
+}
 function manualSync(){
   if(!serverConfigured()){ showToast('⚙️ 먼저 서버 설정을 해주세요'); openServerSettings(); return; }
   syncNow({label: '동기화 중...'}).then(r => {
@@ -1396,6 +1444,7 @@ function manualSync(){
 }
 
 function scheduleSave() {
+  if(CUSTOMER_MODE) return;
   // 이 기기에는 바로 저장하고, 연속 입력은 1.5초 뒤 한 번만 서버와 동기화
   persistLocal();
   clearTimeout(syncTimer);
@@ -1408,7 +1457,7 @@ function scheduleSave() {
     });
   }, 1500);
 }
-window.addEventListener('online', () => { if(serverConfigured()) syncNow(); });
+window.addEventListener('online', () => { if(!CUSTOMER_MODE && serverConfigured()) syncNow(); });
 
 // ── ⚙️ 서버 설정 ────────────────────────────────────────
 function openServerSettings(){
@@ -1710,7 +1759,7 @@ function migrateLocalPeople(){
 }
 
 function load(key, def){ try{const v=localStorage.getItem(key);return v?JSON.parse(v):def;}catch(e){return def;} }
-function save(key,val){ try{localStorage.setItem(key,JSON.stringify(val));}catch(e){} }
+function save(key,val){ if(CUSTOMER_MODE) return; try{localStorage.setItem(key,JSON.stringify(val));}catch(e){} }
 // HTML에 글자를 넣을 때 쓰는 이스케이프
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
 // AI(제안서 PDF)에서 나온 글자는 태그·따옴표를 무력화해서 저장
