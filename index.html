@@ -3644,13 +3644,23 @@ function saveExternalInsurance() {
 }
 
 
+// 그룹 설정 창은 복사본(_cgDraft)을 고치고, 저장을 눌렀을 때만 반영해요 (예전엔 실제 목록을 바로 고쳐서 "취소"가 듣지 않았어요)
+// 각 그룹은 원래 이름(_orig)을 기억해서, 이름을 바꾸면 줄마다 직접 옮겨 둔 그룹 지정(matrixView.__group)도 새 이름으로 따라가요
+let _cgDraft = null;
+function cgDraftOf(list){ return list.map(g=>({...g, keys:[...(g.keys||[])], _orig:g.label})); }
+function openCovGroupEditor(){
+  _cgDraft = cgDraftOf(COV_GROUPS);
+  openModal('covgroups');
+  renderCovGroupEditor();
+}
 function renderCovGroupEditor(){
+  if(!_cgDraft) _cgDraft = cgDraftOf(COV_GROUPS);
   const el = document.getElementById('cov-group-list');
-  el.innerHTML = COV_GROUPS.map((g,i)=>`
-    <div style="display:grid;grid-template-columns:36px 1fr 1fr 28px 28px 28px;gap:6px;align-items:center;margin-bottom:8px;padding:8px;background:var(--surface2);border-radius:8px;border-left:4px solid ${g.color}">
-      <input type="color" value="${g.color}" onchange="COV_GROUPS[${i}].color=this.value;COV_GROUPS[${i}].border=this.value+'99';this.parentElement.style.borderLeftColor=this.value" style="width:30px;height:30px;padding:2px;border:1px solid var(--border);border-radius:6px;cursor:pointer">
-      <input type="text" value="${g.label}" onchange="COV_GROUPS[${i}].label=this.value" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%">
-      <input type="text" value="${g.keys.join(',')}" placeholder="키워드 (쉼표 구분)" onchange="COV_GROUPS[${i}].keys=this.value.split(',').map(k=>k.trim()).filter(Boolean)" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;width:100%">
+  el.innerHTML = _cgDraft.map((g,i)=>`
+    <div style="display:grid;grid-template-columns:36px 1fr 1fr 28px 28px 28px;gap:6px;align-items:center;margin-bottom:8px;padding:8px;background:var(--surface2);border-radius:8px;border-left:4px solid ${esc(g.color)}">
+      <input type="color" value="${esc(g.color)}" onchange="_cgDraft[${i}].color=this.value;_cgDraft[${i}].border=this.value+'99';this.parentElement.style.borderLeftColor=this.value" style="width:30px;height:30px;padding:2px;border:1px solid var(--border);border-radius:6px;cursor:pointer">
+      <input type="text" value="${esc(g.label)}" onchange="_cgDraft[${i}].label=this.value" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:100%">
+      <input type="text" value="${esc(g.keys.join(','))}" placeholder="키워드 (쉼표 구분)" onchange="_cgDraft[${i}].keys=this.value.split(',').map(k=>k.trim()).filter(Boolean)" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;width:100%">
       <button onclick="moveCovGroup(${i},-1)" title="위로" style="border:none;background:var(--border);border-radius:4px;cursor:pointer;padding:4px">▲</button>
       <button onclick="moveCovGroup(${i},1)" title="아래로" style="border:none;background:var(--border);border-radius:4px;cursor:pointer;padding:4px">▼</button>
       <button onclick="delCovGroup(${i})" title="삭제" style="border:none;background:var(--red-l);color:var(--red);border-radius:4px;cursor:pointer;padding:4px">✕</button>
@@ -3659,29 +3669,66 @@ function renderCovGroupEditor(){
 
 function moveCovGroup(i, dir){
   const j=i+dir;
-  if(j<0||j>=COV_GROUPS.length) return;
-  [COV_GROUPS[i],COV_GROUPS[j]]=[COV_GROUPS[j],COV_GROUPS[i]];
+  if(j<0||j>=_cgDraft.length) return;
+  [_cgDraft[i],_cgDraft[j]]=[_cgDraft[j],_cgDraft[i]];
   renderCovGroupEditor();
 }
+// 줄마다 직접 옮겨 둔 그룹 지정 수 (그룹 이름별)
+function covGroupUseCounts(){
+  const n = {};
+  Object.values(COVERAGES).forEach(r => { const mv = isPlain(r) && isPlain(r.matrixView) ? r.matrixView : {};
+    Object.values(mv).forEach(e => { if(isPlain(e) && e.__group) n[e.__group] = (n[e.__group] || 0) + 1; }); });
+  return n;
+}
 function delCovGroup(i){
-  if(COV_GROUPS.length<=2){showToast('⚠️ 최소 2개 이상 유지해야 해요');return;}
-  if(!confirm(`'${COV_GROUPS[i].label}' 그룹을 삭제할까요?`)) return;
-  COV_GROUPS.splice(i,1);
+  if(_cgDraft.length<=2){showToast('⚠️ 최소 2개 이상 유지해야 해요');return;}
+  const used = _cgDraft[i]._orig ? (covGroupUseCounts()[_cgDraft[i]._orig] || 0) : 0;
+  if(!confirm(`'${_cgDraft[i].label}' 그룹을 삭제할까요?` + (used ? `\n\n이 그룹으로 직접 옮겨 둔 담보 ${used}줄은 키워드에 맞는 그룹으로 돌아가요.` : ''))) return;
+  _cgDraft.splice(i,1);
   renderCovGroupEditor();
 }
 function addCovGroup(){
-  COV_GROUPS.splice(COV_GROUPS.length-1,0,{label:'새 그룹',color:'#6366F1',bg:'#EEF2FF',border:'#A5B4FC',keys:[]});
+  _cgDraft.splice(_cgDraft.length-1,0,{label:'새 그룹',color:'#6366F1',bg:'#EEF2FF',border:'#A5B4FC',keys:[],_orig:null});
   renderCovGroupEditor();
 }
 function resetCovGroups(){
-  if(!confirm('그룹을 기본값으로 초기화할까요?')) return;
-  COV_GROUPS = DEFAULT_COV_GROUPS.map(g=>({...g,keys:[...g.keys]}));
+  if(!confirm('그룹을 기본값으로 초기화할까요?\n(저장을 눌러야 반영돼요. 기본값에 없는 그룹으로 옮겨 둔 담보는 키워드에 맞는 그룹으로 돌아가요)')) return;
+  const cur = new Set(COV_GROUPS.map(g => g.label));
+  _cgDraft = DEFAULT_COV_GROUPS.map(g=>({...g, keys:[...g.keys], _orig: cur.has(g.label) ? g.label : null}));
   renderCovGroupEditor();
 }
-function saveCovGroupsUI(){
+// 저장: 이름이 바뀐 그룹은 줄별 지정도 새 이름으로, 지운 그룹을 가리키는 지정은 정리 (키워드 그룹으로 돌아감)
+function applyCovGroupDraft(draft){
+  const clean = cleanCovGroups(draft.map(({_orig, ...g}) => g));
+  if(!clean) return {ok: false};
+  const rename = {}, kept = new Set();
+  draft.forEach((g, i) => { if(g._orig){ kept.add(g._orig); if(clean[i].label !== g._orig) rename[g._orig] = clean[i].label; } });
+  const labels = new Set(clean.map(g => g.label));
+  let moved = 0, dropped = 0;
+  Object.keys(COVERAGES).forEach(pid => {
+    const r = COVERAGES[pid]; if(!isPlain(r) || !isPlain(r.matrixView)) return;
+    let changed = false; const mv = {};
+    Object.keys(r.matrixView).forEach(k => {
+      const e = r.matrixView[k]; mv[k] = e;
+      if(!isPlain(e) || !e.__group) return;
+      if(rename[e.__group]){ mv[k] = Object.assign({}, e, {__group: rename[e.__group]}); moved++; changed = true; }
+      else if(!labels.has(e.__group) && kept.size && !kept.has(e.__group) && COV_GROUPS.some(g => g.label === e.__group)){
+        const {__group, ...rest} = e; mv[k] = rest; dropped++; changed = true;            // 지운 그룹
+      }
+    });
+    if(changed) COVERAGES[pid] = Object.assign({}, r, {matrixView: mv});
+  });
+  COV_GROUPS = clean;
   saveCovGroups();
+  if(moved || dropped) saveCoverages();
+  return {ok: true, moved, dropped};
+}
+function saveCovGroupsUI(){
+  const r = applyCovGroupDraft(_cgDraft || cgDraftOf(COV_GROUPS));
+  if(!r.ok){ showToast('⚠️ 그룹 이름이 비어 있거나 그룹이 너무 적어요'); return; }
+  _cgDraft = null;
   closeModal('covgroups');
-  showToast('✅ 그룹 설정이 저장되었습니다');
+  showToast('✅ 그룹 설정이 저장되었습니다' + (r.moved ? ` · 옮겨 둔 담보 ${r.moved}줄은 새 이름으로` : '') + (r.dropped ? ` · 지운 그룹의 ${r.dropped}줄은 키워드 그룹으로` : ''));
   if(selectedCovCustomer) renderCovDetail(selectedCovCustomer);
 }
 
@@ -3833,12 +3880,13 @@ function addMatrixRowBtn(btn) {
   const grpLabel = btn.dataset.grp || '';
   const contracts = [
     ...CONTRACTS.filter(r=>cpid(r)===customer && r.s==='계약완료'),
-    ...(COVERAGES[customer]?.externalPolicies||[]).map(p=>({id:p.id,co:p.co,n:p.n||p.name||'',_ext:true}))
+    ...(COVERAGES[customer]?.externalPolicies||[]).map(p=>({id:p.id,co:p.co,n:p.n||p.name||'',_ext:true})),
+    ...(COVERAGES[customer]?.otherPolicies||[]).map(p=>({id:p.id,co:p.co,n:p.n||p.name||'',_ext:true}))   // 기존 보험('ext_…' 번호)도 고를 수 있게
   ];
   if(!contracts.length){ showToast('⚠️ 완료된 계약이 없어요'); return; }
   document.getElementById('add-row-tmp')?.remove();
   _addRowState = {customer, contracts, grpLabel};
-  const sel = contracts.map(r=>`<option value="${r.id}">${r.co} · ${r.n}</option>`).join('');
+  const sel = contracts.map(r=>`<option value="${esc(r.id)}">${esc(r.co)} · ${esc(r.n)}</option>`).join('');
   btn.closest('tr').insertAdjacentHTML('beforebegin', `
     <tr id="add-row-tmp" style="background:var(--blue-l)">
       <td style="padding:6px 10px;position:sticky;left:0;background:var(--blue-l)">
@@ -3867,25 +3915,37 @@ function confirmAddMatrixRow() {
   const {customer, contracts, grpLabel} = _addRowState;
   const name  = document.getElementById('tmp-name')?.value?.trim();
   const amt   = parseFloat(document.getElementById('tmp-amt')?.value)||0;
-  const polId = parseInt(document.getElementById('tmp-pol')?.value);
+  const polVal = String(document.getElementById('tmp-pol')?.value ?? '');
   if(!name){ showToast('⚠️ 담보명을 입력해주세요'); document.getElementById('tmp-name')?.focus(); return; }
 
   if(!COVERAGES[customer]) COVERAGES[customer]={policies:[]};
-  if(!COVERAGES[customer].matrixView) COVERAGES[customer].matrixView={};
-  if(!COVERAGES[customer].matrixView[name]) COVERAGES[customer].matrixView[name]={};
+  const rec = COVERAGES[customer];
+  if(!rec.matrixView) rec.matrixView={};
+  // 담보 이름은 표준 이름으로 맞춰서 넣어요. 이미 있는 줄이면 그 줄에 금액만 넣고 그 줄의 그룹은 건드리지 않아요
+  // (예전엔 "암진단비"를 기타 그룹에 넣으면 기존 "일반암 진단비" 줄이 통째로 기타 그룹으로 옮겨갔어요)
+  const key = normCovName(name) || name;
+  const exists = !!rec.matrixView[key] || [...(rec.policies||[]), ...(rec.otherPolicies||[]), ...(rec.externalPolicies||[])]
+    .some(p => isPlain(p) && (p.items||[]).some(it => it && it.name && (normCovName(it.name) || it.name) === key));
+  if(!rec.matrixView[key]) rec.matrixView[key]={};
 
-  const contract = contracts.find(r=>r.id===polId);
+  const contract = contracts.find(r=>String(r.id)===polVal);
   if(contract) {
     const polKey = `${contract.co}\n${contract.n}`;
-    COVERAGES[customer].matrixView[name][polKey] = amt;
+    // 그 보험 칸에 이미 금액이 있으면 더해요 (덮어쓰면 원래 금액이 사라져요)
+    const cur = rec.matrixView[key][polKey] !== undefined ? (parseFloat(rec.matrixView[key][polKey]) || 0)
+      : (polIn(rec, contract.id)?.items || []).filter(it => it && it.name && (normCovName(it.name) || it.name) === key).reduce((s, it) => s + (parseFloat(it.amount) || 0), 0);
+    rec.matrixView[key][polKey] = cur + amt;
   }
-  // 그룹 명시적 지정
-  if(grpLabel) COVERAGES[customer].matrixView[name].__group = grpLabel;
+  if(!exists){
+    if(grpLabel) rec.matrixView[key].__group = grpLabel;                       // 새 줄만 누른 그룹에 둬요
+    if(key !== name){ if(!isPlain(rec.matrixNames)) rec.matrixNames = {}; rec.matrixNames[key] = name; }   // 입력한 이름으로 보이게
+  }
 
   document.getElementById('add-row-tmp')?.remove();
   _addRowState = null;
   saveCoverages();
-  showToast(`✅ '${name}'이 ${grpLabel||'기타'} 그룹에 추가됐어요`);
+  const shownGrp = rec.matrixView[key].__group || getCovGroup(key).label;
+  showToast(exists ? `✅ '${name}' → 이미 있는 '${key}' 줄(${shownGrp})에 넣었어요` : `✅ '${name}'이 ${grpLabel||shownGrp} 그룹에 추가됐어요`);
   renderCovDetail(customer);
 }
 
@@ -4610,7 +4670,7 @@ function renderCovDetail(name){                          // name 은 가입자 �
             <button class="btn btn-secondary btn-sm" onclick="setFamily('${name}')" title="가족끼리 목록에서 한 묶음으로 보여요">👪 가족으로 묶기</button>
             <button class="btn btn-secondary btn-sm" onclick="splitPerson('${name}')" title="이름이 같은 다른 사람이 한 사람으로 묶여 있을 때 갈라내기">✂️ 분리</button>
             <button class="btn btn-secondary btn-sm" onclick="openDocGuide()">📋 청구 서류</button>
-            <button class="btn btn-secondary btn-sm" onclick="openModal('covgroups');renderCovGroupEditor()">⚙️ 그룹 설정</button>
+            <button class="btn btn-secondary btn-sm" onclick="openCovGroupEditor()">⚙️ 그룹 설정</button>
             <button class="btn btn-secondary btn-sm" data-name="${esc(name)}" onclick="copyShareLink(this.dataset.name, true)" title="이전 링크를 무효로 하고 새 링크 만들기">🔄 고객 링크 재발급</button>
           </div>
         </details>
@@ -5442,6 +5502,7 @@ function migrateCovNames(rec, contracts){
     return null;
   };
   const cell = {}, explicit = {}, hiddenItems = {}, allItems = {};
+  const inheritGrp = {};                                         // 예전 줄에 직접 지정한 그룹 → 나뉜 새 줄 모두가 이어받음
   const add = (n, pk, v, ex) => { (cell[n] = cell[n] || {})[pk] = ((cell[n] || {})[pk] || 0) + v; if(ex) (explicit[n] = explicit[n] || {})[pk] = true; };
   const pks = new Set(Object.keys(itemsAt));
   Object.keys(mv).forEach(k => Object.keys(isPlain(mv[k]) ? mv[k] : {}).filter(x => !x.startsWith('__')).forEach(pk => pks.add(pk)));
@@ -5462,6 +5523,7 @@ function migrateCovNames(rec, contracts){
       const byNew = {}; S.forEach(it => { const n = cur(it); byNew[n] = (byNew[n] || 0) + amt(it); if(hid) (hiddenItems[n] = hiddenItems[n] || new Set()).add(it); });
       const targets = Object.keys(byNew);
       const main = targets.includes(keyOf(k)) || !targets.length ? keyOf(k) : targets.sort((a, b) => byNew[b] - byNew[a])[0];
+      if(m.__group) [main, ...targets].forEach(n => { if(!inheritGrp[n]) inheritGrp[n] = m.__group; });
       let rest = shown;
       targets.filter(n => n !== main).forEach(n => { const v = hid ? 0 : byNew[n]; add(n, pk, v, hid); rest -= v; });
       add(main, pk, Math.max(0, rest), ex || hid);
@@ -5476,13 +5538,14 @@ function migrateCovNames(rec, contracts){
     const items = allItems[n] || [];
     const hiddenAll = items.length ? items.every(it => hiddenItems[n] && hiddenItems[n].has(it)) : Object.keys(mv).filter(k => keyOf(k) === n).every(k => isPlain(mv[k]) && mv[k].__hidden);
     if(hiddenAll) e.__hidden = true;
-    const grp = (exact && exact.__group) || Object.keys(mv).filter(k => keyOf(k) === n).map(k => isPlain(mv[k]) && mv[k].__group).find(Boolean);
+    const grp = (exact && exact.__group) || Object.keys(mv).filter(k => keyOf(k) === n).map(k => isPlain(mv[k]) && mv[k].__group).find(Boolean) || inheritGrp[n];
     if(grp) e.__group = grp;
     if(!e.__hidden) Object.keys(cell[n] || {}).forEach(pk => {
       const v = Math.round(cell[n][pk] * 100) / 100;
       if((explicit[n] && explicit[n][pk]) || Math.abs(v - rawOf(n, pk)) > 1e-9) e[pk] = v;
     });
-    if(Object.keys(e).length) nmv[n] = e;
+    // 담보도 금액도 없이 그룹·숨김 표시만 남은 줄(예전 이름의 빈 껍데기)은 버림 — 표에 빈 줄로 남았어요
+    if(Object.keys(e).length && (items.length || Object.keys(e).some(x => !x.startsWith('__')))) nmv[n] = e;
   });
   const live = n => (allItems[n] || []).length || nmv[n];
   const nnames = {};
@@ -5526,9 +5589,10 @@ function normCovName(name) {
       if(drug) return '항암약물 치료비';
     }
     const small = has(/유사암|소액암/) || SMALL.some(w => t.includes(w));
-    if(has(/암/) && has(/수술/) && !nDae) return small ? '유사암 수술비' : '암 수술비';
-    if(has(/암/) && has(/입원/) && !nDae) return small ? '유사암 입원일당' : '암 입원일당';
-    if(has(/암/) && has(/진단/) && !nDae){
+    const cancer = has(/암/) || has(/경계성종양/);              // 경계성종양은 "암" 글자가 없지만 유사암 계열 (예전엔 두 줄로 나뉘고 기타 그룹으로 갔어요)
+    if(cancer && has(/수술/) && !nDae) return small ? '유사암 수술비' : '암 수술비';
+    if(cancer && has(/입원/) && !nDae) return small ? '유사암 입원일당' : '암 입원일당';
+    if(cancer && has(/진단/) && !nDae){
       if(small){
         const only = SMALL.filter(w => t.includes(w));
         return !has(/유사암|소액암/) && only.length === 1 ? only[0] + ' 진단비' : '유사암 진단비';   // 갑상선암만 따로 보장하는 담보는 따로
@@ -5766,13 +5830,14 @@ function refreshCovGroups(){
 function saveCovGroups(){
   const g = cleanCovGroups(COV_GROUPS);
   if(g) COV_GROUPS = g;                               // 이상한 값은 정리해서 저장
-  SETTINGS.covGroups = {list: COV_GROUPS};
+  SETTINGS.covGroups = {list: COV_GROUPS.map(x => ({...x, keys: [...x.keys]}))};   // 복사본으로 (같은 배열을 나눠 쓰면 화면에서 고친 내용이 저장 전에 새어 나갔어요)
   save('ins_settings', SETTINGS);
   scheduleSave();                                     // 서버·백업·고객 화면에도 반영
 }
 
 function getCovGroup(name) {
-  const low = name.toLowerCase();
+  // 경계성종양·제자리암은 저장해 둔 그룹 설정에서 "유사암" 키워드가 있는 그룹으로 (이름에 "암" 키워드가 없어 기타로 가던 문제)
+  const low = (String(name) + (/경계성종양|제자리/.test(String(name)) ? ' 유사암' : '')).toLowerCase();
   for(const g of COV_GROUPS) {
     if(g.keys.some(k => low.includes(k.toLowerCase()))) return g;
   }
