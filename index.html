@@ -484,6 +484,7 @@ function unlock() {
   sessionStorage.setItem('ins_unlocked', '1');
   document.getElementById('lock-screen').style.display = 'none';
   document.getElementById('app-wrap').style.display = 'block';
+  if (typeof window.__onUnlock === 'function') { const f = window.__onUnlock; window.__onUnlock = null; f(); }   // 잠금을 풀어야 화면을 그려요
 }
 
 async function pinSubmit() {
@@ -1277,10 +1278,10 @@ async function serverCall(action, payload){
 function collectLocal(){
   return {contracts:CONTRACTS, monthly:MONTHLY, groups:GROUPS, coverages:COVERAGES, memos:MEMOS, shares:SHARES, settings:SETTINGS, reminders:REMINDERS, tombstones:TOMBS};
 }
-function persistLocal(){
-  save('ins_contracts', CONTRACTS); save('ins_monthly', MONTHLY); save('ins_groups', GROUPS);
-  save('ins_coverages', COVERAGES); save('ins_memos', MEMOS);   save('ins_shares', SHARES);
-  save('ins_tombs', TOMBS); save('ins_settings', SETTINGS); save('ins_reminders', REMINDERS);
+function persistLocal(){                                // 전부 저장됐으면 true
+  return [save('ins_contracts', CONTRACTS), save('ins_monthly', MONTHLY), save('ins_groups', GROUPS),
+    save('ins_coverages', COVERAGES), save('ins_memos', MEMOS), save('ins_shares', SHARES),
+    save('ins_tombs', TOMBS), save('ins_settings', SETTINGS), save('ins_reminders', REMINDERS)].every(Boolean);
 }
 function applyData(d){
   CONTRACTS = d.contracts; MONTHLY = d.monthly; GROUPS = d.groups;
@@ -1294,33 +1295,37 @@ function applyData(d){
   nextId = Math.max(...CONTRACTS.map(c => Number(c.id) || 0), 0) + 1;
   persistLocal();
 }
+// 기준 상태 저장. 이 기기 데이터가 저장소에 제대로 안 들어갔으면 기준을 바꾸지 않아요
+// (다시 열었을 때 옛 데이터 + 새 기준이 되면, 옛 값을 "이 기기에서 고친 것"으로 보고 서버를 되돌려요)
 function commitBase(maps, rev){
+  if(!CUSTOMER_MODE && !persistLocal()) return false;
   SYNC_BASE = {rev: rev, maps: maps, at: new Date().toISOString()};
   save('ins_sync_base', SYNC_BASE);
+  return true;
 }
 
 // 체크포인트: 병합·복원 직전의 이 기기 상태를 최대 3개까지 보관
-function saveCheckpoint(label, daily){
-  if(CUSTOMER_MODE) return;
+function saveCheckpoint(label, daily){                  // 남겼으면 true
+  if(CUSTOMER_MODE) return false;
   try {
     const snap = JSON.stringify({label: label, at: new Date().toISOString(), data: collectLocal()});
-    if(snap.length > 1500000) return;
+    if(snap.length > 1500000) return false;
     const key = daily ? 'ins_daily_index' : 'ins_cp_index';
     const idx = load(key, []);
     const id = (daily ? 'ins_daily_' : 'ins_cp_') + Date.now();
     localStorage.setItem(id, snap);
     idx.push(id);
     while(idx.length > (daily ? 3 : 5)){ localStorage.removeItem(idx.shift()); }
-    save(key, idx);
-  } catch(e) { /* 저장 공간이 부족하면 건너뜀 */ }
+    localStorage.setItem(key, JSON.stringify(idx));
+    return true;
+  } catch(e) { return false; /* 저장 공간이 부족하면 건너뜀 */ }
 }
 // 하루 한 번, 서버와 맞춘 직후의 정상 상태를 이 기기에 따로 남김 (최근 3일)
 function dailySnapshot(){
   try {
     const today = isoDay(todayStart());
     if(localStorage.getItem('ins_daily_last') === today || !CONTRACTS.length) return;
-    saveCheckpoint('하루 자동 백업', true);
-    localStorage.setItem('ins_daily_last', today);
+    if(saveCheckpoint('하루 자동 백업', true)) localStorage.setItem('ins_daily_last', today);   // 못 남기면 다음 동기화 때 다시 시도
   } catch(e) {}
 }
 function listCheckpoints(){
@@ -1366,6 +1371,9 @@ async function _syncOnce(opts){
       if(dataChanged || tombChanged) applyData(merged.data);
       const sentBase = makeBase(merged.data);           // 보내는 순간의 상태 (이후에 고친 건 구분됨)
       if(sameData(merged.data, r.data)){ commitBase(sentBase, r.rev); res.ok = true; break; }
+      // 저장이 실패·충돌해도, 방금 받은 서버 값을 "이 기기에서 고친 값"으로 착각하지 않도록
+      // 지금 서버 상태를 기준으로 먼저 남겨요 (예전엔 옛 기준이 남아, 다음 동기화 때 다른 기기의 최신 값을 덮어썼어요)
+      commitBase(makeBase(r.data), r.rev);
       const w = await serverCall('save', {data: merged.data, baseRev: r.rev});
       if(w.ok){ commitBase(sentBase, w.rev); res.ok = true; break; }
       if(w.conflict) continue;                          // 그 사이 다른 기기가 저장 → 다시 병합
@@ -1390,6 +1398,24 @@ async function _syncOnce(opts){
   }
 }
 
+// 복원 때 삭제 기록: 지금 서버에는 있는데 복원한 데이터에는 없는 항목마다 "지웠다"는 기록을 남겨요.
+// 기록이 없으면, 서버와 맞춰 둔 다른 기기가 다음 동기화 때 그 항목을 "서버에 없는 이 기기 항목"으로 보고 되살렸어요.
+// 서버의 예전 삭제 기록도 이어받고, 복원한 데이터에 있는 항목의 기록은 지워요.
+async function markRestoreTombs(){
+  const L = toMaps(collectLocal(), false), now = new Date().toISOString();
+  let tombs = normTombs(TOMBS);
+  try {
+    const r = await serverCall('load');
+    if(r && r.ok && isPlain(r.data)){
+      tombs = mergeTombs(tombs, r.data.tombstones);
+      const S = toMaps(r.data, true);
+      SYNC_COLLECTIONS.forEach(c => Object.keys(S[c]).forEach(k => { if(!hasOwn(L[c], k)) (tombs[c] = tombs[c] || {})[k] = now; }));
+    }
+  } catch(e) { /* 못 읽으면 이 기기 기록만으로 진행 */ }
+  SYNC_COLLECTIONS.forEach(c => { if(tombs[c]){ Object.keys(tombs[c]).forEach(k => { if(hasOwn(L[c], k)) delete tombs[c][k]; }); if(!Object.keys(tombs[c]).length) delete tombs[c]; } });
+  TOMBS = tombs;
+  save('ins_tombs', TOMBS);
+}
 // 복원처럼 "서버를 이 상태로 바꾸겠다"는 의도가 분명할 때만 (서버는 직전 상태를 백업)
 function forcePushLocal(label){
   if(CUSTOMER_MODE) return Promise.resolve(false);
@@ -1401,6 +1427,7 @@ async function _forcePush(label){
   if(!serverConfigured()){ showToast('이 기기에는 복원했어요. ⚙️ 서버 설정 후 동기화하면 서버에 반영돼요'); return false; }
   setSyncStatus('syncing', (label || '복원') + ' 저장 중...');
   try {
+    await markRestoreTombs();                          // 다른 기기가 복원을 되돌리지 않게 삭제 기록부터
     const sentBase = makeBase(collectLocal());
     const w = await serverCall('save', {data: collectLocal(), force: true});
     if(!w.ok) throw new Error(w.error || '저장 실패');
@@ -1818,7 +1845,31 @@ function migrateLocalPeople(){
 }
 
 function load(key, def){ try{const v=localStorage.getItem(key);return v?JSON.parse(v):def;}catch(e){return def;} }
-function save(key,val){ if(CUSTOMER_MODE) return; try{localStorage.setItem(key,JSON.stringify(val));}catch(e){} }
+// 이 기기 저장: 실패(저장 공간 가득 참)하면 오래된 체크포인트를 지우고 한 번 더. 그래도 안 되면 false + 경고.
+// 예전엔 실패를 조용히 넘겨서, 다시 열면 옛 값이 "이 기기에서 고친 값"으로 보여 서버를 되돌렸어요.
+let LOCAL_SAVE_FAILED = false;
+function freeCheckpointSpace(){
+  let freed = false;
+  ['ins_daily_index', 'ins_cp_index'].forEach(k => {
+    let idx = []; try { idx = JSON.parse(localStorage.getItem(k)) || []; } catch(e) {}
+    while(idx.length){ localStorage.removeItem(idx.shift()); freed = true; }
+    try { localStorage.setItem(k, '[]'); } catch(e) {}
+  });
+  return freed;
+}
+function save(key,val){
+  if(CUSTOMER_MODE) return true;
+  const text = JSON.stringify(val);
+  try { localStorage.setItem(key, text); return true; }
+  catch(e) {
+    try { if(freeCheckpointSpace()){ localStorage.setItem(key, text); return true; } } catch(e2) {}
+    if(!LOCAL_SAVE_FAILED){
+      LOCAL_SAVE_FAILED = true;
+      try { showToast('⚠️ 이 기기 저장 공간이 가득 차서 저장하지 못했어요. 서버 동기화는 계속되지만, 브라우저 저장 공간을 비워 주세요'); } catch(_) {}
+    }
+    return false;
+  }
+}
 // HTML에 글자를 넣을 때 쓰는 이스케이프
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
 // AI(제안서 PDF)에서 나온 글자는 태그·따옴표를 무력화해서 저장
@@ -1836,6 +1887,15 @@ let GROUPS    = load('ins_groups',    DEFAULT_GROUPS);
 
 // Ensure nextId
 let nextId = Math.max(...CONTRACTS.map(c=>c.id||0), 0) + 1;
+// 새 계약 번호: "가장 큰 번호+1" 만 쓰면 두 기기가 같은 번호를 받아, 동기화 때 한쪽 계약이 사라졌어요.
+// 시각(밀리초)×100 + 무작위 두 자리로 기기마다 겹치지 않게 (안전한 정수 범위 안: 약 1.8e14)
+function newContractId(){
+  const used = new Set(CONTRACTS.map(c => Number(c.id)));
+  let id = Math.max(nextId, Date.now() * 100 + Math.floor(Math.random() * 100));
+  while(used.has(id)) id++;
+  nextId = id + 1;
+  return id;
+}
 
 // ════════════════════════════════════════════════════════════
 // HELPERS
@@ -1972,8 +2032,9 @@ const wonAxis = n => {
   if(n>=10000) return (n/10000).toFixed(1)+'만';
   return n;
 };
-const gc = g => GROUPS[g] || '#868E96';
-const gbadge = g => `<span class="gbadge" style="background:${gc(g)}18;color:${gc(g)}">${g}</span>`;
+// 그룹 색은 #RGB·#RRGGBB 형식만 (그 밖의 글자가 style 속성을 깨고 나올 수 있어요)
+const gc = g => { const c = String(GROUPS[g] || ''); return /^#[0-9a-fA-F]{6}$/.test(c) || /^#[0-9a-fA-F]{3}$/.test(c) ? c : '#868E96'; };
+const gbadge = g => `<span class="gbadge" style="background:${gc(g)}18;color:${gc(g)}">${esc(g)}</span>`;
 const sbadge = s => s==='계약완료'?`<span class="b-done">✓ 완료</span>`:s==='가입 예정'?`<span class="b-pending">⏳ 예정</span>`:`<span class="b-cancel">✕ 해지</span>`;
 
 function showToast(msg) {
@@ -2122,7 +2183,7 @@ function renderList() {
         ${H('s','상태')}${H('d','가입일')}<th title="가입일로부터 2년 1개월이 되는 날">2년 1개월</th>${H('c','계약자')}${H('p','가입자')}
         ${H('co','보험회사')}${H('n','보험명')}${H('pr','월보험료')}${H('g','그룹')}<th>편집</th>
       </tr></thead>
-      <tbody>${d.length?d.map(r=>`<tr onclick="openEditModal(${r.id})" style="cursor:pointer">
+      <tbody>${d.length?d.map(r=>`<tr onclick="openEditModal(${jsId(r.id)})" style="cursor:pointer">
         <td>${sbadge(r.s)}</td>
         <td style="color:var(--muted);font-size:12px;white-space:nowrap">
           ${esc(r.d)}${r.s==='계약해지'&&r.ed?`<br><span style="color:var(--red);font-size:11px">→ ${esc(r.ed)}</span>`:''}
@@ -2139,10 +2200,10 @@ function renderList() {
         <td>${gbadge(r.g)}</td>
         <td class="td-act" onclick="event.stopPropagation()">
           ${proposalLinkHtml(r.proposalUrl, true)}
-          <button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.id})" title="메모" style="position:relative">
+          <button class="btn btn-secondary btn-sm" onclick="openEditModal(${jsId(r.id)})" title="메모" style="position:relative">
             📝${MEMOS[r.id]?`<span style="position:absolute;top:-3px;right:-3px;width:7px;height:7px;border-radius:50%;background:var(--blue)"></span>`:''}
           </button>
-          <button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.id})">✏️</button>
+          <button class="btn btn-secondary btn-sm" onclick="openEditModal(${jsId(r.id)})">✏️</button>
         </td>
       </tr>`).join(''):`<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--hint)">검색 결과가 없습니다</td></tr>`}</tbody>
     </table></div>`;
@@ -2191,7 +2252,7 @@ function renderGroups() {
             <td>${esc(r.co)}</td><td>${esc(r.n)}</td>
             <td style="text-align:right">${wonN(r.pr)}</td>
             <td>${sbadge(r.s)}</td>
-            <td class="td-act">${proposalLinkHtml(r.proposalUrl)}<button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.id})">✏️</button></td>
+            <td class="td-act">${proposalLinkHtml(r.proposalUrl)}<button class="btn btn-secondary btn-sm" onclick="openEditModal(${jsId(r.id)})">✏️</button></td>
           </tr>`).join('')}</tbody>
         </table>
       </div>
@@ -2230,10 +2291,10 @@ function renderCustomers() { try {
     </tr></thead>
     <tbody>${cs.map((c,i)=>{
       const exp=expandedCustomer===c.c;
-      const safeN=c.c.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      const summaryRow=`<tr onclick="toggleCustomerDetail('${safeN}')" style="cursor:pointer;background:${exp?'var(--blue-l)':''};transition:background .15s">
+      // 이름은 data- 속성으로 넘겨요 (onclick 글자 안에 넣으면 따옴표가 든 이름이 코드로 실행될 수 있었어요)
+      const summaryRow=`<tr data-c="${esc(c.c)}" onclick="toggleCustomerDetail(this.dataset.c)" style="cursor:pointer;background:${exp?'var(--blue-l)':''};transition:background .15s">
         <td style="color:var(--hint);font-size:12px">${i+1}</td>
-        <td style="font-weight:600">${c.c} <span style="font-size:11px;color:${exp?'var(--blue)':'var(--hint)'}">${exp?'▲':'▼'}</span></td>
+        <td style="font-weight:600">${esc(c.c)} <span style="font-size:11px;color:${exp?'var(--blue)':'var(--hint)'}">${exp?'▲':'▼'}</span></td>
         <td>${gbadge(c.g)}</td>
         <td style="text-align:center">
           ${c.k>0?`<span style="color:var(--green)">${c.k}건</span>`:''}
@@ -2242,29 +2303,29 @@ function renderCustomers() { try {
         </td>
         <td style="text-align:right;font-weight:${c.amt>=200000?700:400};color:${c.amt>=200000?'var(--blue)':'inherit'}">${wonN(c.amt)}</td>
         <td style="text-align:right;color:var(--muted)">${wonN(c.amt*12)}</td>
-        <td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.rows.filter(r=>r.s==='계약완료').map(r=>r.n).slice(0,4).join(' · ')}${c.rows.length>4?' …':''}</td>
+        <td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.rows.filter(r=>r.s==='계약완료').map(r=>r.n).slice(0,4).join(' · '))}${c.rows.length>4?' …':''}</td>
       </tr>`;
 
       const detailRow=exp?`<tr style="background:#EFF6FF">
         <td colspan="7" style="padding:0">
           <div style="padding:12px 16px 16px;border-top:1px dashed var(--border)">
-            <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">📋 ${c.c}님의 전체 계약 현황 (${c.rows.length}건)</div>
+            <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">📋 ${esc(c.c)}님의 전체 계약 현황 (${c.rows.length}건)</div>
             <table style="width:100%;font-size:12px;border-collapse:collapse">
               <thead><tr style="background:var(--surface2)">
                 ${['가입일','상태','보험회사','보험명','월보험료',''].map(h=>`<th style="padding:6px 10px;text-align:left;font-weight:600;color:var(--muted);white-space:nowrap">${h}</th>`).join('')}
               </tr></thead>
-              <tbody>${c.rows.sort((a,b)=>a.d.localeCompare(b.d)).map((r,ri)=>`
+              <tbody>${c.rows.sort((a,b)=>String(a.d||'').localeCompare(String(b.d||''))).map((r,ri)=>`
                 <tr style="border-bottom:1px dashed var(--border);background:${ri%2?'#F8FAFF':'#fff'}">
-                  <td style="padding:7px 10px;color:var(--muted);white-space:nowrap">${r.d}</td>
+                  <td style="padding:7px 10px;color:var(--muted);white-space:nowrap">${esc(r.d||'')}</td>
                   <td style="padding:7px 10px">${sbadge(r.s)}</td>
-                  <td style="padding:7px 10px;white-space:nowrap">${r.co}</td>
+                  <td style="padding:7px 10px;white-space:nowrap">${esc(r.co)}</td>
                   <td style="padding:7px 10px">
-                    <div style="font-weight:500">${r.n}</div>
+                    <div style="font-weight:500">${esc(r.n)}</div>
                     ${MEMOS[r.id]?`<div style="font-size:11px;color:#3B82F6;margin-top:3px">${esc(MEMOS[r.id].split("\n")[0])}</div>`:""}
                   </td>
                   <td style="padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">${wonN(r.pr)}원</td>
                   <td style="padding:7px 10px;text-align:right">
-                    ${proposalLinkHtml(r.proposalUrl, true)}<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openEditModal(${r.id})">✏️</button>
+                    ${proposalLinkHtml(r.proposalUrl, true)}<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openEditModal(${jsId(r.id)})">✏️</button>
                   </td>
                 </tr>`).join('')}
               </tbody>
@@ -2282,7 +2343,7 @@ function renderCustomers() { try {
     </table></div>`;
   } catch(e) {
     console.error('renderCustomers:', e);
-    document.getElementById('pane-고객별').innerHTML=`<div style="padding:30px;color:var(--red)">⚠️ 오류: ${e.message}</div>`;
+    document.getElementById('pane-고객별').innerHTML=`<div style="padding:30px;color:var(--red)">⚠️ 오류: ${esc(e.message)}</div>`;
   }
 }
 
@@ -2387,38 +2448,38 @@ function renderMonthly() {
           const exp=expandedMonth===m.m;
           const mContracts=CONTRACTS.filter(r=>r.d&&r.d.slice(0,5)===m.m);
           const mAmt=amtByMonth[m.m]||0;
-          const summaryRow=`<tr onclick="toggleMonthDetail('${m.m}')" style="cursor:pointer;background:${exp?'var(--blue-l)':''};transition:background .15s">
-            <td style="font-weight:700">${m.m} <span style="font-size:11px;color:${exp?'var(--blue)':'var(--hint)'}">${exp?'▲':'▼'}</span></td>
-            <td style="text-align:center">${kByMonth[m.m]||m.k||0}건</td>
+          const summaryRow=`<tr data-m="${esc(m.m)}" onclick="toggleMonthDetail(this.dataset.m)" style="cursor:pointer;background:${exp?'var(--blue-l)':''};transition:background .15s">
+            <td style="font-weight:700">${esc(m.m)} <span style="font-size:11px;color:${exp?'var(--blue)':'var(--hint)'}">${exp?'▲':'▼'}</span></td>
+            <td style="text-align:center">${Number(kByMonth[m.m]||m.k)||0}건</td>
             <td style="text-align:right;font-weight:${mAmt>0?600:400};color:${mAmt>0?'var(--blue)':'var(--hint)'}">${mAmt>0?wonN(mAmt)+'원':'-'}</td>
             <td style="text-align:right">${m.before?won(m.before):'-'}</td>
             <td style="text-align:right;font-weight:${m.after>=3000000?600:400};color:${m.after>=3000000?'var(--blue)':'inherit'}">${m.after?won(m.after):'-'}</td>
             <td style="color:var(--hint);font-size:12px">${esc(m.memo||'')}</td>
             <td class="td-act" onclick="event.stopPropagation()">
-              <button class="btn btn-secondary btn-sm" onclick="openIncomeModalFor('${m.m}')">✏️ 수입편집</button>
+              <button class="btn btn-secondary btn-sm" data-m="${esc(m.m)}" onclick="openIncomeModalFor(this.dataset.m)">✏️ 수입편집</button>
             </td>
           </tr>`;
           const detailRow=exp?`<tr style="background:#EFF6FF">
             <td colspan="6" style="padding:0">
               <div style="padding:12px 16px 16px;border-top:1px dashed var(--border)">
-                <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">📋 ${m.m} 계약 리스트 (${mContracts.length}건)</div>
+                <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">📋 ${esc(m.m)} 계약 리스트 (${mContracts.length}건)</div>
                 ${mContracts.length>0?`<table style="width:100%;font-size:12px;border-collapse:collapse">
                   <thead><tr style="background:var(--surface2)">
                     ${['가입일','상태','계약자','보험회사','보험명','월보험료',''].map(h=>`<th style="padding:6px 10px;text-align:left;font-weight:600;color:var(--muted);white-space:nowrap">${h}</th>`).join('')}
                   </tr></thead>
                   <tbody>${mContracts.map((r,ri)=>`
                     <tr style="border-bottom:1px dashed var(--border);background:${ri%2?'#F8FAFF':'#fff'}">
-                      <td style="padding:7px 10px;color:var(--muted);white-space:nowrap">${r.d}</td>
+                      <td style="padding:7px 10px;color:var(--muted);white-space:nowrap">${esc(r.d)}</td>
                       <td style="padding:7px 10px">${sbadge(r.s)}</td>
-                      <td style="padding:7px 10px;font-weight:600;white-space:nowrap">${r.c}</td>
-                      <td style="padding:7px 10px;white-space:nowrap">${r.co}</td>
+                      <td style="padding:7px 10px;font-weight:600;white-space:nowrap">${esc(r.c)}</td>
+                      <td style="padding:7px 10px;white-space:nowrap">${esc(r.co)}</td>
                       <td style="padding:7px 10px">
-                    <div style="font-weight:500">${r.n}</div>
+                    <div style="font-weight:500">${esc(r.n)}</div>
                     ${MEMOS[r.id]?`<div style="font-size:11px;color:#3B82F6;margin-top:3px">${esc(MEMOS[r.id].split("\n")[0])}</div>`:""}
                   </td>
                       <td style="padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">${wonN(r.pr)}원</td>
                       <td style="padding:7px 10px;text-align:right">
-                        ${proposalLinkHtml(r.proposalUrl)}<button class="btn btn-secondary btn-sm" onclick="openEditModal(${r.id})">✏️</button>
+                        ${proposalLinkHtml(r.proposalUrl)}<button class="btn btn-secondary btn-sm" onclick="openEditModal(${jsId(r.id)})">✏️</button>
                       </td>
                     </tr>`).join('')}
                   </tbody>
@@ -2437,7 +2498,7 @@ function renderMonthly() {
     </div>`;
   } catch(e) {
     console.error('renderMonthly:', e);
-    document.getElementById('pane-월별').innerHTML=`<div style="padding:30px;color:var(--red)">⚠️ 오류: ${e.message}</div>`;
+    document.getElementById('pane-월별').innerHTML=`<div style="padding:30px;color:var(--red)">⚠️ 오류: ${esc(e.message)}</div>`;
   }
 }
 
@@ -2605,7 +2666,7 @@ function addNewGroup() {
 
 function populateGroupDropdown(selectedG) {
   const sel = document.getElementById('f-group');
-  sel.innerHTML = Object.keys(GROUPS).sort().map(g=>`<option value="${g}"${g===selectedG?' selected':''}>${g}</option>`).join('');
+  sel.innerHTML = Object.keys(GROUPS).sort().map(g=>`<option value="${esc(g)}"${g===selectedG?' selected':''}>${esc(g)}</option>`).join('');
 }
 
 function openAddModal() {
@@ -2687,7 +2748,7 @@ function saveContract() {
     else delete MEMOS[parseInt(id)];
     showToast('✅ 계약이 수정되었습니다');
   } else {
-    data.id = nextId++;
+    data.id = newContractId();
     CONTRACTS.push(data);
     // 새 계약 메모 저장
     const memo = document.getElementById('contract-memo').value.trim();
@@ -3026,7 +3087,8 @@ function bmPayPeriod(p){
   if(p.paymentCycle==='매월' && t && t%12===0) return (t/12)+'년납';
   if(p.paymentCycle==='연간' && t) return t+'년납(연납)';
   if(t) return t+'회납';
-  return p.paymentYears ? p.paymentYears+'년납' : '';
+  const y = Math.floor(Number(p.paymentYears) || 0);     // 숫자만 (보맵 파일의 글자가 입력칸 속성을 깨고 나올 수 있었어요)
+  return y > 0 ? y+'년납' : '';
 }
 function bmProdKey(n){ return String(n||'').replace(/\(무\)|무배당|[\s()\[\]]/g,''); }
 function bmCorpKey(co){ return String(co||'').replace(/주식회사|보험|해상|\(주\)|\s/g,''); }
@@ -3102,7 +3164,10 @@ function bmFindPerson(c, res){
   const mid = c.memberId;
   const byMid = mid!=null && Object.keys(COVERAGES).find(k=>isPlain(COVERAGES[k]) && isPlain(COVERAGES[k].bomapp) && COVERAGES[k].bomapp.memberId===mid && !COVERAGES[k].bomapp.insured);
   if(byMid) return byMid;
-  const same = peopleList().filter(p=>p.name===c.name);
+  // 이름으로 찾을 때는 이미 "다른" 보맵 고객 번호에 연결된 사람·가족 기록은 빼요
+  // (예전엔 보맵의 동명이인 두 명이 한 사람으로 합쳐지고, 먼저 들어간 사람의 보험이 지워졌어요)
+  const linkedElsewhere = pid => { const b = isPlain(COVERAGES[pid]) && COVERAGES[pid].bomapp; return isPlain(b) && (b.insured || (b.memberId != null && b.memberId !== mid)); };
+  const same = peopleList().filter(p=>p.name===c.name && !linkedElsewhere(p.pid));
   if(same.length===1) return same[0].pid;
   if(same.length>1) res.ambiguous.push(String(c.name));
   const pid = newPid();
@@ -3125,6 +3190,8 @@ function importBomappData(data){
   let seq = 0; const base = -Date.now()*100;
   data.customers.forEach(c=>{
     if(!isPlain(c) || !c.name) return;
+    // 보맵 고객 번호가 없으면(내보낼 때 상세 조회 실패) 보험 목록도 비어 있어요 → 기존 보험을 지우지 않게 건너뜀
+    if(c.memberId == null || c.memberId === ''){ res.warnings.push(String(c.name) + ' — 보맵 고객 번호가 없어 건너뛰었어요 (보맵에서 다시 내보내 주세요)'); return; }
     const mainPid = bmFindPerson(c, res);
     const prep = pid => {
       if(!isPlain(COVERAGES[pid])) COVERAGES[pid] = {policies:[]};
@@ -3278,19 +3345,22 @@ async function importBomappFile(event){
 function bmPolicyInfoHtml(pol, forCustomer, withTerms){
   if(!isPlain(pol) || !isPlain(pol.bm)) return '';
   const b = pol.bm;
-  const pct = b.total ? Math.min(100, Math.round(b.paid / b.total * 100)) : (b.done ? 100 : 0);
-  const who = [b.holder && '계약자 '+b.holder, b.insured && '피보험자 '+b.insured].filter(Boolean).join(' · ');
+  const total = Math.max(0, Math.floor(Number(b.total) || 0)), paid = Math.max(0, Math.floor(Number(b.paid) || 0));   // 숫자로만 (글자가 들어오면 화면에 그대로 박혔어요)
+  const pct = total ? Math.min(100, Math.round(paid / total * 100)) : (b.done ? 100 : 0);
+  // 고객 화면에는 계약자 이름을 보내지 않아요 (자녀·배우자 링크에 부모·납입자 이름이 보였어요)
+  const who = [!forCustomer && b.holder && '계약자 '+b.holder, b.insured && '피보험자 '+b.insured].filter(Boolean).join(' · ');
   const terms = withTerms ? safeLinkUrl(b.terms) : '';
   return `<div class="bm-info">
     ${forCustomer?'':'<span class="bm-badge">보맵</span>'}${esc([b.type, b.gen, b.issue && '계약 '+b.issue, b.maturity && '만기 '+b.maturity].filter(Boolean).join(' · '))}${who?'<br>'+esc(who):''}
-    <div class="bm-pay">${b.done ? '<b style="color:#047857">납입 완료</b>' : `<span>납입 ${Number(b.paid)||0}/${b.total||'?'}회</span><span class="bm-bar"><i style="width:${pct}%"></i></span><span>${pct}%</span>`}
+    <div class="bm-pay">${b.done ? '<b style="color:#047857">납입 완료</b>' : `<span>납입 ${paid}/${total||'?'}회</span><span class="bm-bar"><i style="width:${pct}%"></i></span><span>${pct}%</span>`}
       <span>낸 보험료 ${korWon(b.paidAmt)}</span>${b.done?'':`<span>남은 보험료 ${korWon(b.remainAmt)}</span>`}${b.payEnd && !b.done?`<span>납입 끝 ${esc(b.payEnd)}</span>`:''}</div>
     ${terms?`<a class="bm-link" href="${esc(terms)}" target="_blank" rel="noopener">📜 약관 보기 (PDF)</a>`:''}
     ${b.warning?`<span class="rm-fine">${esc(b.warning)}</span>`:''}
   </div>`;
 }
-function bmExtraItemsHtml(pol){
-  const ex = isPlain(pol) && isPlain(pol.bm) && Array.isArray(pol.bm.extra) ? pol.bm.extra : [];
+function bmExtraItemsHtml(pol, forCustomer){
+  let ex = isPlain(pol) && isPlain(pol.bm) && Array.isArray(pol.bm.extra) ? pol.bm.extra.filter(isPlain) : [];
+  if(forCustomer) ex = ex.filter(it => !it.who);          // 고객 화면: 다른 피보험자(가족)의 특약·이름은 빼요
   if(!ex.length) return '';
   return `<details style="padding:0 14px 12px"><summary class="rm-fine" style="cursor:pointer">만기됐거나 다른 피보험자의 특약 ${ex.length}개 (합계에 안 들어가요)</summary>
     ${ex.map(it=>`<div class="cov-item-row" style="color:var(--muted)"><span>${esc(it.name)}</span><span>${parseFloat(it.amount)>0?manWon(it.amount):'-'}</span><span>${esc(it.st||it.who||'')}</span><span>${esc(it.until||'')}</span><span></span></div>`).join('')}
@@ -4259,15 +4329,15 @@ function renderCovDetail(name){                          // name 은 가입자 �
             </td>
             <td style="padding:9px 12px;color:#059669;font-weight:700;white-space:nowrap">${korWon(r.pr)}/월</td>
             <td style="padding:6px 8px">
-              <input class="cov-input" value="${pol.payPeriod||''}" placeholder="예: 20년납"
+              <input class="cov-input" value="${esc(pol.payPeriod||'')}" placeholder="예: 20년납"
                 onchange="updatePolMeta('${name}',${jsId(r.id)},'payPeriod',this.value)">
             </td>
             <td style="padding:6px 8px">
-              <input class="cov-input" value="${pol.covPeriod||''}" placeholder="예: 100세"
+              <input class="cov-input" value="${esc(pol.covPeriod||'')}" placeholder="예: 100세"
                 onchange="updatePolMeta('${name}',${jsId(r.id)},'covPeriod',this.value)">
             </td>
             <td style="padding:6px 8px">
-              <input class="cov-input" value="${pol.renewable||''}" placeholder="갱신/비갱신"
+              <input class="cov-input" value="${esc(pol.renewable||'')}" placeholder="갱신/비갱신"
                 onchange="updatePolMeta('${name}',${jsId(r.id)},'renewable',this.value)">
             </td>
           </tr>`;
@@ -5274,7 +5344,7 @@ function showCustomerView(name, displayName){             // name 은 서버가 
         <span class="cv-policy-hint">특약 ${items.length}개</span>
       </summary>
       ${items.length ? items.slice(0,CV_FIRST).map(itemRow).join('') + (items.length>CV_FIRST ? `<details class="cv-more"><summary>특약 ${items.length-CV_FIRST}개 더 보기</summary>${items.slice(CV_FIRST).map(itemRow).join('')}</details>` : '') : '<div class="cv-item" style="color:#94A3B8">담보 정리 중이에요</div>'}
-      ${bmExtraItemsHtml(pol)}
+      ${bmExtraItemsHtml(pol, true)}
     </details>`;
   };
   const cvHasItems = c => (polOf(c).items||[]).some(it=>it && it.name);
@@ -5712,7 +5782,9 @@ function getCovGroup(name) {
 document.addEventListener('click', e => {
   document.querySelectorAll('details.more-menu[open]').forEach(d => { if(!d.contains(e.target)) d.open = false; });
 });
+function appUnlocked(){ return CUSTOMER_MODE || sessionStorage.getItem('ins_unlocked') === '1'; }
 function renderAll() {
+  if(!appUnlocked()) return;                                // 잠금 상태에서는 그리지 않음 (동기화가 끝나도)
   Object.keys(COVERAGES).forEach(ensureCovNames);           // 예전 담보 이름으로 저장된 표 수정값을 새 이름으로 (한 번만 바뀜)
   syncRiderReminders();
   renderKPIs();
@@ -5791,11 +5863,12 @@ function renderAll() {
 
   // 일반 관리 모드 — 이름으로만 저장돼 있던 예전 데이터에 번호를 붙인 뒤 렌더링
   migrateLocalPeople();
-  renderAll();
-  document.getElementById('app-wrap').style.display = 'block';
-  notifyDueOnOpen();
+  // PIN 을 풀기 전에는 고객 데이터를 화면에 그리지 않고, 알림 창(고객 이름·메모)도 띄우지 않아요
+  // (예전엔 잠금 화면 뒤에 계약 목록이 이미 그려져 있었어요)
+  const startApp = () => { renderAll(); document.getElementById('app-wrap').style.display = 'block'; notifyDueOnOpen(); };
+  if(appUnlocked()) startApp(); else window.__onUnlock = startApp;
 
-  if(!serverConfigured()){ setSyncStatus('idle', '서버 설정 필요 (⚙️)'); openServerSettings(); return; }
+  if(!serverConfigured()){ setSyncStatus('idle', '서버 설정 필요 (⚙️)'); if(appUnlocked()) openServerSettings(); else window.__onUnlock = () => { startApp(); openServerSettings(); }; return; }
   const loaded = await loadFromCloud();
   if(loaded){ renderAll(); }
   startAutoSync();

@@ -181,9 +181,9 @@ function saveData(body) {
       groups:    inc.groups,
       coverages: inc.coverages,
       memos:     inc.memos,
-      shares:    isObj(inc.shares) ? inc.shares : {},
-      tombstones: isObj(inc.tombstones) ? inc.tombstones : {},
-      settings:  isObj(inc.settings)  ? inc.settings  : {},
+      shares:    isObj(inc.shares) ? inc.shares : cur.shares,          // 칸이 없는 저장(옛 화면)이면 기존 값 유지
+      tombstones: isObj(inc.tombstones) ? inc.tombstones : cur.tombstones,
+      settings:  isObj(inc.settings)  ? inc.settings  : cur.settings,
       // 날짜 알림 (고객 화면에는 절대 안 보냄). 이 칸을 모르는 옛 화면이 저장하면 칸이 아예 없으니 기존 알림을 유지
       reminders: isObj(inc.reminders) ? inc.reminders : cur.reminders,
       version:   2,
@@ -260,6 +260,47 @@ function pruneBackups(folder) {
 // shares 의 열쇠는 가입자 고유 번호(pid_…) 이고, 번호가 생기기 전의 예전 링크(열쇠가 이름)도 그대로 열려요.
 function isPidKey(k) { return /^pid_[a-z0-9_]+$/.test(String(k)); }
 
+// 고객 화면에 보내는 보장분석 기록: 화면이 쓰는 칸만 골라서 (2026-11-15 점검)
+// 예전엔 기록을 통째로 보내서, 리모델링 계획(어떤 보험을 해지할지)·공개 전 비교 초안·생년월일·
+// 계약자 이름·다른 가족 이름이 고객 브라우저에 그대로 내려갔어요.
+function pickKeys(o, keys) {
+  const out = {};
+  if (!isObj(o)) return out;
+  keys.forEach(function (k) { if (o[k] !== undefined) out[k] = o[k]; });
+  return out;
+}
+function customerItem(it) {
+  return isObj(it) ? pickKeys(it, ['name', 'amount', 'unit', 'price', 'std']) : null;
+}
+function customerBm(b) {
+  if (!isObj(b)) return undefined;
+  const o = pickKeys(b, ['id', 'type', 'gen', 'issue', 'maturity', 'insured', 'paid', 'total', 'done', 'paidAmt', 'remainAmt', 'payEnd', 'terms', 'warning']);
+  if (Array.isArray(b.extra)) {                                          // 다른 피보험자(가족)의 특약·이름은 빼요
+    o.extra = b.extra.filter(function (x) { return isObj(x) && !x.who; })
+      .map(function (x) { return pickKeys(x, ['name', 'amount', 'st', 'until']); });
+  }
+  return o;
+}
+function customerPolicy(p, withProposal) {
+  if (!isObj(p)) return null;
+  const o = pickKeys(p, ['id', 'co', 'n', 'name', 'pr', 'price', 'payPeriod', 'covPeriod', 'renewable', 'termsUrl']);
+  o.items = Array.isArray(p.items) ? p.items.map(customerItem).filter(Boolean) : [];
+  if (isObj(p.bm)) o.bm = customerBm(p.bm);
+  if (withProposal) o.proposalUrl = driveUrlOnly(p.proposalUrl);       // 외부·기존 보험의 제안서 주소는 Drive 주소만
+  return o;
+}
+function customerCoverage(rec) {
+  if (!isObj(rec)) return { policies: [] };
+  const out = pickKeys(rec, ['matrixView', 'matrixNames', 'itemOrder', 'covNameVer']);
+  out.policies = Array.isArray(rec.policies) ? rec.policies.map(function (p) { return customerPolicy(p, false); }).filter(Boolean) : [];
+  ['externalPolicies', 'otherPolicies'].forEach(function (f) {
+    if (Array.isArray(rec[f])) out[f] = rec[f].map(function (p) { return customerPolicy(p, true); }).filter(Boolean);
+  });
+  if (isObj(rec.person) && rec.person.name) out.person = { name: String(rec.person.name) };
+  const cs = rec.compareShare;                                           // 비교 분석은 "고객 공개"를 켠 것만, 공개한 숫자(snap)만
+  if (isObj(cs) && cs.on === true && isObj(cs.snap)) out.compareShare = pickKeys(cs, ['make', 'on', 'blocks', 'note', 'snap']);
+  return out;
+}
 // 제안서 파일 주소는 Google Drive 주소만 고객에게 보내요 (다른 주소·javascript: 같은 값은 빈 문자열로)
 function driveUrlOnly(u) {
   return /^https:\/\/drive\.google\.com\//.test(String(u == null ? '' : u)) ? String(u) : '';
@@ -298,22 +339,8 @@ function getCustomerView(body) {
     return { id: c.id, s: c.s, d: c.d, p: c.p, pid: c.pid || '', co: c.co, n: c.n, pr: c.pr,
              proposalUrl: driveUrlOnly(c.proposalUrl) };
   });
-  const cov = Object.assign({}, has(d.coverages, key) ? d.coverages[key] : { policies: [] });
-  ['externalPolicies', 'otherPolicies'].forEach(function (f) {          // 외부·기존 보험 기록의 제안서 주소도 같은 기준
-    if (Array.isArray(cov[f])) {
-      cov[f] = cov[f].map(function (r) {
-        return isObj(r) ? Object.assign({}, r, { proposalUrl: driveUrlOnly(r.proposalUrl) }) : r;
-      });
-    }
-  });
-  if (Array.isArray(cov.policies)) {                                      // 계약별 분석 항목에는 제안서 주소가 필요 없어요
-    cov.policies = cov.policies.map(function (p) {
-      if (!isObj(p)) return p;
-      const q = Object.assign({}, p); delete q.proposalUrl; return q;
-    });
-  }
   const coverages = {};
-  coverages[key] = cov;
+  coverages[key] = customerCoverage(has(d.coverages, key) ? d.coverages[key] : null);
   // 관리 화면과 같은 담보 그룹으로 보이도록 그룹 설정만 전달 (다른 설정은 보내지 않음)
   const settings = {};
   if (isObj(d.settings.covGroups)) settings.covGroups = d.settings.covGroups;

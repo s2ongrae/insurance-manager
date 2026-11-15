@@ -92,8 +92,8 @@ lockBusy = true; r = post({action:'save', key:KEY, baseRev:2, data:sample()}); o
 
 r = post({action:'save', key:KEY, baseRev:2, data:Object.assign(sample(), {tombstones:{contracts:{'9':'2026-10-01T00:00:00Z'}}})}); ok(r.ok && r.rev===3, '삭제 기록이 포함된 저장');
 r = post({action:'load', key:KEY}); ok(r.data.tombstones.contracts['9'], '삭제 기록이 서버에 보관됨');
-r = post({action:'save', key:KEY, baseRev:3, data:sample()}); ok(r.ok && r.rev===4, '삭제 기록 없이 저장하면 빈 값으로(모양 유지)');
-r = post({action:'load', key:KEY}); ok(JSON.stringify(r.data.tombstones)==='{}', '빈 삭제 기록');
+r = post({action:'save', key:KEY, baseRev:3, data:sample()}); ok(r.ok && r.rev===4, '삭제 기록 칸 없이 저장(옛 화면)해도 저장은 됨');
+r = post({action:'load', key:KEY}); ok(r.data.tombstones.contracts && r.data.tombstones.contracts['9'], '칸이 없는 저장은 서버의 삭제 기록을 지우지 않음 (옛 화면이 삭제 기록을 날리던 문제)');
 // ───────── 3) 줄어듦 방지 ─────────
 console.log('3) 줄어듦 방지');
 const tiny = sample(1); tiny.coverages = sample().coverages;
@@ -147,7 +147,7 @@ console.log('5b) 설정(settings): 저장·고객 화면 전달 범위');
   ok(cv.ok && cv.settings.covGroups.list[0].label==='A','고객 화면에 담보 그룹 설정 전달');
   ok(!JSON.stringify(cv).includes('비공개') && Object.keys(cv.settings).join()==='covGroups','다른 설정은 고객에게 안 감');
   w = post({action:'save',key:KEY,baseRev:l.rev,data:sample()}); ok(w.ok,'settings 없는 저장도 가능 (옛 앱 호환)');
-  ok(JSON.stringify(post({action:'load',key:KEY}).data.settings)==='{}','settings 없으면 빈 값으로 유지'); }
+  { const st=post({action:'load',key:KEY}).data.settings; ok(st.covGroups && st.covGroups.list.length===2 && st['비공개설정'],'settings 칸이 없는 저장(옛 화면)은 서버 설정을 지우지 않음'); } }
 
 console.log('5c) 가입자 고유 번호(pid) 기반 고객 링크');
 { const cur=post({action:'load',key:KEY});
