@@ -203,7 +203,7 @@ function saveData(body) {
   }
 }
 
-// ── 백업 (하루 1회, 14일 보관 / 복원 저장 직전엔 항상) ─
+// ── 백업 (하루 1회, 30일 보관 / 복원 저장 직전엔 항상) ─
 function backupBefore(file, force, fewer) {
   const folder = getFolder(BACKUP_SUB, getRoot());
   const now = new Date();
@@ -225,6 +225,7 @@ function backupBefore(file, force, fewer) {
 const BACKUP_NAME = /^보험관리툴_데이터_[0-9]{4}-[0-9]{2}-[0-9]{2}(_[0-9]{6}_(복원전|줄어들기전))?\.json$/;
 function listBackups() {
   const folder = getFolder(BACKUP_SUB, getRoot());
+  pruneBackups(folder);                        // 목록을 열 때도 30일 지난 백업을 정리 (저장이 없어도 보관 기간이 지켜지게)
   const it = folder.getFiles(), files = [];
   while (it.hasNext()) { const f = it.next(); if (BACKUP_NAME.test(f.getName())) files.push(f); }
   files.sort(function (a, b) { return b.getDateCreated().getTime() - a.getDateCreated().getTime(); });
@@ -330,7 +331,13 @@ function getCustomerView(body) {
   });
   if (!key) { Utilities.sleep(300); return { ok: false, error: 'invalid' }; }
 
-  const belongs = function (c) { return c && (isPidKey(key) ? c.pid === key : c.p === key); };
+  // 번호(pid_) 열쇠는 그 번호 그대로. 이름 열쇠(번호가 붙기 전의 옛 링크)는 번호가 없는 옛 기록만 —
+  // 번호가 붙은 다른 사람(같은 이름의 다른 고객)의 계약이 옛 링크로 새지 않게 (2026-11-17 점검)
+  const belongs = function (c) {
+    if (!c) return false;
+    if (isPidKey(key)) return c.pid === key;
+    return c.p === key && !c.pid;
+  };
   const all  = d.contracts.filter(belongs);
   const mine = all.filter(function (c) { return c.s === '계약완료'; });
   // 고객 화면에 필요한 최소 필드만 (계약자·그룹·메모 등은 제외). 제안서 주소는 Drive 주소만 보내요
