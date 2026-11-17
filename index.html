@@ -1654,6 +1654,20 @@ async function copyShareLink(pid, renew){
     prompt('아래 링크를 복사하세요:', url);
   }
 }
+// 고객 링크 폐기: 토큰을 지우면 그 링크는 더 이상 열리지 않아요 (서버에도 반영). 새 링크를 주려면 재발급.
+async function revokeShareLink(pid){
+  if(!SHARES[pid]){ showToast('이 고객은 아직 만든 링크가 없어요'); return false; }
+  if(!serverConfigured()){ showToast('⚙️ 먼저 서버 설정을 해주세요'); openServerSettings(); return false; }
+  if(!confirm(`${personName(pid)} 님의 고객 링크를 폐기할까요?\n\n지금까지 보낸 링크가 바로 열리지 않게 됩니다. 다시 보내려면 재발급하세요.`)) return false;
+  delete SHARES[pid];
+  persistLocal();
+  showToast('🔒 링크를 폐기하는 중...');
+  const r = await syncNow({label: '링크 폐기 중...'});
+  if(r && r.ok) showToast('🔒 고객 링크를 폐기했어요');
+  else showToast('⚠️ 이 기기에서는 폐기했어요. 서버 반영은 다음 동기화 때 됩니다');
+  renderAll();
+  return !!(r && r.ok);
+}
 
 // ── 가입자(사람) 관리: 고유 번호로 구분 ──────────────────
 function newPid(){
@@ -4667,6 +4681,7 @@ function renderCovDetail(name){                          // name 은 가입자 �
             <button class="btn btn-secondary btn-sm" onclick="openDocGuide()">📋 청구 서류</button>
             <button class="btn btn-secondary btn-sm" onclick="openCovGroupEditor()">⚙️ 그룹 설정</button>
             <button class="btn btn-secondary btn-sm" data-name="${esc(name)}" onclick="copyShareLink(this.dataset.name, true)" title="이전 링크를 무효로 하고 새 링크 만들기">🔄 고객 링크 재발급</button>
+            <button class="btn btn-secondary btn-sm" data-name="${esc(name)}" onclick="revokeShareLink(this.dataset.name)" title="고객 링크를 없애기 (그 링크로는 더 이상 안 열림)">🔒 고객 링크 폐기</button>
           </div>
         </details>
       </div>

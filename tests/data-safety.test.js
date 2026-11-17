@@ -73,6 +73,34 @@ ok(rb === true && A.get('CONTRACTS.length') === 10 && JSON.parse(S.dataFile().co
 ok(bfolder().files.some(f => !f.trashed && /_복원전\.json$/.test(f.name)), '되돌리기 직전 서버 상태도 "복원전" 백업으로 남음');
 ok(A.get(`load('ins_daily_index', []).length`) >= 1, '동기화 성공 뒤 하루 자동 백업이 이 기기에 남음');
 
+console.log('E) 서버 백업 보관 30일 · 다른 기기에서도 되돌리기 · 지운 계약이 되살아나지 않음');
+{ // 30일이 지난 백업은 목록을 열 때 정리돼요 (백업이 계속 쌓이지 않게)
+  S.tick(31 * 86400000);
+  const lbOld = S.post({ action: 'listBackups', key: S.KEY });
+  ok(lbOld.ok && lbOld.backups.length === 0 && nBackups() === 0, '31일 지난 백업은 목록·폴더에서 정리됨 (보관 30일)');
+  // 새 백업 하나 만들기 (계약 한 건 줄이는 저장 → "줄어들기전" 백업)
+  A.run('CONTRACTS = CONTRACTS.filter(c => c.id !== 9); persistLocal()');
+  r = await A.run('syncNow()');
+  ok(r.ok, '줄어드는 저장 동기화 성공');
+  const lb2 = S.post({ action: 'listBackups', key: S.KEY });
+  const b10 = lb2.backups.find(b => b.contracts === 10);
+  ok(!!b10, '백업 목록에 10건짜리 백업');
+  // 다른 기기(같은 서버, 이 기기 데이터 없음)에서 그 백업으로 되돌리기
+  const B2 = makeDevice({ ls: { ins_monthly: '[]', ins_groups: '{}', ins_server_url: URL1, ins_server_key: S.KEY }, session: { ins_unlocked: '1' }, fetch: route });
+  await sleep(150);
+  B2.confirmQ.push(true);
+  const rb2 = await B2.run(`restoreServerBackup(${JSON.stringify(b10.name)})`);
+  ok(rb2 === true && B2.get('CONTRACTS.length') === 10 && JSON.parse(S.dataFile().content).contracts.length === 10, '다른 기기에서도 백업으로 되돌아감 (이 기기·서버 10건)');
+  // 지운 계약은 서버에도, 새로 연결한 기기에도 되살아나지 않아야 함
+  A.run('CONTRACTS = CONTRACTS.filter(c => c.id !== 8); persistLocal()');
+  r = await A.run('syncNow()');
+  ok(r.ok && JSON.parse(S.dataFile().content).contracts.length === 9, '지운 계약(8번)은 서버에서도 빠짐');
+  const B3 = makeDevice({ ls: { ins_monthly: '[]', ins_groups: '{}', ins_server_url: URL1, ins_server_key: S.KEY }, session: { ins_unlocked: '1' }, fetch: route });
+  await sleep(150);
+  ok(B3.get('CONTRACTS.some(c => c.id === 8)') === false && B3.get('CONTRACTS.length') === 9, '새로 연결한 기기에도 지운 계약이 안 나타남');
+  ok(A.get('Object.keys(TOMBS.contracts || {}).length') >= 1, '지운 계약의 삭제 기록(tombstone)이 이 기기에 남음');
+}
+
 console.log(`\n데이터 보호 테스트: ${pass}건 통과, ${fail}건 실패`);
 process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });
