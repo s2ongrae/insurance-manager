@@ -3062,7 +3062,6 @@ function covPolicyCount(pid){
   const mine = CONTRACTS.filter(c=>cpid(c)===pid && c.s==='계약완료').length;
   return mine + (r.externalPolicies||[]).length + (r.otherPolicies||[]).length;
 }
-function safeHttpsUrl(u){ const s = String(u||''); return /^https:\/\/[^\s"'<>]+$/.test(s) ? s : ''; }
 // 약관 같은 외부 문서 링크: http/https 만, 아이디·비밀번호가 든 주소는 거절, 띄어쓰기·한글은 주소 규칙대로 바꿔서 씀
 // (예전엔 https 이면서 띄어쓰기 없는 주소만 받아서, 보맵 약관 주소 일부가 가져올 때 버려졌음)
 function safeLinkUrl(u){
@@ -4007,8 +4006,6 @@ function remodelPolicies(pid){
     ...[...(cData.otherPolicies||[]),...(cData.externalPolicies||[])].filter(x=>x&&x.id!==undefined).map(op=>({id:op.id,co:op.co||'',n:op.n||op.name||'',pr:Number(op.pr||op.price)||0,pn:op.pn||'',s:'기존·외부 보험',mine:false,inMatrix:true}))
   ];
 }
-function remodelDefaultRole(){return 'unassigned';}
-function remodelSuggestedRole(p){return p.s==='가입 예정'?'after':p.s==='계약해지'?'before':'both';}
 function remodelRoleOf(pid,p){
   const role=COVERAGES[pid]?.remodel?.roles?.['r'+String(p.id)];
   return REMODEL_ROLES.some(r=>r.v===role)?role:'unassigned';
@@ -4022,12 +4019,6 @@ function setRemodelRole(pid,id,role){
   if(!REMODEL_ROLES.some(r=>r.v===role)&&role!=='unassigned')return;
   if(!remodelPolicies(pid).some(p=>String(p.id)===String(id)))return;
   remodelChange(pid,rm=>{rm.roles=Object.assign({},rm.roles||{},{['r'+String(id)]:role});});
-}
-function applyRemodelSuggestions(pid){
-  remodelChange(pid,rm=>{
-    rm.roles=Object.assign({},rm.roles||{});
-    remodelPolicies(pid).forEach(p=>{if(remodelRoleOf(pid,p)==='unassigned')rm.roles['r'+String(p.id)]=remodelSuggestedRole(p);});
-  });
 }
 function remodelRiders(pid,id){
   const items=polIn(COVERAGES[pid]||{},id)?.items||[];
