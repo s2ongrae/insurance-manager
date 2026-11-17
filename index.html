@@ -446,6 +446,8 @@ thead th,.kpi-label,.kpi-sub,.cov-cust-cnt,.garr,.b-done,.b-cancel,.b-pending,.g
 @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
 .shake{animation:shake .35s ease}
 </style>
+	/* ── 0. PIN 잠금 (기기 보안) ── */
+
 
 <script>
 // PIN은 코드에 넣지 않는다. 기기마다 처음 열 때 정하고, PIN 대신 PBKDF2 해시만 localStorage(ins_pin_v2)에 저장한다.
