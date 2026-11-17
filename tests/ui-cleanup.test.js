@@ -68,6 +68,15 @@ ok(cvHead.indexOf('합계') > 0 && cvHead.indexOf('합계') < cvHead.indexOf('�
 // 고객 화면 펼치기/접기 함수가 실제로 동작하는지 (가짜 DOM 의 querySelectorAll 이 지원하는 범위)
 ok(D.get(`typeof cvFoldAll==='function'`), 'cvFoldAll 함수 있음');
 
+console.log('F) 화면에 주석·코드 글자가 그대로 보이지 않는지');
+{ // <style>·<script> 밖에 /* … */ 주석을 두면 브라우저가 글자로 그려요 (2026-11-17 실제로 맨 위에 보였음)
+  const outside = html.replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<script>[\s\S]*?<\/script>/g, '');
+  const stray = outside.split('\n').filter(l => /^\s*\/\*/.test(l));
+  ok(stray.length === 0, 'CSS 주석이 본문 글자로 남지 않음' + (stray.length ? ' — ' + stray[0].trim().slice(0, 40) : ''));
+  ok(!/^\s*<\/(head|body|html)>\s*\/\*/m.test(html), '닫는 태그 뒤에 주석 글자가 붙어 있지 않음');
+  ok(/<!-- ── 0\. PIN 잠금/.test(html) && /<!-- ── 1\. 앱 본문/.test(html), '구역 주석은 HTML 주석(<!-- -->)으로');
+}
+
 console.log(`\n화면 정리 테스트: ${pass}건 통과, ${fail}건 실패`);
 process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });
