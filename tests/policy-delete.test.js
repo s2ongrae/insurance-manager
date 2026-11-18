@@ -42,7 +42,8 @@ D.run(`deletePolicy('${P}', 1)`);
 ok(D.get(`CONTRACTS.length===0`) && D.get(`!(COVERAGES['${P}'].policies||[]).some(p=>p.id===1)`), '계약 리스트·보장분석에서 모두 사라짐');
 
 console.log('E) 보맵 보험: 완전 삭제하면 다시 가져와도 안 생김, 이번만 삭제는 다시 생김');
-const B = makeDevice({ session: { ins_unlocked: '1' }, ls: { ins_contracts: '[]', ins_coverages: '{}', ins_monthly: '[]', ins_groups: '{}' } });
+// 보맵 가져오기는 계약 리스트에 피보험자로 등록된 사람만 대상 (사용자 요청 2026-11-18)
+const B = makeDevice({ session: { ins_unlocked: '1' }, ls: { ins_contracts: JSON.stringify([{ id: 900, s: '계약완료', d: '25.01.01', c: '가', p: '가', pid: 'pid_bmdel', co: '가나화재', n: '기존계약', pr: 1, g: '' }]), ins_coverages: '{}', ins_monthly: '[]', ins_groups: '{}' } });
 B.ctx.__f = bfile([1, 2]); B.get('importBomappData(__f)');
 const bp = B.get(`peopleList()[0].pid`);
 const ext = () => B.get(`(COVERAGES['${bp}'].externalPolicies||[]).map(x=>x.n)`);

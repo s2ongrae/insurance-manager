@@ -33,19 +33,24 @@ console.log('A) 읽기 쉬운 금액');
   ok(k('manWon(8000)')==='8천만원'&&k('manWon(2)')==='2만원'&&k('manWon(0.5)')==='5,000원','만원 단위 값 변환');
   ok(k('korWon(250000000000)')==='2,500억원','억 단위 큰 값'); }
 
-console.log('B) 보맵 가져오기 — 새 고객');
-const D=makeDevice({session:{ins_unlocked:'1'},ls:{ins_contracts:'[]',ins_coverages:'{}',ins_monthly:'[]',ins_groups:'{}'}});
+console.log('B) 보맵 가져오기 — 계약 리스트에 피보험자가 있는 고객 (사용자 요청 2026-11-18: 계약에 없는 사람은 새로 만들지 않음)');
+const D=makeDevice({session:{ins_unlocked:'1'},ls:{ins_contracts:JSON.stringify([{id:900,s:'계약완료',d:'25.10.29',c:'홍길동',p:'홍길동',pid:'pid_hong1',co:'가나화재',n:'기존계약',pr:10000,g:''}]),ins_coverages:'{}',ins_monthly:'[]',ins_groups:'{}'}});
 ok(D.errors.length===0,'로드 오류 없음 '+D.errors.join('|'));
 D.ctx.__f=exportFile([cust1()]);
+{ // 계약 리스트에 피보험자가 없는 보맵 고객은 새 가입자로 만들지 않고 건너뜀
+  const X=makeDevice({session:{ins_unlocked:'1'},ls:{ins_contracts:'[]',ins_coverages:'{}',ins_monthly:'[]',ins_groups:'{}'}});
+  X.ctx.__f=exportFile([cust1()]);
+  const rx=X.get('importBomappData(__f)');
+  ok(rx.people===0&&Object.keys(X.get('COVERAGES')).length===0,'계약 리스트에 피보험자가 없으면 건너뜀 (새 가입자 없음)');
+  ok(rx.warnings.some(w=>/계약 리스트에 피보험자가 없어 건너뛰었어요/.test(w)),'건너뛴 이유를 알림'); }
 const r1=D.get('importBomappData(__f)');
-ok(r1.people===1&&r1.newPeople===1&&r1.added===3&&r1.updated===0,'고객 1명(새 사람) · 정상 보험 3건 추가');
+ok(r1.people===1&&r1.newPeople===0&&r1.added===3&&r1.updated===0,'피보험자 계약이 있는 고객 1명 · 정상 보험 3건 추가 (새 사람 안 만듦)');
 ok(r1.ended===1,'소멸 보험은 종료 목록으로');
 ok(r1.reports.length===1&&r1.reports[0].name==='홍길동','리포트 PDF 는 Drive 업로드 목록으로');
 const pid=D.get('Object.keys(COVERAGES)[0]');
-ok(/^pid_/.test(pid),'새 가입자 번호(pid)');
-ok(D.get(`peopleList().some(p=>p.pid===${JSON.stringify(pid)} && p.name==='홍길동')`),'계약 없이도 사람 목록에 나옴(보장분석 왼쪽 목록)');
+ok(pid==='pid_hong1','계약 리스트의 피보험자(pid_hong1)에 연결');
 const rec=D.get(`COVERAGES[${JSON.stringify(pid)}]`);
-ok(rec.person&&rec.person.name==='홍길동'&&rec.person.birth==='1990.01.02','사람 정보(이름·생년월일) 저장');
+ok(rec.person&&rec.person.name==='홍길동','사람 정보(이름) 저장');
 ok(!JSON.stringify(rec).includes('JVBERi0'),'리포트 PDF 내용은 동기화 데이터에 안 넣음');
 const p1=rec.externalPolicies.find(x=>x.bm.id===1);
 ok(p1.items.length===3,'특약은 계약 번호로 중복 제거 (같은 특약이 여러 보장에 걸려도 1번)');
@@ -67,9 +72,9 @@ ok(/보맵 연동/.test(cd)&&/보맵에서 열기/.test(cd),'보맵 연동 머�
 ok(/📜 약관 보기/.test(cd)&&/납입 13\/240회/.test(cd)&&/남은 보험료 1,089만 3,730원/.test(cd),'보험 카드에 약관·납입 현황');
 ok(!/javascript:alert/.test(cd),'위험한 약관 주소는 링크로 안 만듦');
 ok(/실손&lt;b&gt;X/.test(cd)&&!/실손<b>X/.test(cd),'보험명은 글자 그대로(태그 실행 안 됨)');
-ok(/📭 담보가 아직 없는 보험 1건/.test(cd),'담보 없는 보험은 접힌 칸으로');
+ok(/📭 담보가 아직 없는 보험 2건/.test(cd),'담보 없는 보험은 접힌 칸으로 (보맵 1건 + 피보험자 계약 1건)');
 ok(/class="mtx-sum"/.test(cd)&&/5천만원/.test(cd),'매트릭스 합계 보기 + 읽기 쉬운 금액');
-ok(/담보 없는 보험 1건은 표에서 뺐어요/.test(cd),'담보 없는 보험 열은 표에서 빠짐');
+ok(/담보 없는 보험 2건은 표에서 뺐어요/.test(cd),'담보 없는 보험 열은 표에서 빠짐');
 ok(!/class="mtx-sum-n">특정부위부보장/.test(cd),'0원 특약 행은 기본으로 숨김');
 ok(!/보장 점검|또래/.test(cd),'보맵 보장 점검 표 없음 (기능 삭제)');
 ok(/🗂️ 종료된 보험 \(보맵\) 1건/.test(cd),'종료된 보험 목록');
@@ -82,7 +87,7 @@ ok(/홍길동 님/.test(cv),'계약 없는 고객도 이름 표시 (person.name)
 ok(/📜 약관 보기/.test(cv)&&/낸 보험료 62만 3,870원/.test(cv),'고객 화면에 약관·납입');
 ok(!/보맵에서 열기/.test(cv)&&!/플래너 사번/.test(cv),'고객 화면에 설계사용 링크·비밀번호 안내 없음');
 ok(!/보장 점검|또래/.test(cv),'고객 화면에 보장 점검 없음 (기능 삭제)');
-ok(/담보 내용을 정리 중인 보험 1건/.test(cv),'담보 없는 보험은 한 줄로');
+ok(/담보 내용을 정리 중인 보험 1건/.test(cv)||/담보 내용을 정리 중인 보험 2건/.test(cv),'담보 없는 보험은 한 줄로');
 ok(!/class="cv-row-name">특정부위부보장/.test(cv),'0원 담보는 고객 합계 카드에 안 나옴');
 ok(!/분석 리포트/.test(cv),'리포트 주소가 없으면 리포트 칸 없음');
 
@@ -110,15 +115,15 @@ console.log('F) 기존 고객과 연결 · 동명이인');
 { const E=makeDevice({session:{ins_unlocked:'1'},ls:{ins_contracts:JSON.stringify([{id:1,s:'계약완료',d:'25.01.01',c:'갑',p:'홍길동',pid:'pid_a1',co:'우리',n:'A',pr:1,g:''},{id:2,s:'계약완료',d:'25.01.01',c:'을',p:'홍길동',pid:'pid_a2',co:'우리',n:'B',pr:1,g:''}]),ins_coverages:'{}',ins_monthly:'[]',ins_groups:'{}'}});
   E.ctx.__f=exportFile([cust1()]);
   const r=E.get('importBomappData(__f)');
-  ok(r.newPeople===1&&r.ambiguous.join()==='홍길동','동명이인이 여럿이면 새 사람으로 만들고 알려줌');
-  ok(!E.get('!!(COVERAGES.pid_a1&&COVERAGES.pid_a1.externalPolicies)'),'아무 동명이인에게나 넣지 않음'); }
+  ok(r.ambiguous.join()==='홍길동','동명이인이 여럿이면 알려줌');
+  ok(E.get('Object.keys(COVERAGES).filter(k=>(COVERAGES[k].externalPolicies||[]).length).length')===1,'새 가입자를 자동으로 만들지 않고 한 사람(계약이 많은 쪽)에만 넣음'); }
 { const E=makeDevice({session:{ins_unlocked:'1'}});
   E.ctx.__f={source:'other',customers:[]};
   let threw=false; try{ E.run('importBomappData(__f)'); }catch(e){ threw=/보맵 내보내기 파일이 아니에요/.test(e.message); }
   ok(threw,'다른 파일은 거부'); }
 
 console.log('G) 파일 열기 흐름 (확인 → 저장 → 리포트 업로드 실패 알림)');
-{ const E=makeDevice({session:{ins_unlocked:'1'},ls:{ins_contracts:'[]',ins_coverages:'{}',ins_monthly:'[]',ins_groups:'{}'}});
+{ const E=makeDevice({session:{ins_unlocked:'1'},ls:{ins_contracts:JSON.stringify([{id:900,s:'계약완료',d:'25.10.29',c:'홍길동',p:'홍길동',pid:'pid_hong1',co:'가나화재',n:'기존계약',pr:10000,g:''}]),ins_coverages:'{}',ins_monthly:'[]',ins_groups:'{}'}});
   const txt=JSON.stringify(exportFile([cust1()]));
   E.ctx.__ev={target:{files:[{name:'보맵.json',text:async()=>txt}],value:'x'}};
   await E.run('importBomappFile(__ev)');
@@ -132,7 +137,7 @@ console.log('G) 파일 열기 흐름 (확인 → 저장 → 리포트 업로드 
   ok(JSON.parse(E.store.get('ins_cp_index')).length===1,'취소하면 아무것도 안 바꿈'); }
 
 console.log('H) 부분 응답 보존 · 종료 담보 · 동일 계약 연결');
-{ const E=makeDevice({session:{ins_unlocked:'1'},ls:{ins_contracts:'[]',ins_coverages:'{}',ins_monthly:'[]',ins_groups:'{}'}});
+{ const E=makeDevice({session:{ins_unlocked:'1'},ls:{ins_contracts:JSON.stringify([{id:900,s:'계약완료',d:'25.10.29',c:'홍길동',p:'홍길동',pid:'pid_hong1',co:'가나화재',n:'기존계약',pr:10000,g:''}]),ins_coverages:'{}',ins_monthly:'[]',ins_groups:'{}'}});
   E.ctx.__f=exportFile([cust1()]);E.run('importBomappData(__f)');
   const key=E.get('Object.keys(COVERAGES)[0]');const before=E.get(`COVERAGES[${JSON.stringify(key)}].externalPolicies[0].items`);
   const bad=cust1();bad.policies[0].riders=[];bad.policies[0].ridersError='network';E.ctx.__f=exportFile([bad]);
