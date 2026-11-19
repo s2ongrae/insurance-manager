@@ -2670,6 +2670,8 @@ function cleanupItems(){
   const items = [];
   peopleList().forEach(p => {
     if(isShellPerson(p.pid)){ items.push({kind: 'empty', pid: p.pid, name: p.name}); return; }
+    const dgs = dupPolicyGroups(p.pid);
+    if(dgs.length) items.push({kind: 'dups', pid: p.pid, who: p.name, groups: dgs.length, n: dgs.reduce((s, g) => s + g.drops.length, 0)});
     if(isMaskedName(p.name)){ items.push({kind: 'person', pid: p.pid, name: p.name, n: covPolicyCount(p.pid), cand: maskedCandidate(p.name, bmHolderName(p.pid))}); return; }
     const fi = foreignInsureds(p.pid);
     Object.keys(fi).forEach(ins => items.push({kind: 'policies', pid: p.pid, who: p.name, ins, n: fi[ins].length, cand: isMaskedName(ins) ? maskedCandidate(ins, bmHolderName(p.pid)) : null}));
@@ -2679,7 +2681,9 @@ function cleanupItems(){
 function cleanupPanelHtml(){
   const items = cleanupItems(); if(!items.length) return '';
   const btn = (cls, label, fn, a, b, c) => `<button type="button" class="btn ${cls} btn-sm" data-a="${esc(a)}" data-b="${esc(b || '')}" data-c="${esc(c || '')}" onclick="${fn}(this.dataset.a,this.dataset.b${c ? ',this.dataset.c' : ''})">${label}</button>`;
-  const rows = items.map(it => it.kind === 'empty'
+  const rows = items.map(it => it.kind === 'dups'
+    ? `<div class="cl-row"><span>🧹 <b>${esc(it.who)}</b> 님 쪽에 같은 보험이 두 번 들어간 것 ${it.groups}종 <span class="rm-fine">(${it.n}건 정리 대상 · 담보 많은 쪽을 남겨요)</span></span><span>${btn('btn-primary', '🧹 중복 정리', 'dedupePolicies', it.pid)}</span></div>`
+    : it.kind === 'empty'
     ? `<div class="cl-row"><span>🌱 <b>${esc(it.name)}</b> <span class="rm-fine">(보험·계약이 하나도 없는 빈 사람)</span></span><span>${btn('btn-primary', '🗑 삭제', 'deleteEmptyPerson', it.pid)}${btn('btn-secondary', '🔀 다른 사람으로 합치기', 'mergePerson', it.pid)}</span></div>`
     : it.kind === 'person'
     ? `<div class="cl-row"><span>🌱 <b>${esc(it.name)}</b> <span class="rm-fine">(가려진 이름 · 보험 ${it.n}건)</span></span><span>${it.cand ? btn('btn-primary', `⭐ ${esc(it.cand.name)} 님으로 연결`, 'linkMaskedTo', it.pid, it.cand.pid) : ''}${btn('btn-secondary', '👤 누구 보험인지 지정', 'assignMaskedPerson', it.pid)}</span></div>`
@@ -3605,9 +3609,12 @@ function bmPolicyRecord(p, old, newId, at){
     const it = {name: String(r.name), amount: (Number(r.joinAmount)||0)/10000, unit:'만원', price:0,
       until: bmDate(r.maturityDate), bmStd: std.slice(0,8)};
     if(r.contractStatus && r.contractStatus!=='정상'){ it.st = String(r.contractStatus); extra.push(it); }
-    // "내 계약 아님"이어도 그 특약의 피보험자가 이 보험의 피보험자와 같으면 이 보험(= 그 가족 몫)의 담보다.
-    // (고객 본인이 아닌 가족 피보험자의 보험은 특약이 전부 isMyContract=false 로 와서 담보가 하나도 안 잡히던 문제, 2026-11-19)
-    else if(r.isMyContract===false && !(String(r.insuredName||'').trim() && String(r.insuredName).trim() === String(p.primaryInsuredName||'').trim())){ it.who = String(r.insuredName||''); extra.push(it); }
+    // 기준은 "내 계약이냐"가 아니라 "그 특약의 피보험자가 이 보험의 피보험자(= 이 기록의 사람)냐" (사용자 결정 2026-11-19: 내 계약이 아니어도 피보험자면 담보)
+    //  · 같은 피보험자 → 담보 (가족이 피보험자인 보험은 특약이 전부 isMyContract=false 로 와서 담보가 하나도 안 잡히던 문제)
+    //  · 다른 피보험자 → 합계 제외 목록(extra) (가족 보험에 얹힌 고객 본인 특약이 가족 담보로 섞이던 것도 포함)
+    //  · 피보험자 이름이 없으면 예전처럼 isMyContract 로 판단
+    else if(bmInsuredDiffers(r.insuredName, p.primaryInsuredName)){ it.who = String(r.insuredName||''); extra.push(it); }
+    else if(r.isMyContract===false && !String(r.insuredName||'').trim()){ it.who = ''; extra.push(it); }
     else items.push(it);
   });
   const o = isPlain(old) ? old : {};
@@ -3627,6 +3634,39 @@ function bmPolicyRecord(p, old, newId, at){
       terms: safeLinkUrl(p.termsUrl), extra, at
     }
   });
+}
+// 두 피보험자 이름이 서로 다른 사람인가 (둘 다 있고, 같지 않고, 가려진 이름('조*건')이 상대 이름과 글자가 안 맞을 때만)
+function bmInsuredDiffers(a, b){
+  const x = String(a || '').trim(), y = String(b || '').trim();
+  if(!x || !y || x === y) return false;
+  if(isMaskedName(x) && maskPattern(x).test(y)) return false;
+  if(isMaskedName(y) && maskPattern(y).test(x)) return false;
+  return true;
+}
+// 이미 가져와 둔 보맵 보험 고치기 (앱을 열 때마다 조용히, 여러 번 해도 같음): 예전엔 "내 계약 아님"이라는 이유로 특약이 전부 합계 제외 목록(bm.extra)에 들어가
+// 가족이 피보험자인 보험의 담보가 비어 있었다. 특약의 피보험자가 이 보험의 피보험자와 같은 것은 담보(items)로 옮긴다. (만기·해지 등 상태가 있는 특약은 그대로)
+function fixBmRiderSplit(){
+  let changed = false;
+  Object.keys(COVERAGES).forEach(pid => {
+    const rec = COVERAGES[pid]; if(!isPlain(rec)) return;
+    let nrec = null;
+    ['externalPolicies', 'otherPolicies', 'policies'].forEach(fld => {
+      if(!Array.isArray(rec[fld])) return;
+      rec[fld].forEach((pol, i) => {
+        if(!isPlain(pol) || !isPlain(pol.bm) || !Array.isArray(pol.bm.extra) || !pol.bm.extra.length) return;
+        const move = pol.bm.extra.filter(it => isPlain(it) && !it.st && String(it.who || '').trim() && !bmInsuredDiffers(it.who, pol.bm.insured));
+        if(!move.length) return;
+        const keep = pol.bm.extra.filter(it => !move.includes(it));
+        const add = move.map(it => { const o = Object.assign({}, it); delete o.who; return o; });
+        const np = Object.assign({}, pol, {items: [...(Array.isArray(pol.items) ? pol.items : []), ...add], bm: Object.assign({}, pol.bm, {extra: keep})});
+        if(!nrec) nrec = Object.assign({}, rec);
+        nrec[fld] = (nrec[fld] === rec[fld] ? rec[fld].slice() : nrec[fld]); nrec[fld][i] = np;
+      });
+    });
+    if(nrec){ COVERAGES[pid] = nrec; changed = true; }
+  });
+  if(changed) saveCoverages();
+  return changed;
 }
 // 사람 찾기: 전에 가져온 보맵 고객 → 같은 이름 한 명 → 새 사람
 // 보맵 보험의 피보험자: 고객 본인이면 '', 가족이면 그 이름
@@ -4060,6 +4100,49 @@ function movePolicies(fromPid, polIds, presetDst){                   // 옮겼�
   saveCoverages(); renderAll();
   showToast(`✅ '${label}' 을(를) '${dstName}' 님 것으로 옮겼어요`);
   return dstPid;
+}
+// 같은 보험이 두 번 들어간 것(보험사·상품명·가입일이 같음 — 고객 본인 보맵 계정과 계약자 계정에서 각각 가져온 경우 등)을 묶어서 돌려줌 → [{keep, drops}]
+// 남길 쪽 = 담보가 더 많은 것(같으면 월보험료가 있는 것). 보험료·계약자 이름은 버릴 쪽에서 채워 넣는다.
+function dupPolicyGroups(pid){
+  const rec = COVERAGES[pid]; if(!isPlain(rec)) return [];
+  const dg = s => String(s || '').replace(/\D/g, ''), by = {};
+  ['externalPolicies', 'otherPolicies'].forEach(fld => (Array.isArray(rec[fld]) ? rec[fld] : []).forEach(x => {
+    if(!isPlain(x) || !isPlain(x.bm)) return;
+    const k = bmCorpKey(x.co) + '|' + bmProdKey(x.n || x.name) + '|' + dg(x.bm.issue);
+    if(!dg(x.bm.issue)) return;
+    (by[k] = by[k] || []).push({fld, x});
+  }));
+  return Object.values(by).filter(g => g.length > 1).map(g => {
+    const s = g.slice().sort((a, b) => ((b.x.items || []).length - (a.x.items || []).length) || ((Number(b.x.pr || b.x.price) || 0) - (Number(a.x.pr || a.x.price) || 0)));
+    return {keep: s[0], drops: s.slice(1)};
+  });
+}
+function dedupePolicies(pid){
+  const groups = dupPolicyGroups(pid); if(!groups.length){ showToast('중복된 보험이 없어요'); return; }
+  const n = groups.reduce((s, g) => s + g.drops.length, 0), p = peopleList().find(x => x.pid === pid);
+  if(!confirm(`'${p ? p.name : ''}' 님의 같은 보험 ${groups.length}종이 ${groups.length + n}건 들어 있어요.\n담보가 많은 쪽을 남기고 ${n}건을 지울까요? (보험료·계약자 이름은 합쳐요)\n지운 보험은 보맵을 다시 가져와도 안 생겨요. (지우기 직전 상태는 이 기기 체크포인트로 남겨요)`)) return;
+  saveCheckpoint('중복 보험 정리 전');
+  let rec = Object.assign({}, COVERAGES[pid]);
+  const skip = new Set(Array.isArray(rec.bmSkip) ? rec.bmSkip : []), gone = new Set();
+  groups.forEach(({keep, drops}) => {
+    let kx = keep.x;
+    drops.forEach(d => {
+      const dx = d.x;
+      if(!(Number(kx.pr || kx.price) > 0) && Number(dx.pr || dx.price) > 0){ kx = Object.assign({}, kx, keep.fld === 'otherPolicies' ? {price: dx.price != null ? dx.price : dx.pr, pr: dx.pr} : {pr: dx.pr != null ? dx.pr : dx.price}); }
+      if(isMaskedName(kx.bm.holder) && String(dx.bm.holder || '').trim() && !isMaskedName(dx.bm.holder)) kx = Object.assign({}, kx, {bm: Object.assign({}, kx.bm, {holder: dx.bm.holder})});
+      gone.add(dx); if(dx.bm && dx.bm.id != null) skip.add(dx.bm.id);
+    });
+    keep.fin = kx;
+  });
+  ['externalPolicies', 'otherPolicies'].forEach(fld => {
+    if(!Array.isArray(rec[fld])) return;
+    rec[fld] = rec[fld].filter(x => !gone.has(x)).map(x => { const g = groups.find(gr => gr.keep.x === x); return g && g.keep.fin ? g.keep.fin : x; });
+  });
+  if(isPlain(rec.remodel) && isPlain(rec.remodel.roles)){ const roles = Object.assign({}, rec.remodel.roles); gone.forEach(x => { delete roles['r' + String(x.id)]; }); rec.remodel = Object.assign({}, rec.remodel, {roles}); }
+  rec.bmSkip = [...skip];
+  COVERAGES[pid] = rec;
+  saveCoverages(); renderAll();
+  showToast(`🧹 같은 보험 ${n}건을 정리했어요`);
 }
 // 보험도 계약도 없는 "빈 사람": 도구(옮기기·분리)나 보맵 가져오기가 만든 가족 기록만 (고객 본인 기록·직접 쓴 고객 정보가 있는 사람은 제외). (사용자 요청 2026-11-19)
 function isShellPerson(pid){
@@ -6584,6 +6667,7 @@ function appUnlocked(){ return CUSTOMER_MODE || sessionStorage.getItem('ins_unlo
 function renderAll() {
   if(!appUnlocked()) return;                                // 잠금 상태에서는 그리지 않음 (동기화가 끝나도)
   Object.keys(COVERAGES).forEach(ensureCovNames);           // 예전 담보 이름으로 저장된 표 수정값을 새 이름으로 (한 번만 바뀜)
+  fixBmRiderSplit();                                        // 가족이 피보험자인 보맵 보험의 담보가 비어 있던 것 고침 (한 번만 바뀜)
   syncRiderReminders();
   renderKPIs();
   renderTab(currentTab);
