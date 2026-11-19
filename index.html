@@ -585,6 +585,7 @@ if(_viewHash.startsWith('#view=')) {
         <button class="btn btn-secondary" onclick="manualSync()" title="지금 즉시 저장">🔄 지금 동기화</button>
         <button class="btn btn-secondary" onclick="pullFromServer()" title="서버에 저장된 데이터를 합치지 않고 그대로 이 기기로 받아요 (이 기기 데이터가 이상할 때)">☁️ 서버 데이터로 되돌리기</button>
         <button class="btn btn-secondary" onclick="openCovTidy()" title="담보 이름 다듬기·남은 기록 정리·중복 의심 보험 찾기">🧹 보장분석 자료 정리</button>
+        <button class="btn btn-secondary" onclick="openHealthCheck()" title="서버·백업·동기화·보장분석 상태를 확인만 해요 (데이터는 안 바뀜)">🩺 상태 점검</button>
         <button class="btn btn-secondary" onclick="openBomappModal()" title="보맵 플래너 고객의 보험·특약·납입·약관·분석리포트 가져오기">📥 보맵 가져오기</button>
         <button class="btn btn-secondary" onclick="exportData()" title="데이터 백업">💾 백업 파일 받기</button>
         <label class="btn btn-secondary" title="백업 파일 불러오기" style="cursor:pointer">
@@ -3564,6 +3565,68 @@ function showCovTidyResult(plan, headline){
     <div style="font-size:13px;font-weight:700;margin:14px 0 6px">⚠️ 중복 의심 보험 (카드 아래 🗑 삭제로 하나를 지우세요)</div><div style="font-size:13px">${dupHtml}</div>
     <div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn btn-primary" onclick="document.getElementById('cov-tidy').remove()">닫기</button></div></section>`;
   document.body.appendChild(ov);
+}
+// ── 🩺 상태 점검 (사용자 요청 2026-11-13: 재배포 후 안정적인지 · 보장분석이 제대로인지) ─────────────
+// 데이터는 바꾸지 않고 확인만 한다. 결과는 숫자만 (고객 이름 없음) → 복사해서 다른 사람에게 보내도 개인정보가 안 나감.
+async function healthCheckData(){
+  const out = [], add = (st, label, detail) => out.push({st, label, detail: String(detail || '')});
+  const call = async (a, p) => { try { return await serverCall(a, p); } catch(e){ return {ok: false, error: e.message}; } };
+  if(!serverConfigured()){ add('bad', '서버 연결', '이 기기에 서버 주소·비밀 키가 없어요 (⚙️ 서버 설정)'); }
+  else {
+    const ping = await call('ping');
+    add(ping && ping.ok ? 'ok' : 'bad', '서버 연결', ping && ping.ok ? '정상' : '실패 — ' + ((ping && ping.error) || '응답 없음'));
+    const lb = await call('listBackups');
+    if(lb && lb.ok && Array.isArray(lb.backups)){
+      add('ok', '서버 버전', '새 버전 (백업 목록·되돌리기 사용 가능)');
+      const b = lb.backups, newest = b[0], days = newest ? Math.floor((Date.now() - new Date(newest.at).getTime()) / 86400000) : null;
+      add(!b.length ? 'warn' : days > 2 ? 'warn' : 'ok', '서버 백업', b.length ? `${b.length}개 · 가장 최근 ${localStamp(newest.at, true)}(계약 ${newest.contracts == null ? '?' : newest.contracts}건) · 가장 오래된 ${localStamp(b[b.length - 1].at, false)}` : '아직 없어요 (다음 저장 때 생겨요)');
+    } else add('bad', '서버 버전', /알 수 없는 요청/.test(String(lb && lb.error)) ? '예전 버전이에요 — Code.gs 를 새 버전으로 다시 배포해주세요' : '확인 실패 — ' + ((lb && lb.error) || ''));
+    const ld = await call('load');
+    if(ld && ld.ok && isPlain(ld.data)){
+      const d = ld.data, sc = (d.contracts || []).length, sp = Object.keys(isPlain(d.coverages) ? d.coverages : {}).length;
+      const lc = CONTRACTS.length, lp = Object.keys(COVERAGES).length;
+      add('ok', '서버 데이터', `계약 ${sc}건 · 보장분석 ${sp}명 · 저장 번호 ${ld.rev}${d.savedAt ? ' · 마지막 저장 ' + localStamp(d.savedAt, true) : ''}`);
+      const same = sameData(collectLocal(), d);
+      const shrunk = (sc >= 4 && lc < sc * 0.5) || (sp >= 4 && lp < sp * 0.5);
+      add(same ? 'ok' : shrunk ? 'bad' : 'warn', '이 기기 ↔ 서버', same ? `완전히 같음 (계약 ${lc}건 · 보장분석 ${lp}명)` : shrunk ? `이 기기가 크게 적어요 (계약 ${lc}/${sc}건) — ☁️ 서버 데이터로 되돌리기` : `조금 달라요 (이 기기 계약 ${lc}건 · 보장분석 ${lp}명) — 🔄 지금 동기화를 누르면 맞춰져요`);
+    } else add('bad', '서버 데이터', '불러오지 못했어요 — ' + ((ld && ld.error) || ''));
+  }
+  add(lastSyncedAt ? 'ok' : 'warn', '마지막 동기화', lastSyncedAt ? localStamp(lastSyncedAt.toISOString(), true) : '이번에 연 뒤로 아직 없음');
+  add(_autoSyncTimer || typeof setInterval !== 'function' ? 'ok' : 'warn', '자동 동기화', _autoSyncTimer ? '켜짐 (5분마다·창으로 돌아올 때)' : '꺼짐 — 새로고침하면 켜져요');
+  let dl = ''; try { dl = localStorage.getItem('ins_daily_last') || ''; } catch(e){}
+  const cps = listCheckpoints();
+  add(dl ? 'ok' : 'warn', '이 기기 자동 백업', (dl ? '하루 자동 백업 ' + dl.replace(/-/g, '.') : '아직 없음 (동기화가 성공하면 생겨요)') + ` · 체크포인트 ${cps.length}개`);
+  // 보장분석
+  const people = peopleList(), plan = covTidyPlan();
+  const fix = plan.names.length + plan.moves.length + plan.drops.length + plan.roles.length + plan.empties.length;
+  const stale = Object.keys(COVERAGES).filter(pid => { const r = COVERAGES[pid]; if(!isPlain(r)) return false;
+    return [...Object.keys(isPlain(r.matrixView) ? r.matrixView : {}), ...(Array.isArray(r.itemOrder) ? r.itemOrder : [])].some(k => (normCovName(k) || k) !== k); }).length;
+  add('ok', '보장분석 고객', `${people.length}명 (보장분석 기록 ${Object.keys(COVERAGES).length}개)`);
+  add(fix ? 'warn' : 'ok', '보장분석 정리 상태', fix ? `정리할 것 ${fix}건 (이름 다듬기 ${plan.names.length} · 옮길 기록 ${plan.moves.length} · 남은 기록 ${plan.drops.length} · 비교 설정 ${plan.roles.length} · 빈 기록 ${plan.empties.length}) — 🧹 보장분석 자료 정리` : '정리할 것 없음');
+  add(stale ? 'warn' : 'ok', '담보 이름', stale ? `예전 이름이 남은 고객 ${stale}명 — 🧹 보장분석 자료 정리` : '모두 새 규칙');
+  add(plan.dups.length ? 'warn' : 'ok', '중복 의심 보험', plan.dups.length ? `${plan.dups.length}건 — 🧹 보장분석 자료 정리 결과 목록에서 보러 가기` : '없음');
+  const noItems = people.filter(p => { const r = COVERAGES[p.pid] || {}; const has = [...(r.policies || []), ...(r.externalPolicies || []), ...(r.otherPolicies || [])].some(x => isPlain(x) && (x.items || []).some(it => it && it.name)); return !has; }).length;
+  add(noItems ? 'warn' : 'ok', '담보가 하나도 없는 고객', noItems ? `${noItems}명 (제안서 분석·보맵 가져오기가 필요한 고객)` : '없음');
+  return out;
+}
+async function openHealthCheck(){
+  document.getElementById('health-check')?.remove();
+  const ov = document.createElement('div'); ov.id = 'health-check';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML = '<section style="background:var(--surface,#fff);border-radius:14px;padding:22px;width:600px;max-width:100%">🩺 점검 중...</section>';
+  document.body.appendChild(ov);
+  const rows = await healthCheckData();
+  const icon = st => st === 'ok' ? '✅' : st === 'warn' ? '⚠️' : '❌';
+  const bad = rows.filter(r => r.st === 'bad').length, warn = rows.filter(r => r.st === 'warn').length;
+  const verdict = bad ? `❌ 확인이 필요한 문제 ${bad}건` : warn ? `⚠️ 안정적이에요 · 손볼 것 ${warn}건` : '✅ 모두 정상이에요';
+  const text = [`[보험관리툴 상태 점검] ${localStamp(new Date().toISOString(), true)} · ${verdict}`, ...rows.map(r => `${icon(r.st)} ${r.label}: ${r.detail}`)].join('\n');
+  window._healthText = text;
+  ov.innerHTML = `<section role="dialog" aria-modal="true" style="background:var(--surface,#fff);border-radius:14px;padding:22px;width:640px;max-width:100%;max-height:85vh;overflow:auto">
+    <h3 style="margin:0 0 6px">🩺 상태 점검</h3><div style="font-size:15px;font-weight:700;margin-bottom:10px">${verdict}</div>
+    ${rows.map(r => `<div style="display:flex;gap:8px;padding:7px 0;border-bottom:1px dashed var(--border);font-size:13px;line-height:1.6"><span>${icon(r.st)}</span><b style="min-width:120px">${esc(r.label)}</b><span style="flex:1">${esc(r.detail)}</span></div>`).join('')}
+    <p class="rm-fine" style="margin-top:10px">점검은 데이터를 바꾸지 않아요. 결과에는 고객 이름 없이 숫자만 들어 있어요.</p>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="btn btn-secondary" onclick="navigator.clipboard&&navigator.clipboard.writeText(window._healthText).then(()=>showToast('📋 점검 결과를 복사했어요'))">📋 결과 복사</button><button class="btn btn-primary" onclick="document.getElementById('health-check').remove()">닫기</button></div></section>`;
+  return rows;
 }
 function clearBmSkip(pid){
   const r = COVERAGES[pid]; const n = isPlain(r) && Array.isArray(r.bmSkip) ? r.bmSkip.length : 0;
