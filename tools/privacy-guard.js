@@ -12,7 +12,7 @@ const { execSync } = require('child_process');
 
 const ROOT = process.cwd();
 const SELF = path.relative(ROOT, __filename).split(path.sep).join('/');
-const SKIP_DIRS = /(^|\/)(\.git|node_modules|vendor|tests)(\/|$)/;
+const SKIP_DIRS = /(^|\/)(\.git|node_modules|vendor|tests\/\.build)(\/|$)/;   // tests 도 검사한다 (2026-11-17: 시험용 자료에 실제 고객 정보가 섞이는 걸 막으려고)
 const BIN_EXT = /\.(png|jpe?g|gif|webp|ico|pdf|zip|gz|tgz|woff2?|ttf|otf|mp4|mp3|wasm)$/i;
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -36,7 +36,8 @@ const RULES = [
   { id: 'phone', why: '휴대전화 번호', re: /(?<!\d)01[016789]-\d{3,4}-\d{4}(?!\d)/g,
     skip: m => /^010-0000-0000$/.test(m[0]) },
   { id: 'email', why: '이메일 주소', re: /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g,
-    skip: m => /@(example\.(com|org)|users\.noreply\.github\.com|test\.com)$/i.test(m[0]) || /\.(png|jpe?g|svg|webp|js|css)$/i.test(m[0]) || /^[\w.-]+@\d/.test(m[0]) },
+    skip: m => /@(example\.(com|org)|users\.noreply\.github\.com|test\.com)$/i.test(m[0]) || /\.(png|jpe?g|svg|webp|js|css)$/i.test(m[0]) || /^[\w.-]+@\d/.test(m[0]) ||
+      /@[^@\s]+\.(test|example|invalid|localhost)$/i.test(m[0]) },
   { id: 'account-no', why: '계좌번호 모양', re: /(?<![\d.-])\d{3,6}-\d{2,6}-\d{3,7}(?:-\d{1,3})?(?![\d.-])/g,
     skip: m => /^0+(-0+)+$/.test(m[0]) || /^(19|20)\d\d-/.test(m[0]) || /^01[016789]-\d{3,4}-\d{4}$/.test(m[0]) },
   { id: 'hardcoded-pin', why: '코드에 박힌 PIN',

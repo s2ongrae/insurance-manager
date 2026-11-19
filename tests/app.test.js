@@ -1,6 +1,6 @@
 const makeServer=require('./lib/ins_fake_server.js');
 const {makeDevice}=require('./lib/ins_smoke_harness.js');
-const URL1='https://script.google.com/macros/s/AKfycbFULLAPPTESTFULLAPP12345/exec';
+const URL1='https://script.google.com/macros/s/AKfycbFULLAPPTESTFULLAPP12345/exec';   // 가짜 주소 privacy-guard: allow
 let pass=0,fail=0; const ok=(c,m)=>{ if(c)pass++; else {fail++;console.log('  ❌',m);} };
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const C=(id,x={})=>Object.assign({id,s:'계약완료',d:'26.01.0'+(id%9+1),c:'계약자'+(id%3),p:'가입자'+(id%3),co:'삼성화재',n:'종합'+id,pr:10000+id,g:'지인들'},x);

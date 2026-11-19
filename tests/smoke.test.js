@@ -20,7 +20,7 @@ ok(D.errors.length===0,'스크립트 로드 오류 없음 '+D.errors.join('|'));
   ok((hdr.match(/rel="noopener"/g)||[]).length===3 && (hdr.match(/target="_blank"/g)||[]).length===3,'새 탭 링크는 모두 rel=noopener');
   const app=html.indexOf('<div id="app-wrap"'), cust=html.indexOf('<div class="hdr-links">');
   ok(app>0 && cust>app,'링크는 app-wrap 안에 있어서 고객 전용 화면에는 안 보임'); }
-const tabs=[['리스트','list-results'],['그룹별','pane-그룹별'],['고객별','pane-고객별'],['월별','pane-월별'],['보장분석','pane-보장분석']];
+const tabs=[['리스트','list-results'],['그룹별','pane-그룹별'],['월별','pane-월별'],['보장분석','pane-보장분석']];
 for(const [t,id] of tabs){
   try{ D.run(`currentTab='${t}'; renderTab('${t}')`); ok(D.el(id).innerHTML.length>200, `${t} 탭 렌더링 (${D.el(id).innerHTML.length}자)`); }
   catch(e){ ok(false,`${t} 탭 렌더링 오류: ${e.message}`); }
@@ -56,6 +56,21 @@ try{ D.run(`selectedCovCustomer=legacyPid('가입자1'); renderCoverageTab('보�
   ok(cd.length>1000,'보장분석 상세 렌더링'); ok(/뇌혈관/.test(cd),'매트릭스 이름 변경(matrixNames) 반영'); ok(/renamePerson\(/.test(cd)&&/mergePerson\(/.test(cd)&&/splitPerson\(/.test(cd),'✏️ 이름 변경 · 🔀 합치기 · ✂️ 분리 버튼이 보장분석 화면에 있음'); ok(/가입자1 님의 보장 분석/.test(cd),'제목에 사람 이름 표시'); ok(!/숨길항목/.test(cd),'숨긴 행(__hidden)은 안 보임'); ok(/외부화재/.test(cd),'외부 보험 컬럼 표시'); ok(!/가짜항목/.test(cd),'금액 없는 매트릭스 전용 행은 기본으로 숨김');
   D.run(`window._mtxShowEmpty=true; renderCovDetail(selectedCovCustomer)`); ok(/가짜항목/.test(D.el('cov-detail').innerHTML),'"금액 없는 담보도 보기"를 켜면 매트릭스 전용 행 표시'); D.run(`window._mtxShowEmpty=false`);
 }catch(e){ ok(false,'보장분석 상세 오류: '+e.message); }
+console.log('E2) 보장분석 가입자 선택 = 그룹별 탭 그룹 구성 (사용자 요청 2026-11-18: 그룹 데이터 일원화)');
+try{ D.run(`currentTab='보장분석'; renderCoverageTab('보장분석')`);
+  const leftOf = () => D.el('pane-보장분석').innerHTML.slice(D.el('pane-보장분석').innerHTML.indexOf('<div id="cov-people"'));
+  const left=leftOf();
+  // 그룹별 탭 데이터: 계약의 g = 가족A·가족B·지인들 (smoke 데이터)
+  ok(/data-fam="가족A"/.test(left)&&/data-fam="가족B"/.test(left),'그룹별 탭의 그룹(가족A·가족B)이 보장분석 좌측에 같은 이름으로');
+  ok(/원\/월/.test(left),'그룹 묶음 머리줄에 월보험료 합계');
+  // 그룹별 탭에서 계약 그룹을 바꾸면 → 보장분석 좌측 목록에 즉시 반영
+  D.run(`CONTRACTS=CONTRACTS.map(r=>r.id===1?Object.assign({},r,{g:'가족B'}):r); renderCoverageTab('보장분석')`);
+  const left2=leftOf();
+  const famA=left2.slice(left2.indexOf('data-fam="가족A"'), left2.indexOf('</details>', left2.indexOf('data-fam="가족A"')));
+  ok(!/가입자1/.test(famA),'그룹을 옮긴 사람(가입자1)은 이전 그룹(가족A) 묶음에서 바로 사라짐');
+  const famB=left2.slice(left2.indexOf('data-fam="가족B"'), left2.indexOf('</details>', left2.indexOf('data-fam="가족B"')));
+  ok(famB.includes('가입자1'),'새 그룹(가족B) 묶음에 바로 나타남');
+}catch(e){ ok(false,'그룹 일원화 오류: '+e.message); }
 console.log('F) 고객 화면');
 try{ D.run(`showCustomerView(legacyPid('가입자1'),'가입자1')`); const html2=D.bodyHtml; ok(html2.includes('cv-screen')&&/가입자1/.test(html2),'고객 화면 렌더링'); ok(/청구 서류/.test(html2),'청구 서류 안내'); ok(!/<b>태그<\/b>/.test(html2)&&!/메모/.test(html2.replace(/청구 서류[\s\S]*?(?=<)/,'')) ,'고객 화면에 메모 없음'); }
 catch(e){ ok(false,'고객 화면 오류: '+e.message); }
@@ -94,7 +109,7 @@ console.log('H) 디자인 점검 (그룹 표 폭·작은 글자·폰 배치)');
 try{
   D.run("renderTab('그룹별')"); const gp=D.el('pane-그룹별').innerHTML;
   ok(!/display='table'|display==='table'/.test(html),'그룹 표를 display:table 로 열지 않음 (상자가 내용 폭으로 줄어 표가 반쪽이 되던 원인)');
-  ok(/\.gtbl\.open\{display:block\}/.test(html)&&/onclick="toggleG\('g\d+'\)"/.test(gp),'그룹은 순번 id + open 클래스로 펼침');
+  ok(/\.gtbl\.open\{display:block\}/.test(html)&&/onclick="toggleG\('g\d+', this\.dataset\.k\)"/.test(gp),'그룹은 순번 id + open 클래스로 펼침');
   const t={classList:{_o:false,contains(){return this._o;},toggle(c,v){this._o=v;}}}, a={textContent:''};
   D.ctx.document.getElementById=id=>id==='gt-g0'?t:id==='arr-g0'?a:{style:{}};
   D.run("toggleG('g0')"); ok(t.classList._o===true&&a.textContent==='▲','toggleG: 누르면 펼치고 ▲');

@@ -7,7 +7,7 @@ const contracts=[1,2,3,4,5].map(id=>({id,p:'비교테스트',c:'비교테스트'
 const cov={'비교테스트':{policies:contracts.map(c=>({id:c.id,items:JSON.parse(JSON.stringify(items))}))}};
 const S=makeServer();
 const route=async(u,o)=>({status:200,json:async()=>S.post(o.body)});
-const ls={ins_contracts:JSON.stringify(contracts),ins_monthly:'[]',ins_groups:'{}',ins_coverages:JSON.stringify(cov),ins_server_url:'https://script.google.com/macros/s/AKfycbCOMPARETEST123456789/exec',ins_server_key:S.KEY};
+const ls={ins_contracts:JSON.stringify(contracts),ins_monthly:'[]',ins_groups:'{}',ins_coverages:JSON.stringify(cov),ins_server_url:'https://script.google.com/macros/s/AKfycbCOMPARETEST123456789/exec',ins_server_key:S.KEY};   // 가짜 주소 privacy-guard: allow
 (async()=>{
 const D=makeDevice({ls,session:{ins_unlocked:'1'},fetch:route});await sleep(70);
 const pid=D.get("peopleList().find(p=>p.name==='비교테스트').pid");
@@ -17,8 +17,7 @@ const role=(id,v)=>run(`setRemodelRole('${pid}',${id},'${v}')`);
 ok(D.errors.length===0,'로드 오류 없음');
 ok(r().pending===5,'처음에는 모든 보험 미분류');
 ok(r().beforeTotal===0&&r().afterTotal===0,'미분류는 합계에서 배제');
-run(`applyRemodelSuggestions('${pid}')`);
-ok(r().pending===0&&r().beforeTotal===50000&&r().afterTotal===50000,'추천은 현재 계약을 유지로 분류');
+ok(r().policies.every(p=>p.role==='unassigned'),'새 보험은 모두 미분류로 시작 (추천 적용 함수는 2026-11-17 정리됨)');
 ok(r().items.every(i=>i.kind==='동일'),'유지는 보장도 동일');
 role(1,'before');role(2,'after');role(3,'both');role(4,'none');role(5,'endorse');
 let R=r();
@@ -47,7 +46,7 @@ run(`setRemodelAfterPremium('${pid}',5,'0')`);ok(r().afterTotal===20000,'0원은
 run(`setRemodelAfterPremium('${pid}',5,'7000')`);
 role(5,'both');ok(r().afterTotal===30000&&r().items.every(x=>x.kind==='동일'),'배서에서 유지로 바꾸면 전체 원본이 유지됨');
 role(5,'endorse');ok(r().afterTotal===27000&&r().items.find(x=>x.name==='일반암 진단비').after===8000,'배서로 돌아오면 이전 선택 복원');
-run(`applyRemodelSuggestions('${pid}')`);ok(r().policies.find(p=>p.id===1).role==='before'&&r().policies.find(p=>p.id===5).role==='endorse','추천은 기존 선택을 덮어쓰지 않음');
+ok(r().policies.find(p=>p.id===1).role==='before'&&r().policies.find(p=>p.id===5).role==='endorse','직접 고른 분류는 그대로 유지');
 run(`setRemodelRiderExcluded('${pid}',5,'bogus',true)`);ok(r().policies.find(p=>p.id===5).excludedCount===1,'존재하지 않는 항목 거부');
 run(`COVERAGES['${pid}'].policies.find(p=>p.id===5).items.reverse()`);ok(r().items.find(x=>x.name==='일반암 진단비').after===8000,'순서가 바뀌어도 같은 담보만 삭제');
 run(`COVERAGES['${pid}'].policies.find(p=>p.id===5).items.find(i=>i.amount===1000&&i.name==='암진단비').amount=1100`);

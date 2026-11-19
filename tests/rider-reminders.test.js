@@ -21,7 +21,8 @@ const file = c => ({ source: 'bomapp-planner', version: 1, exportedAt: '2026-11-
 
 (async () => {
 console.log('A) 보맵에서 가져온 특약 → 90일 안에 만기·갱신이면 🔔 알림에 자동 등록');
-const D = makeDevice({ session: { ins_unlocked: '1' }, ls: { ins_contracts: '[]', ins_coverages: '{}', ins_monthly: '[]', ins_groups: '{}', ins_reminders: '{}' } });
+// 보맵 가져오기는 계약 리스트에 피보험자로 등록된 사람만 대상 (사용자 요청 2026-11-18)
+const D = makeDevice({ session: { ins_unlocked: '1' }, ls: { ins_contracts: JSON.stringify([{ id: 900, s: '계약완료', d: '25.10.29', c: '홍길동', p: '홍길동', pid: 'pid_rider1', co: '가나화재', n: '기존계약', pr: 10000, g: '' }]), ins_coverages: '{}', ins_monthly: '[]', ins_groups: '{}', ins_reminders: '{}' } });
 ok(D.errors.length === 0, '로드 오류 없음 ' + D.errors.join('|'));
 D.ctx.__f = file(cust(dayAfter(45)));
 D.run('importBomappData(__f); saveCoverages(); renderAll()');
