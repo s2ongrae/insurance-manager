@@ -1824,15 +1824,53 @@ function mergePerson(srcPid){
   if(!(n >= 1 && n <= others.length)) return;
   const dst = others[n - 1];
   if(!confirm(`'${personLabel(srcPid)}' 님의 계약·보장분석을 '${dst.label}' 님으로 합칩니다.\n합쳐지는 쪽의 고객 링크는 더 이상 열리지 않아요. 계속할까요?`)) return;
+  doMergePerson(srcPid, dst, {});
+}
+function doMergePerson(srcPid, dst, opts){
+  const dstBefore = COVERAGES[dst.pid];
   CONTRACTS = CONTRACTS.map(r => cpid(r) === srcPid ? Object.assign({}, r, {pid: dst.pid, p: dst.name}) : r);
   if(COVERAGES[srcPid]){
     COVERAGES[dst.pid] = COVERAGES[dst.pid] ? mergeCoverageRecords(COVERAGES[dst.pid], COVERAGES[srcPid]) : COVERAGES[srcPid];
     delete COVERAGES[srcPid];
   }
+  if(opts && opts.masked && isPlain(COVERAGES[dst.pid])){          // 가려진 이름(조*건)의 사람 정보·보맵 연결이 실제 사람 기록에 묻어 들어오지 않게
+    const rec = Object.assign({}, COVERAGES[dst.pid]);
+    if(isPlain(dstBefore) && isPlain(dstBefore.person)) rec.person = dstBefore.person; else if(!isPlain(dstBefore) || !isPlain(rec.person) || isMaskedName(rec.person.name)) delete rec.person;
+    if(isPlain(dstBefore) && isPlain(dstBefore.bomapp)) rec.bomapp = dstBefore.bomapp; else delete rec.bomapp;
+    COVERAGES[dst.pid] = rec;
+  }
   delete SHARES[srcPid];
   selectedCovCustomer = dst.pid;
   persistLocal(); scheduleSave(); renderAll();
   showToast(`✅ '${dst.name}' 님으로 합쳤어요`);
+}
+// 보맵은 가족의 이름을 '조*건' 처럼 별표로 가려서 준다. 그 보험이 누구 것인지 설계사가 골라 실제 사람(계약이 있는 기존 고객 포함)에게 보낸다.
+// 고른 결과는 보맵 고객 기록의 insuredMap 에 남겨서, 다시 가져와도 같은 사람에게 간다. (사용자 요청 2026-11-19)
+const isMaskedName = n => /[*＊]/.test(String(n || ''));
+function maskPattern(n){ return new RegExp('^' + String(n).trim().replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/[*＊]/g, '.') + '$'); }
+function maskNoticeHtml(pid, name){
+  if(!isMaskedName(name)) return '';
+  return `<div style="margin:0 0 12px;padding:10px 12px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;font-size:12.5px;color:#92400E;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <span>⚠️ 보맵이 이름을 <b>${esc(name)}</b> 처럼 가려서 줬어요. 누구 보험인지 골라서 그 사람 것으로 보낼 수 있어요 (기존 고객도 돼요).</span>
+    <button type="button" class="btn btn-primary btn-sm" data-pid="${esc(pid)}" onclick="assignMaskedPerson(this.dataset.pid)">👤 누구 보험인지 지정</button></div>`;
+}
+function assignMaskedPerson(srcPid){
+  const src = peopleList().find(p => p.pid === srcPid); if(!src) return;
+  const masked = String(src.name || '').trim();
+  const others = peopleList().filter(p => p.pid !== srcPid && !isMaskedName(p.name));
+  if(!others.length){ showToast('고를 수 있는 다른 사람이 없어요'); return; }
+  const rx = isMaskedName(masked) ? maskPattern(masked) : null;
+  const sim = others.filter(p => rx && rx.test(p.name)), ordered = [...sim, ...others.filter(p => !sim.includes(p))];
+  const menu = ordered.map((p, i) => `${i + 1}. ${sim.includes(p) ? '⭐ ' : ''}${p.label} — ${describePerson(p)}`).join('\n');
+  const ans = prompt(`'${masked}' (이름이 가려진 보험)을 누구 것으로 보낼까요?${sim.length ? '\n⭐ = 이름 글자가 맞는 사람' : ''}\n\n${menu}\n\n번호를 입력해주세요 (취소하거나 비워두면 그대로 둬요)`);
+  const n = parseInt(ans, 10);
+  if(!(n >= 1 && n <= ordered.length)) return;
+  const dst = ordered[n - 1];
+  if(!confirm(`'${masked}' 의 보험·보장분석을 '${dst.label}' 님 것으로 보냅니다.\n다음에 보맵을 다시 가져와도 '${masked}' 보험은 '${dst.label}' 님에게 들어가요. 계속할까요?`)) return;
+  const b = isPlain(COVERAGES[srcPid]) && isPlain(COVERAGES[srcPid].bomapp) ? COVERAGES[srcPid].bomapp : null;
+  const mainPid = b && b.memberId != null ? Object.keys(COVERAGES).find(k => isPlain(COVERAGES[k]) && isPlain(COVERAGES[k].bomapp) && COVERAGES[k].bomapp.memberId === b.memberId && !COVERAGES[k].bomapp.insured) : null;
+  if(mainPid){ const rec = COVERAGES[mainPid]; COVERAGES[mainPid] = Object.assign({}, rec, {insuredMap: Object.assign({}, isPlain(rec.insuredMap) ? rec.insuredMap : {}, {[masked]: dst.pid})}); }
+  doMergePerson(srcPid, dst, {masked: true});
 }
 // 이름이 같은 서로 다른 사람이 한 사람으로 묶여 있을 때, 일부 계약을 새로운 사람으로 분리해요
 function splitPerson(pid){
@@ -2572,7 +2610,7 @@ function prospectRowHtml(p, no){
     <td style="text-align:right;color:var(--hint)">-</td><td style="text-align:right;color:var(--hint)">-</td>
     <td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(names.slice(0, 4).join(' · '))}${names.length > 4 ? ' …' : ''}</td></tr>`;
   const detail = exp ? `<tr style="background:#F0FDF4"><td colspan="8" style="padding:0"><div style="padding:12px 16px 16px;border-top:1px dashed var(--border)">
-    ${customerPanelHtml(p.name, p.pid)}
+    ${maskNoticeHtml(p.pid, p.name)}${customerPanelHtml(p.name, p.pid)}
     ${prospectPolicyTableHtml(p)}</div></td></tr>` : '';
   return row + detail;
 }
@@ -3483,6 +3521,9 @@ function bmPolicyHome(insuranceId){
 }
 function bmFamilyPerson(c, insured, mainPid, res){
   const mid = c.memberId;
+  // 설계사가 "이 가려진 이름은 이 사람"이라고 골라 둔 곳이 있으면 거기로 (insuredMap, 대상이 지워졌으면 무시)
+  const mm = isPlain(COVERAGES[mainPid]) && isPlain(COVERAGES[mainPid].insuredMap) ? COVERAGES[mainPid].insuredMap[insured] : null;
+  if(mm && mm !== mainPid && peopleList().some(x => x.pid === mm)){ res.family.push(insured); return mm; }
   const found = Object.keys(COVERAGES).find(k => isPlain(COVERAGES[k]) && isPlain(COVERAGES[k].bomapp) && COVERAGES[k].bomapp.memberId === mid && COVERAGES[k].bomapp.insured === insured);
   if(found) return found;
   // 계약 리스트에 이미 피보험자로 있는 사람이면 그 사람 기록에 보맵 연결을 붙여 쓴다 (새 pid 를 만들지 않음)
@@ -5100,6 +5141,7 @@ function renderCovDetail(name){                          // name 은 가입자 �
     </details>` : '');
 
   document.getElementById('cov-detail').innerHTML = `
+    ${maskNoticeHtml(name, personName(name))}
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div style="font-size:16px;font-weight:700">${esc(personLabel(name))} 님의 보장 분석${isProspectPerson(peopleList().find(x => x.pid === name)) ? ' <span class="cov-prospect" title="계약 리스트에 이 사람의 계약이 아직 없어요. 계약을 등록하면 일반 고객이 돼요">🌱 예비 고객 · 계약 전</span>' : ''}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
