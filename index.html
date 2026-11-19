@@ -2937,6 +2937,14 @@ function openPolicyPopup(pid, polId){
   document.body.appendChild(ov);
 }
 function closePolicyPopup(){ const el = document.getElementById('policy-popup'); if(el) el.remove(); }
+// Esc 로 열려 있는 팝업(보험 정보·그룹 관리)을 닫는다
+if(typeof document !== 'undefined' && typeof document.addEventListener === 'function'){
+  document.addEventListener('keydown', e => {
+    if(e.key !== 'Escape') return;
+    closePolicyPopup();
+    const gmEl = document.getElementById('grp-manager'); if(gmEl) gmEl.remove();
+  });
+}
 // ════════════════════════════════════════════════════════════
 // TAB: 월별 실적
 // ════════════════════════════════════════════════════════════
