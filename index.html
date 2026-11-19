@@ -57,6 +57,13 @@ summary.cv-sec small{order:3;flex-basis:100%;white-space:normal;font-size:12px;f
 .pol-del:hover{background:#FEE2E2}
 .shrink-banner{margin:0 0 12px;padding:14px 16px;background:#FEF2F2;border:2px solid #F87171;border-radius:12px;color:#7F1D1D;font-size:13px;line-height:1.7}
 .shrink-banner b{font-size:15px;color:#991B1B}.shrink-banner .btn{margin-top:8px}
+.cov-prospect{display:inline-block;font-size:10.5px;font-weight:700;color:#047857;background:#D1FAE5;border-radius:999px;padding:1px 7px;margin-left:4px;white-space:nowrap}
+.kind-badge{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.kind-member{background:#DBEAFE;color:#1D4ED8}.kind-prospect{background:#D1FAE5;color:#047857}
+.kind-filter{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.kind-chip{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:12.5px;color:var(--muted);cursor:pointer}
+.kind-chip b{margin-left:4px;color:var(--text)}.kind-chip.on{background:var(--blue);border-color:var(--blue);color:#fff}.kind-chip.on b{color:#fff}
+.pros-tr:hover{background:#F0FDF4}
 .mtx-orig{display:block;font-size:11px;font-weight:400;color:#94A3B8;margin-top:2px;white-space:normal;line-height:1.4}
 .cg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
 .cg-card{background:#fff;border:1px solid #E2E8F0;border-top:3px solid #CBD5E1;border-radius:10px;padding:12px 12px 10px}
@@ -768,7 +775,7 @@ if(_viewHash.startsWith('#view=')) {
     <div style="background:var(--surface2);border-radius:10px;padding:12px 14px">
       <b>③ 받은 파일 열기</b><br>
       <label class="btn btn-primary btn-sm" style="cursor:pointer;margin-top:8px">📂 보맵 파일 선택<input type="file" accept=".json,application/json" onchange="importBomappFile(event)" style="display:none"></label>
-      <div class="rm-fine" style="margin-top:6px">보험은 <b>피보험자</b> 기준으로 그 사람의 보장분석에 들어가요 — 계약 리스트에 피보험자로 등록된 사람만 대상이고(계약자로 있는 계약은 안 가져와요), 없는 사람은 건너뛰어요. 다시 가져오면 최신 정보로 바뀌어요(직접 넣은 증권번호·제안서·표 수정값은 유지). 해지·소멸된 보험은 "종료된 보험"으로 따로 보여요.</div>
+      <div class="rm-fine" style="margin-top:6px">보험은 <b>피보험자</b> 기준으로 그 사람의 보장분석에 들어가요 — 계약 리스트에 없는 사람도 가져와서 보장분석 목록의 <b>🌱 예비 고객</b>으로 넣어요(계약자로 있는 계약은 안 가져와요). 나중에 그 사람 계약을 등록하면 같은 사람으로 이어져요. 다시 가져오면 최신 정보로 바뀌어요(직접 넣은 증권번호·제안서·표 수정값은 유지). 해지·소멸된 보험은 "종료된 보험"으로 따로 보여요.</div>
       <div id="bm-import-status" class="rm-fine" style="margin-top:6px"></div>
     </div>
   </div>
@@ -1736,7 +1743,18 @@ function setFamily(pid){
 }
 const personLabel = pid => (peopleList().find(p => p.pid === pid) || {}).label || '(이름 없음)';
 const personName  = pid => (peopleList().find(p => p.pid === pid) || {}).name  || '(이름 없음)';
-function describePerson(p){ return `계약 ${p.cs.length}건 · 계약자 ${[...new Set(p.cs.map(r => r.c))].join('/')}`; }
+function describePerson(p){
+  if(!p.cs.length) return `🌱 예비 고객 · 계약 전 · 보맵/외부 보험 ${covPolicyCount(p.pid)}건`;
+  return `계약 ${p.cs.length}건 · 계약자 ${[...new Set(p.cs.map(r => r.c))].join('/')}`;
+}
+// 예비 고객 = 계약 리스트에 계약이 하나도 없는 사람 (보맵에서 가져왔지만 아직 계약 전). 계약을 등록하면 자동으로 일반 고객이 됨
+const PROSPECT_GROUP = '🌱 예비 고객';
+const isProspectPerson = p => !!p && !(p.cs && p.cs.length);
+function openCovCustomer(pid){                              // 보장분석 탭으로 가서 그 사람을 고름
+  selectedCovCustomer = pid; window._covSubTab = '보장분석';
+  const tab = [...document.querySelectorAll('.tab')].find(b => /보장 ?분석/.test(b.textContent || ''));
+  if(typeof switchTab === 'function' && tab) switchTab('보장분석', tab); else renderCoverageTab('보장분석');
+}
 
 // 같은 이름이 이미 있을 때 같은 사람인지 물어요. 반환: {pid} (pid=null 이면 새 사람) / undefined(취소)
 function choosePerson(name, excludePid){
@@ -2292,6 +2310,24 @@ function toggleCustomerDetail(name) {
   renderCustomers();
 }
 
+// 고객별 탭: 가입자(계약이 있는 계약자)와 🌱 예비 고객(계약 전, 보맵에서 가져옴)을 구분해서 한 표에 (사용자 요청 2026-11-19)
+function setCustKind(k){ window._custKind = k; renderCustomers(); }
+function kindChipsHtml(nMember, nPros, sel){
+  const chip = (k, label, n) => `<button type="button" class="kind-chip${sel === k ? ' on' : ''}" onclick="setCustKind('${k}')">${label} <b>${n}</b></button>`;
+  return `<div class="kind-filter">${chip('all', '전체', nMember + nPros)}${chip('member', '✓ 가입자', nMember)}${chip('prospect', '🌱 예비 고객', nPros)}</div>`;
+}
+function prospectRowHtml(p, no){
+  const r = COVERAGES[p.pid] || {};
+  const names = [...(r.policies || []), ...(r.externalPolicies || []), ...(r.otherPolicies || [])].filter(isPlain).map(x => x.n || x.name || '').filter(Boolean);
+  return `<tr class="pros-tr" data-pid="${esc(p.pid)}" onclick="openCovCustomer(this.dataset.pid)" style="cursor:pointer">
+    <td style="color:var(--hint);font-size:12px">${no}</td>
+    <td style="font-weight:600">${esc(p.label)} <span style="font-size:11px;color:var(--hint)">›</span></td>
+    <td><span class="kind-badge kind-prospect">🌱 예비 고객</span></td>
+    <td><span style="color:var(--hint)">-</span></td>
+    <td style="text-align:center;color:var(--muted)">보험 ${covPolicyCount(p.pid)}건</td>
+    <td style="text-align:right;color:var(--hint)">-</td><td style="text-align:right;color:var(--hint)">-</td>
+    <td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(names.slice(0, 4).join(' · '))}${names.length > 4 ? ' …' : ''}</td></tr>`;
+}
 function renderCustomers() { try {
   const cm={};
   CONTRACTS.forEach(r=>{
@@ -2302,18 +2338,23 @@ function renderCustomers() { try {
     else cm[r.c].pending++;
   });
   const cs=Object.entries(cm).map(([c,v])=>({c,...v})).sort((a,b)=>b.amt-a.amt);
+  const pros = peopleList().filter(isProspectPerson);       // 🌱 예비 고객: 계약 리스트에 계약이 없는 사람 (보맵에서 가져옴)
+  const kindSel = window._custKind || 'all';                 // 구분 필터: 전체 / 가입자 / 예비 고객
+  const showMembers = kindSel !== 'prospect', showPros = kindSel !== 'member';
 
   document.getElementById('pane-고객별').innerHTML=`
+    ${kindChipsHtml(cs.length, pros.length, kindSel)}
     <div class="tbl-wrap"><table>
     <thead><tr>
-      <th>#</th><th>계약자</th><th>그룹</th><th>건수</th><th>월보험료</th><th>연보험료</th><th>보험 목록</th>
+      <th>#</th><th>계약자</th><th>구분</th><th>그룹</th><th>건수</th><th>월보험료</th><th>연보험료</th><th>보험 목록</th>
     </tr></thead>
-    <tbody>${cs.map((c,i)=>{
+    <tbody>${(showMembers ? cs : []).map((c,i)=>{
       const exp=expandedCustomer===c.c;
       // 이름은 data- 속성으로 넘겨요 (onclick 글자 안에 넣으면 따옴표가 든 이름이 코드로 실행될 수 있었어요)
       const summaryRow=`<tr data-c="${esc(c.c)}" onclick="toggleCustomerDetail(this.dataset.c)" style="cursor:pointer;background:${exp?'var(--blue-l)':''};transition:background .15s">
         <td style="color:var(--hint);font-size:12px">${i+1}</td>
         <td style="font-weight:600">${esc(c.c)} <span style="font-size:11px;color:${exp?'var(--blue)':'var(--hint)'}">${exp?'▲':'▼'}</span></td>
+        <td><span class="kind-badge kind-member">✓ 가입자</span></td>
         <td>${gbadge(c.g)}</td>
         <td style="text-align:center">
           ${c.k>0?`<span style="color:var(--green)">${c.k}건</span>`:''}
@@ -2326,7 +2367,7 @@ function renderCustomers() { try {
       </tr>`;
 
       const detailRow=exp?`<tr style="background:#EFF6FF">
-        <td colspan="7" style="padding:0">
+        <td colspan="8" style="padding:0">
           <div style="padding:12px 16px 16px;border-top:1px dashed var(--border)">
             <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">📋 ${esc(c.c)}님의 전체 계약 현황 (${c.rows.length}건)</div>
             <table style="width:100%;font-size:12px;border-collapse:collapse">
@@ -2358,7 +2399,7 @@ function renderCustomers() { try {
       </tr>`:'';
 
       return summaryRow+detailRow;
-    }).join('')}</tbody>
+    }).join('')}${showPros ? pros.map((p,i)=>prospectRowHtml(p, (showMembers?cs.length:0)+i+1)).join('') : ''}</tbody>
     </table></div>`;
   } catch(e) {
     console.error('renderCustomers:', e);
@@ -3173,14 +3214,14 @@ function bmFamilyPerson(c, insured, mainPid, res){
   const mid = c.memberId;
   const found = Object.keys(COVERAGES).find(k => isPlain(COVERAGES[k]) && isPlain(COVERAGES[k].bomapp) && COVERAGES[k].bomapp.memberId === mid && COVERAGES[k].bomapp.insured === insured);
   if(found) return found;
-  // 가족 피보험자도 계약 리스트에 등록된 사람만 새 기록을 만든다 (사용자 요청 2026-11-18: 신규 가입자 자동 생성 차단)
-  if(!bmInsuredContracted(insured)){
-    res.warnings.push(String(insured) + ' — 계약 리스트에 피보험자가 없어 건너뛰었어요 (' + String(c.name || '') + ' 보맵 고객의 보험)');
-    res.skippedPeople = (res.skippedPeople || 0) + 1;
-    return null;
-  }
-  // 계약 리스트에 피보험자가 있으면 그 사람 기록에 보맵 연결을 붙여 쓴다 (새 pid 를 만들지 않음)
+  // 계약 리스트에 이미 피보험자로 있는 사람이면 그 사람 기록에 보맵 연결을 붙여 쓴다 (새 pid 를 만들지 않음)
   const p = peopleList().find(x => x.name === String(insured).trim() && x.cs.some(r => String(r.p || '').trim() === x.name));
+  if(!p){                                                  // 계약 리스트에 없는 가족 → 예비 고객으로 새로 만든다 (사용자 요청 2026-11-19)
+    const npid = newPid();
+    COVERAGES[npid] = {policies: [], person: {name: String(insured).trim(), src: 'bomapp', familyPid: rootFamilyPid(mainPid)}, bomapp: {memberId: mid, plannerMemberId: c.plannerMemberId, insured}};
+    res.newPeople++; res.family.push(insured); res.prospects.push(String(insured).trim());
+    return npid;
+  }
   const pid = p.pid;
   if(!isPlain(COVERAGES[pid])) COVERAGES[pid] = {policies: []};
   const rec = COVERAGES[pid];
@@ -3189,21 +3230,10 @@ function bmFamilyPerson(c, insured, mainPid, res){
   res.family.push(insured);
   return pid;
 }
-// 보맵 가져오기의 사람 연결은 "계약 리스트에 피보험자(p)로 등록된 사람"만 대상 (사용자 요청 2026-11-18)
-// 계약 리스트에 없는 이름이 보맵에 있어도 새 가입자를 만들지 않고 건너뛴다.
-function bmInsuredContracted(name){
-  return peopleList().some(p => p.name === String(name || '').trim() && p.cs.some(r => String(r.p || '').trim() === p.name));
-}
 function bmFindPerson(c, res){
   const mid = c.memberId;
   const byMid = mid!=null && Object.keys(COVERAGES).find(k=>isPlain(COVERAGES[k]) && isPlain(COVERAGES[k].bomapp) && COVERAGES[k].bomapp.memberId===mid && !COVERAGES[k].bomapp.insured);
   if(byMid) return byMid;
-  // 계약 리스트에 피보험자로 없는 보맵 고객은 새 가입자를 만들지 않고 건너뛴다 (사용자 요청 2026-11-18)
-  if(!bmInsuredContracted(c.name)){
-    res.warnings.push(String(c.name) + ' — 계약 리스트에 피보험자가 없어 건너뛰었어요 (먼저 계약을 등록해 주세요)');
-    res.skippedPeople = (res.skippedPeople || 0) + 1;
-    return null;
-  }
   // 이름으로 찾을 때는 이미 "다른" 보맵 고객 번호에 연결된 사람·가족 기록은 빼요
   // (예전엔 보맵의 동명이인 두 명이 한 사람으로 합쳐지고, 먼저 들어간 사람의 보험이 지워졌어요)
   const linkedElsewhere = pid => { const b = isPlain(COVERAGES[pid]) && COVERAGES[pid].bomapp; return isPlain(b) && (b.insured || (b.memberId != null && b.memberId !== mid)); };
@@ -3218,7 +3248,13 @@ function bmFindPerson(c, res){
     return pid;
   }
   if(same.length>1) res.ambiguous.push(String(c.name));
-  // 계약 리스트에 피보험자가 있는데 보맵 기록이 없는 동명이인 여럿이면 새 사람 대신 계약이 가장 많은 사람에 둔다 (새 가입자 자동 생성 차단)
+  if(!same.length){                                         // 계약 리스트에 없는 보맵 고객 → 예비 고객으로 새로 만든다 (사용자 요청 2026-11-19)
+    const npid = newPid();
+    COVERAGES[npid] = {policies:[], person:{name:String(c.name), birth:String(c.birthDate||''), gender:String(c.gender||''), src:'bomapp'}};
+    res.newPeople++; res.prospects.push(String(c.name));
+    return npid;
+  }
+  // 같은 이름의 사람이 여럿이면 새 사람을 만들지 않고 계약이 가장 많은 사람에 두고 알린다 (사용자 요청 2026-11-18 규칙 유지)
   const contracted = same.filter(p => p.cs.length);
   const pick = contracted.sort((a, b) => b.cs.length - a.cs.length)[0] || same[0];
   const pid = pick.pid;
@@ -3237,7 +3273,7 @@ function importBomappData(data){
       if(!isPlain(p) || p.insuranceId==null || !p.insuranceStatus || (!Array.isArray(p.riders) && !p.ridersError)) throw new Error('보험/특약 목록이 불완전해요');
     });
   });
-  const res = {people:0, newPeople:0, added:0, updated:0, linked:0, ended:0, removed:0, riders:0, warnings:[], ambiguous:[], reports:[], family:[]};
+  const res = {people:0, newPeople:0, added:0, updated:0, linked:0, ended:0, removed:0, riders:0, warnings:[], ambiguous:[], reports:[], family:[], prospects:[]};
   const at = String(data.exportedAt || new Date().toISOString()).slice(0,19);
   let seq = 0; const base = -Date.now()*100;
   data.customers.forEach(c=>{
@@ -3245,7 +3281,6 @@ function importBomappData(data){
     // 보맵 고객 번호가 없으면(내보낼 때 상세 조회 실패) 보험 목록도 비어 있어요 → 기존 보험을 지우지 않게 건너뜀
     if(c.memberId == null || c.memberId === ''){ res.warnings.push(String(c.name) + ' — 보맵 고객 번호가 없어 건너뛰었어요 (보맵에서 다시 내보내 주세요)'); return; }
     const mainPid = bmFindPerson(c, res);
-    if(!mainPid) return;                                  // 계약 리스트에 피보험자가 없는 보맵 고객 — 건너뜀 (경고는 bmFindPerson 이 남김)
     const prep = pid => {
       if(!isPlain(COVERAGES[pid])) COVERAGES[pid] = {policies:[]};
       const rec = COVERAGES[pid];
@@ -3270,7 +3305,6 @@ function importBomappData(data){
       if(home && (home !== mainPid || !ins || linkedAt(home, p.insuranceId))) pid = home;   // 직접 옮겨 둔 곳·내 계약 연결은 그대로
       else if(ins){
         pid = bmFamilyPerson(c, ins, mainPid, res);
-        if(pid){                                    // 계약 리스트에 피보험자가 없어 건너뛴 가족 보험은 어디에도 넣지 않음
         if(home === mainPid){                                   // 예전에 고객 본인 쪽에 같이 들어간 가족 보험 → 가족 쪽으로 옮김 (입력해 둔 약관 링크 등 유지)
           const from = prep(mainPid), to = prep(pid);
           ['externalPolicies', 'otherPolicies'].forEach(fld => {
@@ -3281,8 +3315,6 @@ function importBomappData(data){
             to[fld].push(moved); res.moved = (res.moved || 0) + 1;
           });
         }
-        }
-        else pid = null;
       }
       else pid = mainPid;
       if(!pid) return;
@@ -3378,10 +3410,10 @@ async function importBomappFile(event){
   const msg = `✅ 보맵 가져오기: 고객 ${res.people}명(새 고객 ${res.newPeople}) · 보험 추가 ${res.added} · 기존 계약 연결 ${res.linked} · 갱신 ${res.updated} · 특약 ${res.riders}개` +
     (res.warnings.length ? ' · 주의: '+res.warnings.join(', ') : '') +
     (res.ended ? ` · 종료된 보험 ${res.ended}건 따로 보관` : '') + (res.ambiguous.length ? ` · 동명이인 의심: ${res.ambiguous.join(', ')} (🔀 합치기로 정리)` : '') +
-    (res.family.length ? ` · 가족 보험을 피보험자별로 나눈 사람: ${res.family.join(', ')} (계약 리스트에 피보험자가 있는 사람만)` : '') +
+    (res.family.length ? ` · 가족 보험을 피보험자별로 나눈 사람: ${res.family.join(', ')}` : '') +
     (res.moved ? ` · 고객 쪽에 같이 들어가 있던 가족 보험 ${res.moved}건을 가족 쪽으로 옮김` : '') +
     (res.skipped ? ` · 완전 삭제해 둔 보험 ${res.skipped}건은 건너뜀` : '') +
-    (res.skippedPeople ? ` · 계약 리스트에 피보험자가 없어 건너뛴 보험/사람 ${(res.skippedPeople)}건 (먼저 계약을 등록하면 다시 가져와요)` : '');
+    (res.prospects.length ? ` · 🌱 예비 고객 ${res.prospects.length}명 (계약 리스트에 없음): ${[...new Set(res.prospects)].join(', ')}` : '');
   say(msg); showToast(msg);
   if(!res.reports.length) return;
   // 분석 리포트 PDF → Drive (서버 연결이 있을 때만)
@@ -3601,7 +3633,7 @@ async function healthCheckData(){
   const fix = plan.names.length + plan.moves.length + plan.drops.length + plan.roles.length + plan.empties.length;
   const stale = Object.keys(COVERAGES).filter(pid => { const r = COVERAGES[pid]; if(!isPlain(r)) return false;
     return [...Object.keys(isPlain(r.matrixView) ? r.matrixView : {}), ...(Array.isArray(r.itemOrder) ? r.itemOrder : [])].some(k => (normCovName(k) || k) !== k); }).length;
-  add('ok', '보장분석 고객', `${people.length}명 (보장분석 기록 ${Object.keys(COVERAGES).length}개)`);
+  add('ok', '보장분석 고객', `${people.length}명 (예비 고객 ${people.filter(isProspectPerson).length}명 포함 · 보장분석 기록 ${Object.keys(COVERAGES).length}개)`);
   add(fix ? 'warn' : 'ok', '보장분석 정리 상태', fix ? `정리할 것 ${fix}건 (이름 다듬기 ${plan.names.length} · 옮길 기록 ${plan.moves.length} · 남은 기록 ${plan.drops.length} · 비교 설정 ${plan.roles.length} · 빈 기록 ${plan.empties.length}) — 🧹 보장분석 자료 정리` : '정리할 것 없음');
   add(stale ? 'warn' : 'ok', '담보 이름', stale ? `예전 이름이 남은 고객 ${stale}명 — 🧹 보장분석 자료 정리` : '모두 새 규칙');
   add(plan.dups.length ? 'warn' : 'ok', '중복 의심 보험', plan.dups.length ? `${plan.dups.length}건 — 🧹 보장분석 자료 정리 결과 목록에서 보러 가기` : '없음');
@@ -3659,7 +3691,7 @@ function covPeopleListHtml(){
   const shown = q ? people.filter(p => textOf(p).includes(q)) : people;
   if(!shown.length) return `<div style="padding:16px;font-size:12px;color:var(--hint)">${q ? '검색 결과가 없어요' : '아직 고객이 없어요'}</div>`;
   const row = (p, inGrp) => `<div class="cov-cust ${p.pid===selectedCovCustomer?'on':''}${inGrp?' cov-cust-fam':''}" onclick="selectedCovCustomer='${p.pid}';window._covSubTab='보장분석';renderCoverageTab('보장분석')">
-      <span>${esc(p.label)}</span>
+      <span>${esc(p.label)}${isProspectPerson(p) ? ' <span class="cov-prospect">예비</span>' : ''}</span>
       <span class="cov-cust-cnt">${covPolicyCount(p.pid)}건</span>
     </div>`;
   // 그룹 묶음: 그룹별 탭(renderGroups)과 같은 기준 — 계약의 g, 월보험료 합계 큰 그룹부터
@@ -3667,7 +3699,7 @@ function covPeopleListHtml(){
   shown.forEach(p => {
     const gs = [...new Set(p.cs.map(c => c.g).filter(Boolean))];
     if(!gs.length){
-      const k = '(그룹 없음)';
+      const k = isProspectPerson(p) ? PROSPECT_GROUP : '(그룹 없음)';
       if(!grpPeople.has(k)) grpPeople.set(k, []);
       grpPeople.get(k).push(p);
       return;
@@ -3681,14 +3713,20 @@ function covPeopleListHtml(){
   const groups = Object.keys(GROUPS || {});
   return [...grpPeople.entries()].sort((a, b) => {
     const ga = groups.indexOf(a[0]) >= 0 || a[0] === '(그룹 없음)', gb = groups.indexOf(b[0]) >= 0 || b[0] === '(그룹 없음)';
-    if(a[0] === '(그룹 없음)') return 1;
-    if(b[0] === '(그룹 없음)') return -1;
+    const wt = k => k === PROSPECT_GROUP ? 2 : k === '(그룹 없음)' ? 1 : 0;      // 일반 그룹 → 그룹 없음 → 🌱 예비 고객(맨 아래)
+    if(wt(a[0]) !== wt(b[0])) return wt(a[0]) - wt(b[0]);
     if(ga !== gb) return ga ? -1 : 1;
     if((grpAmt[b[0]] || 0) !== (grpAmt[a[0]] || 0)) return (grpAmt[b[0]] || 0) - (grpAmt[a[0]] || 0);
     return a[0].localeCompare(b[0], 'ko');
   }).map(([k, ms]) => {
     const amt = ms.flatMap(p => p.cs.filter(c => c.g === k && c.s !== '계약해지')).reduce((s, c) => s + (Number(c.pr) || 0), 0);
     if(k === '(그룹 없음)') return ms.map(p => row(p, false)).join('');
+    if(k === PROSPECT_GROUP){
+      window._famOpen = window._famOpen || {};
+      const openP = q || window._famOpen[k] !== false || ms.some(p => p.pid === selectedCovCustomer);
+      return `<details class="cov-fam" ${openP ? 'open' : ''} data-fam="${esc(k)}" ontoggle="(window._famOpen=window._famOpen||{})[this.dataset.fam]=this.open">
+      <summary><span>${k}</span> <span class="cov-cust-cnt">${ms.length}명 · 계약 전</span></summary>${ms.map(p => row(p, true)).join('')}</details>`;
+    }
     window._famOpen = window._famOpen || {};
     const open = q || window._famOpen[k] !== false || ms.some(p => p.pid === selectedCovCustomer);
     return `<details class="cov-fam" ${open ? 'open' : ''} data-fam="${esc(k)}" ontoggle="(window._famOpen=window._famOpen||{})[this.dataset.fam]=this.open">
@@ -4792,7 +4830,7 @@ function renderCovDetail(name){                          // name 은 가입자 �
 
   document.getElementById('cov-detail').innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <div style="font-size:16px;font-weight:700">${esc(personLabel(name))} 님의 보장 분석</div>
+      <div style="font-size:16px;font-weight:700">${esc(personLabel(name))} 님의 보장 분석${isProspectPerson(peopleList().find(x => x.pid === name)) ? ' <span class="cov-prospect" title="계약 리스트에 이 사람의 계약이 아직 없어요. 계약을 등록하면 일반 고객이 돼요">🌱 예비 고객 · 계약 전</span>' : ''}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-secondary btn-sm" onclick="openAddOtherPolicy('${name}')">➕ 기존 보험 추가</button>
         <button class="btn btn-primary btn-sm" data-name="${esc(name)}" onclick="copyShareLink(this.dataset.name)">📤 고객 링크 복사</button>

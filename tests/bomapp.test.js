@@ -33,16 +33,17 @@ console.log('A) 읽기 쉬운 금액');
   ok(k('manWon(8000)')==='8천만원'&&k('manWon(2)')==='2만원'&&k('manWon(0.5)')==='5,000원','만원 단위 값 변환');
   ok(k('korWon(250000000000)')==='2,500억원','억 단위 큰 값'); }
 
-console.log('B) 보맵 가져오기 — 계약 리스트에 피보험자가 있는 고객 (사용자 요청 2026-11-18: 계약에 없는 사람은 새로 만들지 않음)');
+console.log('B) 보맵 가져오기 — 계약 리스트에 피보험자가 있는 고객은 그 사람에게, 없으면 예비 고객으로 (사용자 요청 2026-11-19)');
 const D=makeDevice({session:{ins_unlocked:'1'},ls:{ins_contracts:JSON.stringify([{id:900,s:'계약완료',d:'25.10.29',c:'홍길동',p:'홍길동',pid:'pid_hong1',co:'가나화재',n:'기존계약',pr:10000,g:''}]),ins_coverages:'{}',ins_monthly:'[]',ins_groups:'{}'}});
 ok(D.errors.length===0,'로드 오류 없음 '+D.errors.join('|'));
 D.ctx.__f=exportFile([cust1()]);
-{ // 계약 리스트에 피보험자가 없는 보맵 고객은 새 가입자로 만들지 않고 건너뜀
+{ // 계약 리스트에 피보험자가 없는 보맵 고객도 가져와서 예비 고객(계약 전)으로 만든다 (사용자 요청 2026-11-19)
   const X=makeDevice({session:{ins_unlocked:'1'},ls:{ins_contracts:'[]',ins_coverages:'{}',ins_monthly:'[]',ins_groups:'{}'}});
   X.ctx.__f=exportFile([cust1()]);
   const rx=X.get('importBomappData(__f)');
-  ok(rx.people===0&&Object.keys(X.get('COVERAGES')).length===0,'계약 리스트에 피보험자가 없으면 건너뜀 (새 가입자 없음)');
-  ok(rx.warnings.some(w=>/계약 리스트에 피보험자가 없어 건너뛰었어요/.test(w)),'건너뛴 이유를 알림'); }
+  ok(rx.people===1&&rx.newPeople===1&&Object.keys(X.get('COVERAGES')).length===1,'계약 리스트에 없어도 가져옴 (예비 고객 1명)');
+  ok(rx.prospects.join()==='홍길동'&&X.get('peopleList().every(p=>p.cs.length===0)'),'예비 고객으로 알림 + 계약 없는 사람(예비 고객)');
+  ok(X.get('Object.values(COVERAGES)[0].externalPolicies.length')>=1,'보험도 같이 들어옴'); }
 const r1=D.get('importBomappData(__f)');
 ok(r1.people===1&&r1.newPeople===0&&r1.added===3&&r1.updated===0,'피보험자 계약이 있는 고객 1명 · 정상 보험 3건 추가 (새 사람 안 만듦)');
 ok(r1.ended===1,'소멸 보험은 종료 목록으로');

@@ -53,14 +53,15 @@ console.log('D) 같은 사람을 다시 가져오면 그대로 갱신 (예전 �
   ok(r.newPeople === 0 && r.updated === 1 && people(D).length === 1, '두 번째 가져오기는 새 사람 없이 갱신');
 }
 
-console.log('E) 계약 리스트에 피보험자가 없는 보맵 고객은 건너뜀 (사용자 요청 2026-11-18)');
+console.log('E) 계약 리스트에 없는 보맵 고객은 예비 고객으로 가져옴 (사용자 요청 2026-11-19 — 11-18 의 건너뛰기 규칙을 바꿈)');
 { const D = fresh(['다른사람']);
   D.ctx.__f = { source: 'bomapp-planner', customers: [{ memberId: 5, name: '김신규', policies: [pol(1, '김신규')] }] };
   const r = D.get('importBomappData(__f)');
-  ok(r.people === 0 && Object.keys(D.get('COVERAGES')).length === 0 && (r.skippedPeople || 0) === 1, '새 가입자 없음 + 건너뜀 1건');
-  ok(r.warnings.some(w => /김신규 — 계약 리스트에 피보험자가 없어/.test(w)), '건너뛴 이유 안내: ' + JSON.stringify(r.warnings)); }
+  ok(r.people === 1 && r.newPeople === 1 && Object.keys(D.get('COVERAGES')).length === 1, '김신규가 새 예비 고객으로 들어옴');
+  ok(r.prospects.join() === '김신규' && (r.skippedPeople || 0) === 0 && r.warnings.length === 0, '예비 고객으로 알림, 건너뜀·경고 없음: ' + JSON.stringify(r.warnings));
+  ok(D.get(`peopleList().filter(isProspectPerson).map(p => p.name).join()`) === '김신규', '목록에서도 계약 없는 사람 = 예비 고객'); }
 
-console.log('F) 보맵 가족 보험의 피보험자도 계약에 등록된 사람만 (새 기록 자동 생성 차단)');
+console.log('F) 보맵 가족 보험의 피보험자: 계약에 있으면 그 사람에게, 없으면 새 예비 고객으로 (사용자 요청 2026-11-19)');
 { const D = fresh(['홍엄마', '홍딸']);
   D.ctx.__f = { source: 'bomapp-planner', customers: [{ memberId: 11, name: '홍엄마', policies: [Object.assign(pol(1, '홍엄마'), {isPrimaryInsuredMyself: true}), Object.assign(pol(2, '홍딸'), {isPrimaryInsuredMyself: false})] }] };
   const r = D.get('importBomappData(__f)');
@@ -71,15 +72,16 @@ console.log('F) 보맵 가족 보험의 피보험자도 계약에 등록된 사�
   D.ctx.__f = { source: 'bomapp-planner', customers: [{ memberId: 11, name: '홍엄마', policies: [pol(1, '홍엄마'), Object.assign(pol(2, '홍아들'), {isPrimaryInsuredMyself: false})] }] };
   const r = D.get('importBomappData(__f)');
   const p = people(D);
-  ok(p.length === 1 && p[0].pols.join() === '보험1' && p[0].mid === 11, '계약에 없는 가족(홍아들) 보험은 넣지 않음 — 본인 보험만');
-  ok((r.skippedPeople || 0) === 1 && r.warnings.some(w => /홍아들/.test(w)), '건너뛴 가족 보험 안내: ' + JSON.stringify(r.warnings)); }
+  ok(p.length === 2 && p.some(x => x.mid === 11 && x.pols.join() === '보험1') && p.some(x => x.pols.join() === '보험2'), '계약에 없는 가족(홍아들) 보험은 본인 쪽이 아니라 새 예비 고객 홍아들에게');
+  ok(r.family.join() === '홍아들' && r.prospects.join() === '홍아들' && !r.warnings.length, '가족 예비 고객으로 알림, 건너뜀 없음: ' + JSON.stringify(r.warnings));
+  ok(D.get(`(() => { const k = peopleList().find(p => p.name === '홍아들'); return !!k && !k.cs.length && rootFamilyPid(k.pid) !== k.pid; })()`), '홍아들은 계약 없는 예비 고객이고 홍엄마 가족으로 묶임'); }
 
 console.log('G) 필터링 후 보험 개요·매트릭스·담보 내역은 피보험자 본인 것만 (사용자 요청 2026-11-18)');
 { const D = fresh(['홍엄마']);
   D.ctx.__f = { source: 'bomapp-planner', customers: [{ memberId: 11, name: '홍엄마', policies: [pol(1, '홍엄마'),
     Object.assign(pol(2, '홍딸'), {isPrimaryInsuredMyself: false}), Object.assign(pol(3, '홍아들'), {isPrimaryInsuredMyself: false})] }] };
   D.get('importBomappData(__f)');
-  D.run(`window._mtxMode='sum'; selectedCovCustomer=peopleList()[0].pid; renderCoverageTab('보장분석')`);
+  D.run(`window._mtxMode='sum'; selectedCovCustomer=peopleList().find(p => p.name === '홍엄마').pid; renderCoverageTab('보장분석')`);   // 딸·아들은 이제 예비 고객으로 따로 생기므로 이름으로 고름
   const cd = D.el('cov-detail').innerHTML;
   ok(/보험1/.test(cd) && !/보험2/.test(cd) && !/보험3/.test(cd), '보험 개요에 본인 보험(보험1)만 — 딸·아들 보험 제외');
   ok(!/2,000만원/.test(cd) && !/3,000만원/.test(cd), '보장 합산 매트릭스에 딸(2천만)·아들(3천만) 담보 없음');
