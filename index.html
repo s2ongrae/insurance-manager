@@ -64,6 +64,18 @@ summary.cv-sec small{order:3;flex-basis:100%;white-space:normal;font-size:12px;f
 .kind-chip{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:12.5px;color:var(--muted);cursor:pointer}
 .kind-chip b{margin-left:4px;color:var(--text)}.kind-chip.on{background:var(--blue);border-color:var(--blue);color:#fff}.kind-chip.on b{color:#fff}
 .pros-tr:hover{background:#F0FDF4}
+.cp-panel{background:#fff;border:1px solid #BFDBFE;border-radius:12px;padding:14px;margin-bottom:12px}
+.cp-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:13px}
+.cp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px 12px}
+.cp-f{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.cp-f input,.cp-f textarea{padding:7px 9px;border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text);background:var(--surface);font-family:inherit}
+.cp-wide{grid-column:1/-1}
+.cp-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+.cp-grp{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.cp-hint{font-size:11px;font-weight:400;color:var(--muted);margin-top:2px}
+.grp-move{padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-size:12px;background:var(--surface);max-width:170px}
+.gtoolbar{margin:0 0 10px;display:flex;justify-content:flex-end}
+.kind-mgr{margin-left:auto}
 .mtx-orig{display:block;font-size:11px;font-weight:400;color:#94A3B8;margin-top:2px;white-space:normal;line-height:1.4}
 .cg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
 .cg-card{background:#fff;border:1px solid #E2E8F0;border-top:3px solid #CBD5E1;border-radius:10px;padding:12px 12px 10px}
@@ -592,6 +604,7 @@ if(_viewHash.startsWith('#view=')) {
         <button class="btn btn-secondary" onclick="manualSync()" title="지금 즉시 저장">🔄 지금 동기화</button>
         <button class="btn btn-secondary" onclick="pullFromServer()" title="서버에 저장된 데이터를 합치지 않고 그대로 이 기기로 받아요 (이 기기 데이터가 이상할 때)">☁️ 서버 데이터로 되돌리기</button>
         <button class="btn btn-secondary" onclick="openCovTidy()" title="담보 이름 다듬기·남은 기록 정리·중복 의심 보험 찾기">🧹 보장분석 자료 정리</button>
+        <button class="btn btn-secondary" onclick="openGroupManager()" title="그룹 만들기·이름/색 수정·삭제">🗂️ 그룹 관리</button>
         <button class="btn btn-secondary" onclick="openHealthCheck()" title="서버·백업·동기화·보장분석 상태를 확인만 해요 (데이터는 안 바뀜)">🩺 상태 점검</button>
         <button class="btn btn-secondary" onclick="openBomappModal()" title="보맵 플래너 고객의 보험·특약·납입·약관·분석리포트 가져오기">📥 보맵 가져오기</button>
         <button class="btn btn-secondary" onclick="exportData()" title="데이터 백업">💾 백업 파일 받기</button>
@@ -1815,6 +1828,7 @@ function renamePerson(pid){
   CONTRACTS = CONTRACTS.map(r => cpid(r) === pid ? Object.assign({}, r, {p: nn, pid: pid}) : r);
   // 계약 없이 보장분석 기록만 있는 사람(보맵에서 가져온 사람·분리한 사람)은 이 이름을 씀 — 예전엔 여기를 안 바꿔서 이름이 그대로였음
   if(isPlain(COVERAGES[pid]) && isPlain(COVERAGES[pid].person)) COVERAGES[pid] = Object.assign({}, COVERAGES[pid], {person: Object.assign({}, COVERAGES[pid].person, {name: nn})});
+  migrateProfileName(cur, nn);                         // 고객 정보(연락처·메모·그룹)도 새 이름으로 따라가게
   persistLocal(); scheduleSave(); renderAll();
   showToast(`✅ '${cur}' → '${nn}' 이름을 바꿨어요 (보장분석 유지)`);
 }
@@ -2265,17 +2279,26 @@ function renderGroups() {
     else gm[r.g].pending++;
     gm[r.g].nc.add(r.c);
   });
+  // 🌱 예비 고객도 고객 정보에서 고른 그룹 카드에 보인다 (그룹 미지정이면 맨 아래 별도 카드, 거기서 바로 그룹을 골라 옮길 수 있음)
+  const prosBy = {}, prosFree = [];
+  peopleList().filter(isProspectPerson).forEach(p => {
+    const pg = prospectGroupOf(p.name);
+    if(pg){ (prosBy[pg] = prosBy[pg] || []).push(p); if(!gm[pg]) gm[pg] = {k:0,amt:0,cancel:0,pending:0,nc:new Set()}; }
+    else prosFree.push(p);
+  });
   const gs = Object.entries(gm).map(([g,v])=>({g,...v,nc:v.nc.size})).sort((a,b)=>b.amt-a.amt);
-  document.getElementById('pane-그룹별').innerHTML = gs.map((g,gi)=>{
+  if(prosFree.length) gs.push({g:'', free:true, k:0, amt:0, cancel:0, pending:0, nc:0});
+  document.getElementById('pane-그룹별').innerHTML = `<div class="gtoolbar"><button class="btn btn-secondary btn-sm" onclick="openGroupManager()">🗂️ 그룹 관리 (만들기·이름·색 수정·삭제)</button></div>` + gs.map((g,gi)=>{
     const id='g'+gi;                                     // 그룹 이름에 따옴표가 있어도 onclick 이 깨지지 않게 순번으로
-    const rows=CONTRACTS.filter(r=>r.g===g.g).sort((a,b)=>a.c.localeCompare(b.c));
-    const meta=[`${g.nc}명`,`${g.k}건 완료`,g.cancel?`${g.cancel}건 해지`:'',g.pending?`${g.pending}건 예정`:''].filter(Boolean).join(' · ');
+    const rows=g.free ? [] : CONTRACTS.filter(r=>r.g===g.g).sort((a,b)=>a.c.localeCompare(b.c));
+    const prows=g.free ? prosFree : (prosBy[g.g] || []);
+    const meta=[g.free?'':`${g.nc}명`,g.free?'':`${g.k}건 완료`,g.cancel?`${g.cancel}건 해지`:'',g.pending?`${g.pending}건 예정`:'',prows.length?`🌱 예비 ${prows.length}명`:''].filter(Boolean).join(' · ');
     return `<div class="gcard">
       <div class="gheader" onclick="toggleG('${id}')">
         <div class="gdot" style="background:${gc(g.g)}"></div>
-        <span class="gname">${esc(g.g||'그룹 없음')}</span>
+        <span class="gname">${g.free ? '🌱 예비 고객 (그룹 미지정)' : esc(g.g||'그룹 없음')}</span>
         <span class="gmeta">${meta}</span>
-        <span class="gamt" style="color:${gc(g.g)}">${wonN(g.amt)}원/월</span>
+        <span class="gamt" style="color:${gc(g.g)}">${g.free ? '' : wonN(g.amt)+'원/월'}</span>
         <span class="garr" id="arr-${id}">▼</span>
       </div>
       <div class="gtbl" id="gt-${id}">
@@ -2290,11 +2313,24 @@ function renderGroups() {
             <td style="text-align:right">${wonN(r.pr)}</td>
             <td>${sbadge(r.s)}</td>
             <td class="td-act">${proposalLinkHtml(r.proposalUrl)}<button class="btn btn-secondary btn-sm" onclick="openEditModal(${jsId(r.id)})">✏️</button></td>
-          </tr>`).join('')}</tbody>
+          </tr>`).join('')}${prows.map(prospectGroupRowHtml).join('')}</tbody>
         </table>
       </div>
     </div>`;
   }).join('');
+}
+// 그룹별 탭의 🌱 예비 고객 행: 계약이 없어서 보험 건수만, 오른쪽에서 바로 그룹을 골라 옮김
+function prospectGroupRowHtml(p){
+  const r = COVERAGES[p.pid] || {};
+  const names = [...(r.policies || []), ...(r.externalPolicies || []), ...(r.otherPolicies || [])].filter(isPlain).map(x => x.n || x.name || '').filter(Boolean);
+  return `<tr class="pros-tr">
+    <td style="font-weight:600">${esc(p.label)} <span class="cov-prospect">예비</span>${profileHintHtml(p.name)}</td>
+    <td style="color:var(--muted)">${esc(p.name)}</td>
+    <td style="color:var(--hint)">-</td><td style="color:var(--hint)">-</td>
+    <td colspan="2" style="color:var(--muted);font-size:12px">보맵 보험 ${covPolicyCount(p.pid)}건${names.length ? ' · ' + esc(names.slice(0, 3).join(' · ')) : ''}</td>
+    <td style="text-align:right;color:var(--hint)">-</td>
+    <td><span class="kind-badge kind-prospect">🌱 계약 전</span></td>
+    <td class="td-act">${groupSelectHtml(prospectGroupOf(p.name), p.name)}<button type="button" class="btn btn-secondary btn-sm" data-pid="${esc(p.pid)}" onclick="openCovCustomer(this.dataset.pid)" title="보장분석 보기">📋</button></td></tr>`;
 }
 function toggleG(id){
   const t=document.getElementById('gt-'+id),a=document.getElementById('arr-'+id);
@@ -2311,22 +2347,244 @@ function toggleCustomerDetail(name) {
 }
 
 // 고객별 탭: 가입자(계약이 있는 계약자)와 🌱 예비 고객(계약 전, 보맵에서 가져옴)을 구분해서 한 표에 (사용자 요청 2026-11-19)
+// ════════════════════════════════════════════════════════════
+// 고객 정보 · 그룹 관리 (사용자 요청 2026-11-19)
+// ════════════════════════════════════════════════════════════
+// 고객 정보(생년월일·핸드폰·이메일·직업·사는 곳·주소·메모, 예비 고객의 그룹)는 MEMOS 에 'cust:이름' 키로 JSON 한 줄로 저장한다.
+//  · MEMOS 는 서버가 고객 링크에 절대 보내지 않는다(옛 서버·새 서버 모두) → 연락처·주소가 고객 화면으로 새지 않는다
+//  · 동기화는 키(고객)별로 합쳐져서, 두 기기에서 서로 다른 고객을 고쳐도 서로 덮어쓰지 않는다
+//  · 계약 번호(숫자) 키와 안 섞이게 접두어를 붙인다. 이름 열쇠 = 고객별 탭의 계약자 이름 (예비 고객은 그 사람 이름)
+const PROFILE_FIELDS = ['birth', 'phone', 'email', 'job', 'region', 'addr', 'memo', 'group'];
+const PROFILE_MAX = {birth: 10, phone: 20, email: 80, job: 40, region: 60, addr: 200, memo: 2000, group: 30};
+const profileKey = name => 'cust:' + String(name || '').trim();
+function getProfile(name){
+  if(!String(name || '').trim()) return {};
+  try { const o = JSON.parse(MEMOS[profileKey(name)] || 'null'); return isPlain(o) ? o : {}; } catch(e){ return {}; }
+}
+function setProfile(name, patch){                              // patch 에 있는 칸만 바꿈. 빈 값이면 그 칸 삭제, 다 비면 키 삭제
+  const nm = String(name || '').trim(); if(!nm) return false;
+  const cur = getProfile(nm), next = {};
+  PROFILE_FIELDS.forEach(f => {
+    const raw = hasOwn(patch, f) ? patch[f] : cur[f];
+    const v = String(raw == null ? '' : raw).replace(/\r\n/g, '\n').trim().slice(0, PROFILE_MAX[f]);
+    if(v) next[f] = v;
+  });
+  const k = profileKey(nm);
+  if(Object.keys(next).length) MEMOS[k] = JSON.stringify(next); else delete MEMOS[k];
+  save('ins_memos', MEMOS); scheduleSave();
+  return true;
+}
+// 생년월일: 1990.01.02 · 1990-1-2 · 19900102 → '1990.01.02'. 비우면 ''. 날짜가 아니거나 연도가 4자리가 아니면 null
+function normBirth(s){
+  const t = String(s || '').trim(); if(!t) return '';
+  let m = t.match(/^(\d{4})\D+(\d{1,2})\D+(\d{1,2})\D*$/) || t.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if(!m) return null;
+  const y = +m[1], mo = +m[2], d = +m[3], dt = new Date(y, mo - 1, d);
+  if(y < 1900 || dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d || dt > new Date()) return null;
+  return `${y}.${pad2(mo)}.${pad2(d)}`;
+}
+// 핸드폰·전화: 숫자만 모아서 010-XXXX-XXXX / 02-123-4567 꼴로. 비우면 ''. 자릿수가 안 맞으면 null. 국제번호(+82…)는 그대로
+function normPhone(s){
+  const t = String(s || '').trim(); if(!t) return '';
+  if(/^\+/.test(t)) return t.slice(0, PROFILE_MAX.phone);
+  const dg = t.replace(/\D/g, '');
+  if(dg.length === 11) return `${dg.slice(0, 3)}-${dg.slice(3, 7)}-${dg.slice(7)}`;
+  if(dg.length === 10) return dg.startsWith('02') ? `02-${dg.slice(2, 6)}-${dg.slice(6)}` : `${dg.slice(0, 3)}-${dg.slice(3, 6)}-${dg.slice(6)}`;
+  if(dg.length === 9 && dg.startsWith('02')) return `02-${dg.slice(2, 5)}-${dg.slice(5)}`;
+  if(dg.length === 8) return `${dg.slice(0, 4)}-${dg.slice(4)}`;
+  return null;
+}
+function saveCustomerProfile(name){
+  const v = id => String((document.getElementById(id) || {}).value || '');
+  const birth = normBirth(v('cp-birth')); if(birth === null){ showToast('⚠️ 생년월일을 1990.01.02 처럼 연도 4자리로 입력해 주세요'); return false; }
+  const phone = normPhone(v('cp-phone')); if(phone === null){ showToast('⚠️ 핸드폰 번호 자릿수를 확인해 주세요 (예: 010-XXXX-XXXX)'); return false; }
+  const email = v('cp-email').trim(); if(email && !/^\S+@\S+\.\S+$/.test(email)){ showToast('⚠️ 이메일 주소를 확인해 주세요'); return false; }
+  setProfile(name, {birth, phone, email, job: v('cp-job'), region: v('cp-region'), addr: v('cp-addr'), memo: v('cp-memo')});
+  showToast(`✅ '${name}' 님 정보를 저장했어요`);
+  renderCustomers();
+  return true;
+}
+// 계약자·사람 이름을 바꾸면 고객 정보(연락처·메모·그룹)도 따라가게. 아직 그 이름을 쓰는 사람이 있으면 그대로 둔다
+function migrateProfileName(oldName, newName){
+  const o = String(oldName || '').trim(), n = String(newName || '').trim();
+  if(!o || !n || o === n || !MEMOS[profileKey(o)] || MEMOS[profileKey(n)]) return false;
+  if(CONTRACTS.some(r => r.c === o) || peopleList().some(p => p.name === o)) return false;
+  MEMOS[profileKey(n)] = MEMOS[profileKey(o)]; delete MEMOS[profileKey(o)];
+  return true;
+}
+// ── 그룹 (GROUPS = {그룹명: 색}, 계약의 g = 그룹명, 예비 고객은 고객 정보의 group) ──
+const GROUP_PALETTE = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16'];
+const colorOk = c => /^#[0-9a-fA-F]{6}$/.test(String(c || ''));
+const hex6 = c => { const s = String(c || ''); return colorOk(s) ? s : /^#[0-9a-fA-F]{3}$/.test(s) ? '#' + s.slice(1).split('').map(x => x + x).join('') : '#868E96'; };
+function groupNameCheck(name, except){
+  const n = String(name || '').trim();
+  if(!n) return {error: '그룹 이름을 입력해 주세요'};
+  if(n.length > PROFILE_MAX.group) return {error: `그룹 이름은 ${PROFILE_MAX.group}자 이하로 해 주세요`};
+  if(!isSafeKey(n)) return {error: '쓸 수 없는 이름이에요'};
+  if(n !== except && hasOwn(GROUPS, n)) return {error: '이미 있는 그룹 이름이에요'};
+  return {name: n};
+}
+function persistGroups(){ persistLocal(); scheduleSave(); }
+function createGroup(name, color){
+  const c = groupNameCheck(name); if(c.error) return {ok: false, error: c.error};
+  GROUPS[c.name] = colorOk(color) ? color : GROUP_PALETTE[Object.keys(GROUPS).length % GROUP_PALETTE.length];
+  persistGroups(); return {ok: true, name: c.name};
+}
+const profileNames = () => Object.keys(MEMOS).filter(k => k.startsWith('cust:')).map(k => k.slice(5));
+function renameGroup(oldName, newName){
+  if(!hasOwn(GROUPS, oldName)) return {ok: false, error: '없는 그룹이에요'};
+  const c = groupNameCheck(newName, oldName); if(c.error) return {ok: false, error: c.error};
+  if(c.name === oldName) return {ok: true, name: oldName};
+  const color = GROUPS[oldName]; delete GROUPS[oldName]; GROUPS[c.name] = color;
+  CONTRACTS = CONTRACTS.map(r => r.g === oldName ? Object.assign({}, r, {g: c.name}) : r);
+  profileNames().forEach(nm => { if(getProfile(nm).group === oldName) setProfile(nm, {group: c.name}); });
+  if(fGroups.has(oldName)){ fGroups.delete(oldName); fGroups.add(c.name); }
+  persistGroups(); return {ok: true, name: c.name};
+}
+function setGroupColor(name, color){
+  if(!hasOwn(GROUPS, name) || !colorOk(color)) return false;
+  GROUPS[name] = color; persistGroups(); return true;
+}
+function deleteGroup(name){                                  // 그 그룹의 계약·예비 고객은 "그룹 없음"으로
+  if(!hasOwn(GROUPS, name)) return {ok: false, error: '없는 그룹이에요'};
+  let nC = 0, nP = 0;
+  CONTRACTS = CONTRACTS.map(r => { if(r.g === name){ nC++; return Object.assign({}, r, {g: ''}); } return r; });
+  profileNames().forEach(nm => { if(getProfile(nm).group === name){ setProfile(nm, {group: ''}); nP++; } });
+  delete GROUPS[name]; fGroups.delete(name);
+  persistGroups(); return {ok: true, contracts: nC, prospects: nP};
+}
+function groupStats(){
+  const st = {}; Object.keys(GROUPS).forEach(g => { st[g] = {contracts: 0, customers: 0, prospects: 0}; });
+  const holders = {};
+  CONTRACTS.forEach(r => { if(st[r.g]){ st[r.g].contracts++; (holders[r.g] = holders[r.g] || new Set()).add(r.c); } });
+  Object.keys(holders).forEach(g => { st[g].customers = holders[g].size; });
+  peopleList().filter(isProspectPerson).forEach(p => { const g = prospectGroupOf(p.name); if(st[g]) st[g].prospects++; });
+  return st;
+}
+// 예비 고객(계약 없는 사람)의 그룹 = 고객 정보의 group. 지워졌거나 없는 그룹이면 없는 것으로 본다
+function prospectGroupOf(name){ const g = getProfile(name).group; return g && hasOwn(GROUPS, g) ? g : ''; }
+// 한 사람이 속한 그룹들: 계약이 있으면 계약의 그룹, 없으면(예비 고객) 고객 정보의 그룹
+function personGroupList(p){ return p.cs.length ? [...new Set(p.cs.map(c => c.g).filter(Boolean))] : [prospectGroupOf(p.name)].filter(Boolean); }
+// 고객(계약자 이름)을 다른 그룹으로: 계약이 있으면 그 계약자의 모든 계약의 그룹을, 없으면(예비 고객) 고객 정보의 그룹을 바꾼다. val: 그룹명 / '' (그룹 없음) / '__new__' (새로 만들기)
+function moveCustomerGroup(name, val){
+  let g = String(val || '');
+  if(g === '__new__'){
+    const nn = prompt('새 그룹 이름을 입력해 주세요'); if(nn === null) return false;
+    const r = createGroup(nn); if(!r.ok){ showToast('⚠️ ' + r.error); return false; }
+    g = r.name;
+  } else if(g && !hasOwn(GROUPS, g)){ showToast('⚠️ 없는 그룹이에요'); return false; }
+  if(CONTRACTS.some(r => r.c === name)) CONTRACTS = CONTRACTS.map(r => r.c === name ? Object.assign({}, r, {g}) : r);
+  else setProfile(name, {group: g});
+  persistLocal(); scheduleSave(); renderAll();
+  showToast(g ? `✅ '${name}' 님을 '${g}' 그룹으로 옮겼어요` : `✅ '${name}' 님의 그룹을 비웠어요`);
+  return true;
+}
+function groupSelectHtml(cur, name){
+  const opts = ['<option value="">(그룹 없음)</option>', ...Object.keys(GROUPS).map(g => `<option value="${esc(g)}"${g === cur ? ' selected' : ''}>${esc(g)}</option>`), '<option value="__new__">＋ 새 그룹 만들기…</option>'];
+  return `<select class="grp-move" data-name="${esc(name)}" onclick="event.stopPropagation()" onchange="if(!moveCustomerGroup(this.dataset.name,this.value))renderAll()">${opts.join('')}</select>`;
+}
+function profileHintHtml(name){
+  const pr = getProfile(name);
+  const bits = [pr.phone && '📞 ' + pr.phone, pr.region && '📍 ' + pr.region, pr.memo && '📝 메모'].filter(Boolean);
+  return bits.length ? `<div class="cp-hint">${esc(bits.join(' · '))}</div>` : '';
+}
+function custGroupCell(rows){
+  const gs = [...new Set(rows.map(r => r.g).filter(Boolean))];
+  return gs.length ? gs.map(g => gbadge(g)).join(' ') : '<span style="color:var(--hint)">-</span>';
+}
+// 고객별 탭에서 사람을 누르면 펼쳐지는 "고객 정보" 칸 (가입자는 pid=null, 예비 고객은 pid)
+function customerPanelHtml(name, pid){
+  const pr = getProfile(name), isPros = !!pid;
+  const cur = isPros ? [prospectGroupOf(name)].filter(Boolean) : [...new Set(CONTRACTS.filter(r => r.c === name).map(r => r.g).filter(Boolean))];
+  const f = (id, label, val, ph, cls) => `<label class="cp-f ${cls || ''}"><span>${label}</span><input id="${id}" value="${esc(val || '')}" placeholder="${esc(ph || '')}" autocomplete="off"></label>`;
+  const target = isPros ? pid : ((peopleList().find(p => p.name === name) || {}).pid || '');
+  return `<div class="cp-panel">
+    <div class="cp-head"><b>👤 ${esc(name)} 님 정보</b> ${isPros ? '<span class="kind-badge kind-prospect">🌱 예비 고객</span>' : '<span class="kind-badge kind-member">✓ 가입자</span>'}
+      <span class="rm-fine">이 기기와 서버(Drive)에만 저장돼요 · 고객 링크에는 나가지 않아요</span></div>
+    <div class="cp-grid">
+      ${f('cp-birth', '생년월일', pr.birth, '1990.01.02')}${f('cp-phone', '핸드폰', pr.phone, '010-XXXX-XXXX')}${f('cp-email', '이메일', pr.email, 'name@example.com')}${f('cp-job', '직업', pr.job, '')}
+      ${f('cp-region', '사는 곳', pr.region, '예) 대전 서구')}${f('cp-addr', '주소', pr.addr, '상세 주소', 'cp-wide')}
+    </div>
+    <label class="cp-f cp-wide" style="margin-top:8px"><span>메모</span><textarea id="cp-memo" rows="3" maxlength="2000" placeholder="상담 내용·특이사항 등">${esc(pr.memo || '')}</textarea></label>
+    <div class="cp-row"><label class="cp-grp"><span>그룹</span>${groupSelectHtml(cur[0] || '', name)}</label>
+      ${cur.length > 1 ? `<span class="rm-fine">계약이 ${cur.length}개 그룹에 걸쳐 있어요 — 옮기면 모두 한 그룹으로 모여요</span>` : ''}
+      <span style="flex:1"></span>
+      ${target ? `<button type="button" class="btn btn-secondary btn-sm" data-pid="${esc(target)}" onclick="openCovCustomer(this.dataset.pid)">📋 보장분석 보기</button>` : ''}
+      <button type="button" class="btn btn-primary btn-sm" data-name="${esc(name)}" onclick="saveCustomerProfile(this.dataset.name)">💾 정보 저장</button></div>
+  </div>`;
+}
+// 🗂️ 그룹 관리 창: 만들기 · 이름/색 수정 · 삭제
+let GM_LIST = [];
+function groupManagerHtml(){
+  GM_LIST = Object.keys(GROUPS);
+  const st = groupStats();
+  const rows = GM_LIST.map((g, i) => `<tr>
+    <td><input type="color" id="gm-color-${i}" value="${esc(hex6(GROUPS[g]))}" style="width:34px;height:30px;border:0;background:none"></td>
+    <td><input id="gm-name-${i}" value="${esc(g)}" maxlength="30" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:8px"></td>
+    <td class="rm-fine" style="white-space:nowrap">계약 ${st[g].contracts}건 · 고객 ${st[g].customers}명 · 🌱 ${st[g].prospects}명</td>
+    <td style="white-space:nowrap"><button class="btn btn-primary btn-sm" onclick="gmSave(${i})">저장</button> <button class="btn btn-secondary btn-sm" onclick="gmDelete(${i})">삭제</button></td></tr>`).join('');
+  return `<section role="dialog" aria-modal="true" style="background:var(--surface,#fff);border-radius:14px;padding:22px;width:640px;max-width:100%;max-height:88vh;overflow:auto">
+    <h3 style="margin:0 0 4px">🗂️ 그룹 관리</h3>
+    <p class="rm-fine" style="margin-bottom:10px">이름을 바꾸면 그 그룹의 계약·예비 고객이 함께 바뀌어요. 삭제하면 그 그룹 사람들은 "그룹 없음"이 돼요 (계약·고객은 안 지워져요).</p>
+    <table style="width:100%;border-collapse:collapse"><tbody>${rows || '<tr><td class="rm-fine">아직 그룹이 없어요</td></tr>'}</tbody></table>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+      <input type="color" id="gm-new-color" value="${esc(GROUP_PALETTE[GM_LIST.length % GROUP_PALETTE.length])}" style="width:34px;height:30px;border:0;background:none">
+      <input id="gm-new-name" placeholder="새 그룹 이름" maxlength="30" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:8px">
+      <button class="btn btn-primary btn-sm" onclick="gmCreate()">＋ 그룹 만들기</button></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn btn-secondary" onclick="document.getElementById('grp-manager').remove()">닫기</button></div></section>`;
+}
+function openGroupManager(){
+  document.getElementById('grp-manager')?.remove();
+  const ov = document.createElement('div'); ov.id = 'grp-manager';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML = groupManagerHtml();
+  document.body.appendChild(ov);
+}
+function refreshGroupManager(){ const el = document.getElementById('grp-manager'); if(el) el.innerHTML = groupManagerHtml(); }
+function gmCreate(){
+  const r = createGroup((document.getElementById('gm-new-name') || {}).value, (document.getElementById('gm-new-color') || {}).value);
+  if(!r.ok){ showToast('⚠️ ' + r.error); return false; }
+  showToast(`✅ '${r.name}' 그룹을 만들었어요`); renderAll(); refreshGroupManager(); return true;
+}
+function gmSave(i){
+  const old = GM_LIST[i]; if(old === undefined) return false;
+  const nn = (document.getElementById('gm-name-' + i) || {}).value, col = (document.getElementById('gm-color-' + i) || {}).value;
+  let name = old;
+  if(String(nn || '').trim() !== old){
+    const r = renameGroup(old, nn); if(!r.ok){ showToast('⚠️ ' + r.error); return false; }
+    name = r.name;
+  }
+  if(colorOk(col) && col.toLowerCase() !== hex6(GROUPS[name]).toLowerCase()) setGroupColor(name, col);
+  showToast(`✅ '${name}' 그룹을 저장했어요`); renderAll(); refreshGroupManager(); return true;
+}
+function gmDelete(i){
+  const g = GM_LIST[i]; if(g === undefined) return false;
+  const st = groupStats()[g];
+  if(!confirm(`'${g}' 그룹을 삭제할까요?\n\n계약 ${st.contracts}건 · 고객 ${st.customers}명 · 예비 고객 ${st.prospects}명이 "그룹 없음"으로 바뀌어요.\n(계약과 고객은 지워지지 않아요)`)) return false;
+  deleteGroup(g); showToast(`🗑️ '${g}' 그룹을 삭제했어요`); renderAll(); refreshGroupManager(); return true;
+}
+function toggleProspectDetail(pid){ const k = 'p:' + pid; expandedCustomer = expandedCustomer === k ? null : k; renderCustomers(); }
 function setCustKind(k){ window._custKind = k; renderCustomers(); }
 function kindChipsHtml(nMember, nPros, sel){
   const chip = (k, label, n) => `<button type="button" class="kind-chip${sel === k ? ' on' : ''}" onclick="setCustKind('${k}')">${label} <b>${n}</b></button>`;
-  return `<div class="kind-filter">${chip('all', '전체', nMember + nPros)}${chip('member', '✓ 가입자', nMember)}${chip('prospect', '🌱 예비 고객', nPros)}</div>`;
+  return `<div class="kind-filter">${chip('all', '전체', nMember + nPros)}${chip('member', '✓ 가입자', nMember)}${chip('prospect', '🌱 예비 고객', nPros)}<button type="button" class="kind-chip kind-mgr" onclick="openGroupManager()">🗂️ 그룹 관리</button></div>`;
 }
 function prospectRowHtml(p, no){
   const r = COVERAGES[p.pid] || {};
   const names = [...(r.policies || []), ...(r.externalPolicies || []), ...(r.otherPolicies || [])].filter(isPlain).map(x => x.n || x.name || '').filter(Boolean);
-  return `<tr class="pros-tr" data-pid="${esc(p.pid)}" onclick="openCovCustomer(this.dataset.pid)" style="cursor:pointer">
+  const exp = expandedCustomer === 'p:' + p.pid, pg = prospectGroupOf(p.name);
+  const row = `<tr class="pros-tr" data-pid="${esc(p.pid)}" onclick="toggleProspectDetail(this.dataset.pid)" style="cursor:pointer;background:${exp ? '#ECFDF5' : ''}">
     <td style="color:var(--hint);font-size:12px">${no}</td>
-    <td style="font-weight:600">${esc(p.label)} <span style="font-size:11px;color:var(--hint)">›</span></td>
+    <td style="font-weight:600">${esc(p.label)} <span style="font-size:11px;color:${exp ? 'var(--green)' : 'var(--hint)'}">${exp ? '▲' : '▼'}</span>${profileHintHtml(p.name)}</td>
     <td><span class="kind-badge kind-prospect">🌱 예비 고객</span></td>
-    <td><span style="color:var(--hint)">-</span></td>
+    <td>${pg ? gbadge(pg) : '<span style="color:var(--hint)">-</span>'}</td>
     <td style="text-align:center;color:var(--muted)">보험 ${covPolicyCount(p.pid)}건</td>
     <td style="text-align:right;color:var(--hint)">-</td><td style="text-align:right;color:var(--hint)">-</td>
     <td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(names.slice(0, 4).join(' · '))}${names.length > 4 ? ' …' : ''}</td></tr>`;
+  const detail = exp ? `<tr style="background:#F0FDF4"><td colspan="8" style="padding:0"><div style="padding:12px 16px 16px;border-top:1px dashed var(--border)">
+    ${customerPanelHtml(p.name, p.pid)}
+    <div class="rm-fine">보맵 보험 ${covPolicyCount(p.pid)}건${names.length ? ': ' + esc(names.join(' · ')) : ''}</div></div></td></tr>` : '';
+  return row + detail;
 }
 function renderCustomers() { try {
   const cm={};
@@ -2353,9 +2611,9 @@ function renderCustomers() { try {
       // 이름은 data- 속성으로 넘겨요 (onclick 글자 안에 넣으면 따옴표가 든 이름이 코드로 실행될 수 있었어요)
       const summaryRow=`<tr data-c="${esc(c.c)}" onclick="toggleCustomerDetail(this.dataset.c)" style="cursor:pointer;background:${exp?'var(--blue-l)':''};transition:background .15s">
         <td style="color:var(--hint);font-size:12px">${i+1}</td>
-        <td style="font-weight:600">${esc(c.c)} <span style="font-size:11px;color:${exp?'var(--blue)':'var(--hint)'}">${exp?'▲':'▼'}</span></td>
+        <td style="font-weight:600">${esc(c.c)} <span style="font-size:11px;color:${exp?'var(--blue)':'var(--hint)'}">${exp?'▲':'▼'}</span>${profileHintHtml(c.c)}</td>
         <td><span class="kind-badge kind-member">✓ 가입자</span></td>
-        <td>${gbadge(c.g)}</td>
+        <td>${custGroupCell(c.rows)}</td>
         <td style="text-align:center">
           ${c.k>0?`<span style="color:var(--green)">${c.k}건</span>`:''}
           ${c.cancel?`<span style="color:var(--red);font-size:11px"> 해지${c.cancel}</span>`:''}
@@ -2369,6 +2627,7 @@ function renderCustomers() { try {
       const detailRow=exp?`<tr style="background:#EFF6FF">
         <td colspan="8" style="padding:0">
           <div style="padding:12px 16px 16px;border-top:1px dashed var(--border)">
+            ${customerPanelHtml(c.c, null)}
             <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">📋 ${esc(c.c)}님의 전체 계약 현황 (${c.rows.length}건)</div>
             <table style="width:100%;font-size:12px;border-collapse:collapse">
               <thead><tr style="background:var(--surface2)">
@@ -2821,6 +3080,7 @@ function saveContract() {
     }
     showToast('✅ 계약이 추가되었습니다');
   }
+  if(oldC && oldC.c !== data.c) migrateProfileName(oldC.c, data.c);   // 계약자 이름을 바꾸면 고객 정보도 따라가게
   save('ins_contracts', CONTRACTS);
   save('ins_monthly', MONTHLY);
   save('ins_memos', MEMOS);
@@ -3687,7 +3947,7 @@ function covPeopleListHtml(){
   const people = peopleList();
   const q = String(window._covSearch || '').trim().toLowerCase();
   const textOf = p => { const r = COVERAGES[p.pid] || {};
-    return [p.label, ...new Set(p.cs.map(c => c.g).filter(Boolean)), ...p.cs.map(c => c.co + ' ' + c.n + ' ' + c.c), ...[...(r.externalPolicies || []), ...(r.otherPolicies || [])].filter(isPlain).map(x => (x.co || '') + ' ' + (x.n || x.name || ''))].join(' ').toLowerCase(); };
+    return [p.label, ...personGroupList(p), ...p.cs.map(c => c.co + ' ' + c.n + ' ' + c.c), ...[...(r.externalPolicies || []), ...(r.otherPolicies || [])].filter(isPlain).map(x => (x.co || '') + ' ' + (x.n || x.name || ''))].join(' ').toLowerCase(); };
   const shown = q ? people.filter(p => textOf(p).includes(q)) : people;
   if(!shown.length) return `<div style="padding:16px;font-size:12px;color:var(--hint)">${q ? '검색 결과가 없어요' : '아직 고객이 없어요'}</div>`;
   const row = (p, inGrp) => `<div class="cov-cust ${p.pid===selectedCovCustomer?'on':''}${inGrp?' cov-cust-fam':''}" onclick="selectedCovCustomer='${p.pid}';window._covSubTab='보장분석';renderCoverageTab('보장분석')">
@@ -3697,7 +3957,7 @@ function covPeopleListHtml(){
   // 그룹 묶음: 그룹별 탭(renderGroups)과 같은 기준 — 계약의 g, 월보험료 합계 큰 그룹부터
   const grpAmt = {}, grpPeople = new Map();
   shown.forEach(p => {
-    const gs = [...new Set(p.cs.map(c => c.g).filter(Boolean))];
+    const gs = personGroupList(p);                              // 예비 고객은 고객 정보에서 고른 그룹 (없으면 🌱 예비 고객 묶음)
     if(!gs.length){
       const k = isProspectPerson(p) ? PROSPECT_GROUP : '(그룹 없음)';
       if(!grpPeople.has(k)) grpPeople.set(k, []);
