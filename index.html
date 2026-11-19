@@ -58,6 +58,11 @@ summary.cv-sec small{order:3;flex-basis:100%;white-space:normal;font-size:12px;f
 .shrink-banner{margin:0 0 12px;padding:14px 16px;background:#FEF2F2;border:2px solid #F87171;border-radius:12px;color:#7F1D1D;font-size:13px;line-height:1.7}
 .shrink-banner b{font-size:15px;color:#991B1B}.shrink-banner .btn{margin-top:8px}
 .cov-prospect{display:inline-block;font-size:10.5px;font-weight:700;color:#047857;background:#D1FAE5;border-radius:999px;padding:1px 7px;margin-left:4px;white-space:nowrap}
+.cl-panel{margin:0 0 12px;border:1px solid #FCD34D;background:#FFFBEB;border-radius:10px;padding:8px 12px;font-size:13px;color:#92400E}
+.cl-panel summary{cursor:pointer;font-weight:700}
+.cl-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 0;border-top:1px dashed #FCD34D;color:var(--text)}
+.cl-row .btn{margin-left:6px}
+.pol-row:hover{background:#F0F9FF!important}
 .kind-badge{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;white-space:nowrap}
 .kind-member{background:#DBEAFE;color:#1D4ED8}.kind-prospect{background:#D1FAE5;color:#047857}
 .kind-filter{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
@@ -1826,7 +1831,7 @@ function mergePerson(srcPid){
   if(!confirm(`'${personLabel(srcPid)}' 님의 계약·보장분석을 '${dst.label}' 님으로 합칩니다.\n합쳐지는 쪽의 고객 링크는 더 이상 열리지 않아요. 계속할까요?`)) return;
   doMergePerson(srcPid, dst, {});
 }
-function doMergePerson(srcPid, dst, opts){
+function mergePersonData(srcPid, dst, opts){                       // 데이터만 합침 (화면·저장 호출 없음 — 보맵 가져오기 안에서도 씀)
   const dstBefore = COVERAGES[dst.pid];
   CONTRACTS = CONTRACTS.map(r => cpid(r) === srcPid ? Object.assign({}, r, {pid: dst.pid, p: dst.name}) : r);
   if(COVERAGES[srcPid]){
@@ -1840,37 +1845,76 @@ function doMergePerson(srcPid, dst, opts){
     COVERAGES[dst.pid] = rec;
   }
   delete SHARES[srcPid];
+}
+function doMergePerson(srcPid, dst, opts){
+  mergePersonData(srcPid, dst, opts);
   selectedCovCustomer = dst.pid;
   persistLocal(); scheduleSave(); renderAll();
   showToast(`✅ '${dst.name}' 님으로 합쳤어요`);
 }
 // 보맵은 가족의 이름을 '조*건' 처럼 별표로 가려서 준다. 그 보험이 누구 것인지 설계사가 골라 실제 사람(계약이 있는 기존 고객 포함)에게 보낸다.
 // 고른 결과는 보맵 고객 기록의 insuredMap 에 남겨서, 다시 가져와도 같은 사람에게 간다. (사용자 요청 2026-11-19)
+// 또 고객 본인이 계약자인 계약의 가입자(피보험자) 중 글자가 맞는 사람이 딱 한 명이면 보맵 가져오기 때 자동으로 그 사람으로 본다 (같은 사람이 둘로 나뉘지 않게)
 const isMaskedName = n => /[*＊]/.test(String(n || ''));
 function maskPattern(n){ return new RegExp('^' + String(n).trim().replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/[*＊]/g, '.') + '$'); }
+function bmMainPidOf(pid){                                         // 이 기록(또는 가려진 가족 기록)이 딸린 보맵 고객 본인의 기록
+  const b = isPlain(COVERAGES[pid]) && isPlain(COVERAGES[pid].bomapp) ? COVERAGES[pid].bomapp : null;
+  if(!b || b.memberId == null) return null;
+  return Object.keys(COVERAGES).find(k => isPlain(COVERAGES[k]) && isPlain(COVERAGES[k].bomapp) && COVERAGES[k].bomapp.memberId === b.memberId && !COVERAGES[k].bomapp.insured) || null;
+}
+function setInsuredAlias(mainPid, masked, dstPid){
+  if(!mainPid || !isPlain(COVERAGES[mainPid]) || !isMaskedName(masked)) return;
+  const rec = COVERAGES[mainPid];
+  COVERAGES[mainPid] = Object.assign({}, rec, {insuredMap: Object.assign({}, isPlain(rec.insuredMap) ? rec.insuredMap : {}, {[masked]: dstPid})});
+}
+function maskedCandidate(masked, holder){                          // 계약자가 holder 인 계약의 가입자 중 이름 글자가 맞는 실제 사람이 딱 한 명이면 그 사람
+  const h = String(holder || '').trim(); if(!h || !isMaskedName(masked)) return null;
+  const rx = maskPattern(masked);
+  const hits = peopleList().filter(p => !isMaskedName(p.name) && rx.test(p.name) && p.cs.some(r => String(r.c || '').trim() === h));
+  return hits.length === 1 ? hits[0] : null;
+}
+function bmHolderName(pid){ const m = bmMainPidOf(pid); return personName(m || pid); }
 function maskNoticeHtml(pid, name){
   if(!isMaskedName(name)) return '';
+  const cand = maskedCandidate(name, bmHolderName(pid));
   return `<div style="margin:0 0 12px;padding:10px 12px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;font-size:12.5px;color:#92400E;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
     <span>⚠️ 보맵이 이름을 <b>${esc(name)}</b> 처럼 가려서 줬어요. 누구 보험인지 골라서 그 사람 것으로 보낼 수 있어요 (기존 고객도 돼요).</span>
-    <button type="button" class="btn btn-primary btn-sm" data-pid="${esc(pid)}" onclick="assignMaskedPerson(this.dataset.pid)">👤 누구 보험인지 지정</button></div>`;
+    ${cand ? `<button type="button" class="btn btn-primary btn-sm" data-pid="${esc(pid)}" data-dst="${esc(cand.pid)}" onclick="linkMaskedTo(this.dataset.pid,this.dataset.dst)">⭐ ${esc(cand.name)} 님으로 연결</button>` : ''}
+    <button type="button" class="btn ${cand ? 'btn-secondary' : 'btn-primary'} btn-sm" data-pid="${esc(pid)}" onclick="assignMaskedPerson(this.dataset.pid)">👤 누구 보험인지 지정</button></div>`;
+}
+function applyMaskedAssign(srcPid, dst){
+  const masked = String((peopleList().find(p => p.pid === srcPid) || {}).name || '').trim();
+  setInsuredAlias(bmMainPidOf(srcPid), masked, dst.pid);           // 합치기 전에 (합치면 가려진 쪽 기록이 사라짐)
+  doMergePerson(srcPid, dst, {masked: true});
+}
+function linkMaskedTo(srcPid, dstPid){
+  const src = peopleList().find(p => p.pid === srcPid), dst = peopleList().find(p => p.pid === dstPid); if(!src || !dst) return;
+  if(!confirm(`'${src.name}' 의 보험·보장분석을 '${dst.label}' 님 것으로 보냅니다.\n다음에 보맵을 다시 가져와도 '${src.name}' 보험은 '${dst.label}' 님에게 들어가요. 계속할까요?`)) return;
+  applyMaskedAssign(srcPid, dst);
 }
 function assignMaskedPerson(srcPid){
   const src = peopleList().find(p => p.pid === srcPid); if(!src) return;
   const masked = String(src.name || '').trim();
   const others = peopleList().filter(p => p.pid !== srcPid && !isMaskedName(p.name));
-  if(!others.length){ showToast('고를 수 있는 다른 사람이 없어요'); return; }
   const rx = isMaskedName(masked) ? maskPattern(masked) : null;
   const sim = others.filter(p => rx && rx.test(p.name)), ordered = [...sim, ...others.filter(p => !sim.includes(p))];
-  const menu = ordered.map((p, i) => `${i + 1}. ${sim.includes(p) ? '⭐ ' : ''}${p.label} — ${describePerson(p)}`).join('\n');
+  const menu = ['0. ＋ 목록에 없는 새 사람 만들기 (이름 입력)', ...ordered.map((p, i) => `${i + 1}. ${sim.includes(p) ? '⭐ ' : ''}${p.label} — ${describePerson(p)}`)].join('\n');
   const ans = prompt(`'${masked}' (이름이 가려진 보험)을 누구 것으로 보낼까요?${sim.length ? '\n⭐ = 이름 글자가 맞는 사람' : ''}\n\n${menu}\n\n번호를 입력해주세요 (취소하거나 비워두면 그대로 둬요)`);
+  if(ans === null || String(ans).trim() === '') return;
   const n = parseInt(ans, 10);
-  if(!(n >= 1 && n <= ordered.length)) return;
-  const dst = ordered[n - 1];
-  if(!confirm(`'${masked}' 의 보험·보장분석을 '${dst.label}' 님 것으로 보냅니다.\n다음에 보맵을 다시 가져와도 '${masked}' 보험은 '${dst.label}' 님에게 들어가요. 계속할까요?`)) return;
-  const b = isPlain(COVERAGES[srcPid]) && isPlain(COVERAGES[srcPid].bomapp) ? COVERAGES[srcPid].bomapp : null;
-  const mainPid = b && b.memberId != null ? Object.keys(COVERAGES).find(k => isPlain(COVERAGES[k]) && isPlain(COVERAGES[k].bomapp) && COVERAGES[k].bomapp.memberId === b.memberId && !COVERAGES[k].bomapp.insured) : null;
-  if(mainPid){ const rec = COVERAGES[mainPid]; COVERAGES[mainPid] = Object.assign({}, rec, {insuredMap: Object.assign({}, isPlain(rec.insuredMap) ? rec.insuredMap : {}, {[masked]: dst.pid})}); }
-  doMergePerson(srcPid, dst, {masked: true});
+  if(!(n >= 0 && n <= ordered.length)) return;
+  let dst;
+  if(n === 0){                                              // 고객 리스트에 없던 사람(예: 가족) → 이름을 넣어 새로 만들고 그 사람 것으로 (사용자 요청 2026-11-19)
+    const nm = String(prompt(`'${masked}' 의 실제 이름을 입력해주세요 (예: 조해인)`, '') || '').trim().slice(0, 40);
+    if(!nm) return;
+    if(isMaskedName(nm)){ showToast('별표(*)가 없는 실제 이름을 입력해주세요'); return; }
+    if(peopleList().some(p => p.name === nm)){ showToast(`'${nm}' 님은 이미 있어요 — 번호로 골라주세요`); return; }
+    const np = newPid();
+    COVERAGES[np] = {policies: [], person: {name: nm, src: 'split', familyPid: rootFamilyPid(srcPid)}};
+    dst = {pid: np, name: nm, label: nm};
+  } else dst = ordered[n - 1];
+  if(!confirm(`'${masked}' 의 보험·보장분석을 '${dst.label}' 님 것으로 보냅니다.\n다음에 보맵을 다시 가져와도 '${masked}' 보험은 '${dst.label}' 님에게 들어가요. 계속할까요?`)){ if(n === 0) delete COVERAGES[dst.pid]; return; }
+  applyMaskedAssign(srcPid, dst);
 }
 // 이름이 같은 서로 다른 사람이 한 사람으로 묶여 있을 때, 일부 계약을 새로운 사람으로 분리해요
 function splitPerson(pid){
@@ -2594,6 +2638,24 @@ function gmDelete(i){
 }
 function toggleProspectDetail(pid){ const k = 'p:' + pid; expandedCustomer = expandedCustomer === k ? null : k; renderCustomers(); }
 function setCustKind(k){ window._custKind = k; renderCustomers(); }
+// 🔎 정리가 필요한 보험: 이름이 별표로 가려진 사람, 피보험자가 그 사람이 아닌 보험(다른 사람 보험이 잘못 섞임)을 한곳에 모아 바로 옮기게 한다. (사용자 요청 2026-11-19)
+function cleanupItems(){
+  const items = [];
+  peopleList().forEach(p => {
+    if(isMaskedName(p.name)){ items.push({kind: 'person', pid: p.pid, name: p.name, n: covPolicyCount(p.pid), cand: maskedCandidate(p.name, bmHolderName(p.pid))}); return; }
+    const fi = foreignInsureds(p.pid);
+    Object.keys(fi).forEach(ins => items.push({kind: 'policies', pid: p.pid, who: p.name, ins, n: fi[ins].length, cand: isMaskedName(ins) ? maskedCandidate(ins, bmHolderName(p.pid)) : null}));
+  });
+  return items;
+}
+function cleanupPanelHtml(){
+  const items = cleanupItems(); if(!items.length) return '';
+  const btn = (cls, label, fn, a, b, c) => `<button type="button" class="btn ${cls} btn-sm" data-a="${esc(a)}" data-b="${esc(b || '')}" data-c="${esc(c || '')}" onclick="${fn}(this.dataset.a,this.dataset.b${c ? ',this.dataset.c' : ''})">${label}</button>`;
+  const rows = items.map(it => it.kind === 'person'
+    ? `<div class="cl-row"><span>🌱 <b>${esc(it.name)}</b> <span class="rm-fine">(가려진 이름 · 보험 ${it.n}건)</span></span><span>${it.cand ? btn('btn-primary', `⭐ ${esc(it.cand.name)} 님으로 연결`, 'linkMaskedTo', it.pid, it.cand.pid) : ''}${btn('btn-secondary', '👤 누구 보험인지 지정', 'assignMaskedPerson', it.pid)}</span></div>`
+    : `<div class="cl-row"><span><b>${esc(it.who)}</b> 님 쪽에 피보험자가 <b>${esc(it.ins)}</b> 인 보험 ${it.n}건</span><span>${it.cand ? btn('btn-primary', `⭐ ${esc(it.cand.name)} 님으로 옮기기`, 'moveInsuredPolicies', it.pid, it.ins, it.cand.pid) : ''}${btn('btn-secondary', '➡️ 옮기기', 'moveInsuredPolicies', it.pid, it.ins)}</span></div>`).join('');
+  return `<details class="cl-panel"${items.length <= 8 ? ' open' : ''}><summary>🔎 정리가 필요한 보험 ${items.length}건 <span class="rm-fine">— 이름이 가려졌거나 다른 사람 보험이 섞여 있어요</span></summary>${rows}</details>`;
+}
 function kindChipsHtml(nMember, nPros, sel){
   const chip = (k, label, n) => `<button type="button" class="kind-chip${sel === k ? ' on' : ''}" onclick="setCustKind('${k}')">${label} <b>${n}</b></button>`;
   return `<div class="kind-filter">${chip('all', '전체', nMember + nPros)}${chip('member', '✓ 가입자', nMember)}${chip('prospect', '🌱 예비 고객', nPros)}<button type="button" class="kind-chip kind-mgr" onclick="openGroupManager()">🗂️ 그룹 관리</button></div>`;
@@ -2632,16 +2694,63 @@ function prospectPolicyTableHtml(p){
     <button type="button" class="btn btn-primary btn-sm" data-pid="${esc(p.pid)}" data-ins="${esc(nm)}" onclick="moveInsuredPolicies(this.dataset.pid,this.dataset.ins)">➡️ 모두 옮기기</button></div>`).join('');
   return head + foreignBar + `<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr style="background:var(--surface2)">
     ${['가입일', '상태', '보험회사', '보험명', '월보험료', ''].map(h => `<th style="padding:6px 10px;text-align:left;font-weight:600;color:var(--muted);white-space:nowrap">${h}</th>`).join('')}</tr></thead>
-    <tbody>${rows.map((o, i) => `<tr style="border-bottom:1px dashed var(--border);background:${i % 2 ? '#F7FDF9' : '#fff'}">
+    <tbody>${rows.map((o, i) => `<tr class="pol-row" title="눌러서 보험 정보·보장 내역 보기" onclick="openPolicyPopup('${esc(p.pid)}',${jsId(o.x.id)})" style="cursor:pointer;border-bottom:1px dashed var(--border);background:${i % 2 ? '#F7FDF9' : '#fff'}">
       <td style="padding:7px 10px;color:var(--muted);white-space:nowrap">${esc(o.d || '')}</td>
       <td style="padding:7px 10px;white-space:nowrap">${esc(o.st || '')}</td>
       <td style="padding:7px 10px;white-space:nowrap">${esc(o.co || '')}</td>
       <td style="padding:7px 10px;font-weight:500">${esc(o.n || '')}${o.dk.some(k => dupN[k] > 1) ? ' <span class="pol-dup" title="같은 보험이 두 번 들어가 있을 수 있어요. 하나를 지워주세요">⚠️ 중복 의심</span>' : ''}${foreignOf[String(o.x.id)] ? ` <span class="rm-fine" style="white-space:nowrap">피보험자 ${esc(foreignOf[String(o.x.id)])}</span>` : ''}</td>
       <td style="padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">${o.pr ? wonN(o.pr) + '원' : '-'}</td>
-      <td style="padding:7px 10px;text-align:right;white-space:nowrap">${proposalLinkHtml(o.pu, true)}<button type="button" class="btn btn-secondary btn-sm" title="이 보험을 다른 사람 것으로 옮기기 (목록에 없는 사람은 새로 만들 수 있어요)" onclick="movePolicyTo('${esc(p.pid)}',${jsId(o.x.id)})">➡️ 옮기기</button> <button type="button" class="btn btn-secondary btn-sm" title="이 보험 삭제 (중복 정리)" onclick="deletePolicy('${esc(p.pid)}',${jsId(o.x.id)})">🗑</button></td></tr>`).join('')}</tbody></table>
+      <td style="padding:7px 10px;text-align:right;white-space:nowrap">${proposalLinkHtml(o.pu, true)}<button type="button" class="btn btn-secondary btn-sm" title="이 보험을 다른 사람 것으로 옮기기 (목록에 없는 사람은 새로 만들 수 있어요)" onclick="event.stopPropagation();movePolicyTo('${esc(p.pid)}',${jsId(o.x.id)})">➡️ 옮기기</button> <button type="button" class="btn btn-secondary btn-sm" title="이 보험 삭제 (중복 정리)" onclick="event.stopPropagation();deletePolicy('${esc(p.pid)}',${jsId(o.x.id)})">🗑</button></td></tr>`).join('')}</tbody></table>
     <div style="margin-top:10px;padding:10px 12px;background:#ECFDF5;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:12px;color:var(--green)">월 합계 보험료 (가져온 보험)</span><span style="font-size:14px;font-weight:700;color:var(--green)">${wonN(sum)}원 / 연 ${wonN(sum * 12)}원</span></div>`;
 }
+// 고객별 탭에서 보험 한 줄을 누르면 뜨는 상세 팝업: 보험 정보 + 보장(담보) 내역 (사용자 요청 2026-11-19). 읽기 전용, 내 계약·보맵·외부·기존 보험 모두.
+function policyPopupHtml(pid, polId){
+  const c = CONTRACTS.find(x => String(x.id) === String(polId) && cpid(x) === pid) || null;
+  const rec = isPlain(COVERAGES[pid]) ? COVERAGES[pid] : {};
+  const find = flds => { for(const k of flds){ const hit = (Array.isArray(rec[k]) ? rec[k] : []).find(x => isPlain(x) && String(x.id) === String(polId)); if(hit) return hit; } return null; };
+  const pol = c ? find(['policies']) : find(['externalPolicies', 'otherPolicies']);
+  if(!c && !pol) return null;
+  const co = c ? c.co : pol.co, nm = c ? c.n : (pol.n || pol.name), pr = c ? c.pr : (pol.pr != null ? pol.pr : pol.price);
+  const b = pol && isPlain(pol.bm) ? pol.bm : null;
+  const kv = (k, v) => v ? `<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px dashed var(--border);font-size:13px"><span style="width:84px;flex:none;color:var(--muted)">${k}</span><span style="flex:1;word-break:break-all">${v}</span></div>` : '';
+  const facts = [
+    kv('보험사', esc(co || '')), kv('보험명', esc(nm || '')),
+    kv('상태', c ? sbadge(c.s) : esc((b && b.status) || (pol && pol.status) || '')),
+    kv('가입일', esc(c ? c.d : (b && b.issue) || '')), kv('만기', esc(b && b.maturity || '')),
+    kv('월보험료', pr ? wonN(pr) + '원' : ''),
+    kv('계약자', esc(c ? c.c : (b && b.holder) || '')), kv('피보험자', esc(c ? c.p : (b && b.insured) || '')),
+    kv('증권번호', esc((c ? c.pn : pol && pol.pn) || '')),
+    kv('납입 · 보장', esc([pol && pol.payPeriod, pol && pol.covPeriod, pol && pol.renewable].filter(Boolean).join(' · '))),
+    c && MEMOS[c.id] ? kv('메모', esc(MEMOS[c.id]).replace(/\n/g, '<br>')) : '',
+  ].join('');
+  const links = [proposalLinkHtml(c ? c.proposalUrl : pol && pol.proposalUrl), termsUrlOf(pol) ? `<a class="bm-link" href="${esc(termsUrlOf(pol))}" target="_blank" rel="noopener">📜 약관 보기</a>` : ''].filter(Boolean).join(' ');
+  const items = pol && Array.isArray(pol.items) ? pol.items.filter(isPlain) : [];
+  const amt = it => { const a = parseFloat(it.amount); return !(a > 0) ? '-' : (!it.unit || it.unit === '만원') ? manWon(a) : esc(a + String(it.unit)); };
+  const rows = items.map(it => `<tr style="border-bottom:1px dashed var(--border)"><td style="padding:6px 8px">${esc(it.name || '')}</td><td style="padding:6px 8px;text-align:right;white-space:nowrap">${amt(it)}</td><td style="padding:6px 8px;text-align:right;white-space:nowrap">${parseFloat(it.price) > 0 ? wonN(it.price) + '원' : '-'}</td><td style="padding:6px 8px;color:var(--muted);white-space:nowrap">${esc(it.until || '')}</td></tr>`).join('');
+  return `<div style="background:var(--surface);border-radius:14px;max-width:640px;width:100%;max-height:88vh;overflow:auto;padding:20px 22px;box-shadow:0 12px 40px rgba(0,0,0,.25)" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px">
+      <div><div style="font-size:12px;color:var(--muted)">${esc(personLabel(pid))} 님의 보험</div><div style="font-size:16px;font-weight:700">${esc(shortCo(co))} · ${esc(nm || '')}</div></div>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closePolicyPopup()">✕ 닫기</button></div>
+    ${facts}${links ? `<div style="margin:10px 0 0">${links}</div>` : ''}
+    ${b ? bmPolicyInfoHtml(pol, false, false) : ''}
+    <div style="font-size:13px;font-weight:700;margin:16px 0 6px">🛡️ 보장 내역 (${items.length}개)</div>
+    ${items.length ? `<table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:var(--surface2)"><th style="padding:6px 8px;text-align:left;font-weight:600;color:var(--muted)">담보명</th><th style="padding:6px 8px;text-align:right;font-weight:600;color:var(--muted)">가입금액</th><th style="padding:6px 8px;text-align:right;font-weight:600;color:var(--muted)">보험료</th><th style="padding:6px 8px;text-align:left;font-weight:600;color:var(--muted)">만기</th></tr></thead><tbody>${rows}</tbody></table>`
+      : '<div class="rm-fine">아직 입력된 보장 내역이 없어요. 보장분석 탭에서 제안서(PDF)를 분석하거나 담보를 직접 넣을 수 있어요.</div>'}
+    ${bmExtraItemsHtml(pol, false)}
+    <div style="margin-top:14px;text-align:right"><button type="button" class="btn btn-primary btn-sm" data-pid="${esc(pid)}" onclick="closePolicyPopup();openCovCustomer(this.dataset.pid)">📋 보장분석에서 보기</button></div>
+  </div>`;
+}
+function openPolicyPopup(pid, polId){
+  const html = policyPopupHtml(pid, polId); if(!html){ showToast('보험 정보를 찾을 수 없어요'); return; }
+  closePolicyPopup();
+  const ov = document.createElement('div'); ov.id = 'policy-popup';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.setAttribute('onclick', 'closePolicyPopup()');
+  ov.innerHTML = html;
+  document.body.appendChild(ov);
+}
+function closePolicyPopup(){ const el = document.getElementById('policy-popup'); if(el) el.remove(); }
 function renderCustomers() { try {
   const cm={};
   CONTRACTS.forEach(r=>{
@@ -2657,7 +2766,7 @@ function renderCustomers() { try {
   const showMembers = kindSel !== 'prospect', showPros = kindSel !== 'member';
 
   document.getElementById('pane-고객별').innerHTML=`
-    ${kindChipsHtml(cs.length, pros.length, kindSel)}
+    ${cleanupPanelHtml()}${kindChipsHtml(cs.length, pros.length, kindSel)}
     <div class="tbl-wrap"><table>
     <thead><tr>
       <th>#</th><th>계약자</th><th>구분</th><th>그룹</th><th>건수</th><th>월보험료</th><th>연보험료</th><th>보험 목록</th>
@@ -2690,7 +2799,7 @@ function renderCustomers() { try {
                 ${['가입일','상태','보험회사','보험명','월보험료',''].map(h=>`<th style="padding:6px 10px;text-align:left;font-weight:600;color:var(--muted);white-space:nowrap">${h}</th>`).join('')}
               </tr></thead>
               <tbody>${c.rows.sort((a,b)=>String(a.d||'').localeCompare(String(b.d||''))).map((r,ri)=>`
-                <tr style="border-bottom:1px dashed var(--border);background:${ri%2?'#F8FAFF':'#fff'}">
+                <tr class="pol-row" title="눌러서 보험 정보·보장 내역 보기" onclick="openPolicyPopup('${esc(cpid(r))}',${jsId(r.id)})" style="cursor:pointer;border-bottom:1px dashed var(--border);background:${ri%2?'#F8FAFF':'#fff'}">
                   <td style="padding:7px 10px;color:var(--muted);white-space:nowrap">${esc(r.d||'')}</td>
                   <td style="padding:7px 10px">${sbadge(r.s)}</td>
                   <td style="padding:7px 10px;white-space:nowrap">${esc(r.co)}</td>
@@ -3515,8 +3624,12 @@ function bmPolicyRecord(p, old, newId, at){
 // 사람 찾기: 전에 가져온 보맵 고객 → 같은 이름 한 명 → 새 사람
 // 보맵 보험의 피보험자: 고객 본인이면 '', 가족이면 그 이름
 function bmInsuredOf(p, c){
-  const n = String(p.primaryInsuredName || '').trim();
-  return (p.isPrimaryInsuredMyself === true || !n || n === String(c.name || '').trim()) ? '' : n;
+  const n = String(p.primaryInsuredName || '').trim(), me = String(c.name || '').trim();
+  if(!n || n === me) return '';
+  // 보맵이 "본인"이라고 표시했어도, 이름이 가려져('조*건') 있고 이 고객 이름과 글자가 안 맞으면 다른 사람(가족) 보험이다
+  // (실제로 '본인' 표시가 붙은 가족 어린이보험이 고객 본인 쪽에 들어가던 문제, 2026-11-19)
+  if(p.isPrimaryInsuredMyself === true) return (isMaskedName(n) && !maskPattern(n).test(me)) ? n : '';
+  return n;
 }
 // 이 보맵 보험이 이미 들어가 있는 사람 (사용자가 분리·합치기로 옮겨 둔 곳 포함 — 그 사람에게 그대로 갱신)
 function bmPolicyHome(insuranceId){
@@ -3526,11 +3639,33 @@ function bmPolicyHome(insuranceId){
   }
   return null;
 }
-function bmFamilyPerson(c, insured, mainPid, res){
-  const mid = c.memberId;
-  // 설계사가 "이 가려진 이름은 이 사람"이라고 골라 둔 곳이 있으면 거기로 (insuredMap, 대상이 지워졌으면 무시)
+// 가려진 이름(조*건)의 보험이 누구 것인지 정하는 근거 (위에서부터): ① 설계사가 골라 둔 곳(insuredMap) ② 이 고객이 계약자인 계약의 가입자 중 글자가 맞는 한 명
+// ③ 이미 있는 사람 중 글자가 맞는 한 명이 같은 보험(보험사·상품명·가입일)을 갖고 있음 — 다른 보맵 계정에서 가져온 본인 쪽 기록과 같은 보험. (모두 못 정하면 null)
+function maskedCandidateByPolicy(masked, p){
+  if(!isMaskedName(masked) || !isPlain(p)) return null;
+  const rx = maskPattern(masked), dg = s => String(s || '').replace(/\D/g, '');
+  const co = bmCorpKey(p.insurerName), pn = bmProdKey(p.productName), is = dg(p.issueDate);
+  if(!co || !pn || !is) return null;
+  const hits = peopleList().filter(x => !isMaskedName(x.name) && rx.test(x.name) && ['externalPolicies', 'otherPolicies'].some(f => ((COVERAGES[x.pid] || {})[f] || []).some(y => isPlain(y) && isPlain(y.bm) && bmCorpKey(y.co) === co && bmProdKey(y.n || y.name) === pn && dg(y.bm.issue) === is)));
+  return hits.length === 1 ? hits[0] : null;
+}
+function maskedTarget(mainPid, c, insured, pol){                    // 가려진 이름의 보험을 보낼 사람 pid (없으면 null). 새로 알아낸 연결은 insuredMap 에 남긴다
+  if(!isMaskedName(insured)) return null;
   const mm = isPlain(COVERAGES[mainPid]) && isPlain(COVERAGES[mainPid].insuredMap) ? COVERAGES[mainPid].insuredMap[insured] : null;
-  if(mm && mm !== mainPid && peopleList().some(x => x.pid === mm)){ res.family.push(insured); return mm; }
+  if(mm && mm !== mainPid && peopleList().some(x => x.pid === mm)) return mm;
+  const auto = maskedCandidate(insured, c.name) || maskedCandidateByPolicy(insured, pol);
+  if(auto && auto.pid !== mainPid){ setInsuredAlias(mainPid, insured, auto.pid); return auto.pid; }
+  return null;
+}
+function bmFamilyPerson(c, insured, mainPid, res, pol){
+  const mid = c.memberId;
+  const mm = maskedTarget(mainPid, c, insured, pol);
+  if(mm){                                                  // 이미 따로 만들어진 가려진 기록이 있으면 그 사람에게 합친다 (피보험자는 한 명의 고객)
+    const old = Object.keys(COVERAGES).find(k => k !== mm && isPlain(COVERAGES[k]) && isPlain(COVERAGES[k].bomapp) && COVERAGES[k].bomapp.memberId === mid && COVERAGES[k].bomapp.insured === insured);
+    if(old) mergePersonData(old, {pid: mm, name: personName(mm)}, {masked: true});
+    res.family.push(insured);
+    return mm;
+  }
   const found = Object.keys(COVERAGES).find(k => isPlain(COVERAGES[k]) && isPlain(COVERAGES[k].bomapp) && COVERAGES[k].bomapp.memberId === mid && COVERAGES[k].bomapp.insured === insured);
   if(found) return found;
   // 계약 리스트에 이미 피보험자로 있는 사람이면 그 사람 기록에 보맵 연결을 붙여 쓴다 (새 pid 를 만들지 않음)
@@ -3621,9 +3756,12 @@ function importBomappData(data){
       const ins = bmInsuredOf(p, c);
       const home = bmPolicyHome(p.insuranceId);
       let pid;
-      if(home && (home !== mainPid || !ins || linkedAt(home, p.insuranceId))) pid = home;   // 직접 옮겨 둔 곳·내 계약 연결은 그대로
+      // 이미 "가려진 이름(조*건)" 기록으로 따로 들어가 있어도, 지금은 계약 리스트에서 같은 사람이 확인되면 그 사람으로 합친다 (피보험자는 한 명의 고객)
+      const homeMasked = home && home !== mainPid && ins && isMaskedName(ins) && isPlain(COVERAGES[home]) && isPlain(COVERAGES[home].bomapp) && COVERAGES[home].bomapp.insured === ins;
+      if(homeMasked && maskedTarget(mainPid, c, ins, p)) pid = bmFamilyPerson(c, ins, mainPid, res, p);
+      else if(home && (home !== mainPid || !ins || linkedAt(home, p.insuranceId))) pid = home;   // 직접 옮겨 둔 곳·내 계약 연결은 그대로
       else if(ins){
-        pid = bmFamilyPerson(c, ins, mainPid, res);
+        pid = bmFamilyPerson(c, ins, mainPid, res, p);
         if(home === mainPid){                                   // 예전에 고객 본인 쪽에 같이 들어간 가족 보험 → 가족 쪽으로 옮김 (입력해 둔 약관 링크 등 유지)
           const from = prep(mainPid), to = prep(pid);
           ['externalPolicies', 'otherPolicies'].forEach(fld => {
@@ -3848,13 +3986,17 @@ function foreignInsureds(pid){
   if(!p) return out;
   ['externalPolicies', 'otherPolicies'].forEach(k => (Array.isArray(rec[k]) ? rec[k] : []).forEach(x => {
     const ins = isPlain(x) && isPlain(x.bm) ? String(x.bm.insured || '').trim() : '';
-    if(!ins || x.userMoved || ins === p.name || (isMaskedName(ins) && maskPattern(ins).test(p.name))) return;   // userMoved: 설계사가 직접 옮겨 둔 보험은 다시 경고하지 않음
+    if(!ins || (x.userMoved && !isMaskedName(ins)) || ins === p.name || (isMaskedName(ins) && maskPattern(ins).test(p.name))) return;   // userMoved: 설계사가 직접 옮겨 둔 보험은 다시 경고하지 않음 (단 가려진 이름은 글자가 안 맞으면 계속 알림 — 잘못 옮긴 걸 찾기 위해)
     (out[ins] = out[ins] || []).push(x.id);
   }));
   return out;
 }
-function moveInsuredPolicies(pid, insured){ const ids = foreignInsureds(pid)[insured]; if(ids && ids.length) movePolicies(pid, ids); }
-function movePolicies(fromPid, polIds){
+function moveInsuredPolicies(pid, insured, presetDst){
+  const ids = foreignInsureds(pid)[insured]; if(!ids || !ids.length) return;
+  const mainPid = bmMainPidOf(pid), dst = movePolicies(pid, ids, presetDst);
+  if(dst && isMaskedName(insured)){ setInsuredAlias(mainPid, insured, dst); saveCoverages(); }   // 다시 가져와도 같은 사람에게
+}
+function movePolicies(fromPid, polIds, presetDst){                   // 옮겼으면 대상 pid, 아니면 null
   const rec = isPlain(COVERAGES[fromPid]) ? COVERAGES[fromPid] : null; if(!rec) return;
   const found = [];                                                    // [{fld, x}]
   polIds.forEach(pid0 => {
@@ -3863,18 +4005,22 @@ function movePolicies(fromPid, polIds){
   if(!found.length){ showToast('옮길 수 있는 보험이 아니에요 (내 계약은 계약 수정에서 가입자를 바꿔요)'); return; }
   const others = peopleList().filter(p => p.pid !== fromPid);
   const label = found.length === 1 ? `${shortCo(found[0].x.co)} ${found[0].x.n || found[0].x.name || ''}`.trim() : `보험 ${found.length}건`;
-  const menu = ['0. ＋ 목록에 없는 새 사람 만들기 (이름 입력)', ...others.map((p, i) => `${i + 1}. ${p.label} — ${describePerson(p)}`)].join('\n');
-  const ans = prompt(`'${label}' 을(를) 누구 것으로 옮길까요?\n(지금: ${personLabel(fromPid)})\n\n${menu}\n\n번호를 입력해주세요 (취소하거나 비워두면 그대로 둬요)`);
-  if(ans === null || String(ans).trim() === '') return;
-  const n = parseInt(ans, 10);
-  if(!(n >= 0 && n <= others.length)) return;
   let dstPid, dstName, createdNew = false;
-  if(n === 0){
-    const nm = String(prompt('새로 만들 사람의 이름을 입력해주세요 (예: 딸 이름, 남편 이름)', '') || '').trim().slice(0, 40);
-    if(!nm) return;
-    if(peopleList().some(p => p.name === nm)){ showToast(`'${nm}' 님은 이미 있어요 — 번호로 골라주세요`); return; }
-    dstPid = newPid(); dstName = nm; createdNew = true;
-  } else { dstPid = others[n - 1].pid; dstName = others[n - 1].name; }
+  const presetP = presetDst ? others.find(p => p.pid === presetDst) : null;       // 대상을 이미 정했으면(⭐ 자동 후보) 번호 묻기 생략
+  if(presetP){ dstPid = presetP.pid; dstName = presetP.name; }
+  else {
+    const menu = ['0. ＋ 목록에 없는 새 사람 만들기 (이름 입력)', ...others.map((p, i) => `${i + 1}. ${p.label} — ${describePerson(p)}`)].join('\n');
+    const ans = prompt(`'${label}' 을(를) 누구 것으로 옮길까요?\n(지금: ${personLabel(fromPid)})\n\n${menu}\n\n번호를 입력해주세요 (취소하거나 비워두면 그대로 둬요)`);
+    if(ans === null || String(ans).trim() === '') return;
+    const n = parseInt(ans, 10);
+    if(!(n >= 0 && n <= others.length)) return;
+    if(n === 0){
+      const nm = String(prompt('새로 만들 사람의 이름을 입력해주세요 (예: 딸 이름, 남편 이름)', '') || '').trim().slice(0, 40);
+      if(!nm) return;
+      if(peopleList().some(p => p.name === nm)){ showToast(`'${nm}' 님은 이미 있어요 — 번호로 골라주세요`); return; }
+      dstPid = newPid(); dstName = nm; createdNew = true;
+    } else { dstPid = others[n - 1].pid; dstName = others[n - 1].name; }
+  }
   if(!confirm(`'${label}' 을(를) '${dstName}' 님 것으로 옮깁니다. 계속할까요?\n(옮기기 직전 상태는 이 기기 체크포인트로 남겨요)`)) return;
   saveCheckpoint('보험 이동 전');
   if(createdNew){
@@ -3895,6 +4041,7 @@ function movePolicies(fromPid, polIds){
   COVERAGES[fromPid] = src; COVERAGES[dstPid] = dst;
   saveCoverages(); renderAll();
   showToast(`✅ '${label}' 을(를) '${dstName}' 님 것으로 옮겼어요`);
+  return dstPid;
 }
 // ── 🧹 보장분석 자료 점검·정리 (사용자 요청 2026-11-12) ─────────────
 // 계획(covTidyPlan)은 데이터를 바꾸지 않고 세기만 하고, 적용(covTidyApply)은 체크포인트를 남긴 뒤 한 번에 고친다.
