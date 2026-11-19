@@ -45,9 +45,9 @@ ok(D.get(`rootFamilyPid('${idOf('조해인')}') === rootFamilyPid('${jp}')`), '�
 
 console.log('D) 이미 있는 사람에게 옮기기 · 같은 이름 새로 만들기 거절 · 다시 가져와도 그 자리 유지');
 const cid = D.get(`COVERAGES['${jp}'].externalPolicies.find(x=>x.n==='치료비안심보험').id`);
-D.promptQ.push('0'); D.promptQ.push('김아름');                    // 이미 있는 이름으로는 새로 못 만듦
+D.promptQ.push('0'); D.promptQ.push('김아름'); D.confirmQ.push(false);   // 이미 있는 이름 → "그 사람 것으로 옮길까요?" 에서 아니오
 D.run(`movePolicyTo('${jp}', ${cid})`);
-ok(ext('조종연').includes('치료비안심보험') && nPeople('김아름') === 1, '이미 있는 이름이면 새로 만들지 않고 안내');
+ok(ext('조종연').includes('치료비안심보험') && nPeople('김아름') === 1, '이미 있는 이름이면 새로 만들지 않고 물어봄 (아니오 하면 그대로)');
 const list = D.get(`peopleList().filter(p=>p.pid!=='${jp}').map(p=>p.name)`);
 D.promptQ.push(String(list.indexOf('김아름') + 1)); D.confirmQ.push(true);
 D.run(`movePolicyTo('${jp}', ${cid})`);
