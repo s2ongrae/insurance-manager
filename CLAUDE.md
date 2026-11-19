@@ -176,3 +176,8 @@
 - **끝**: 테스트 → 한 가지씩 커밋 → 즉시 `git push` → `agent-lock unlock <레포>` → `pcbeat done`.
 - **금지**: `push --force`·`reset --hard`·충돌 파일 통째 덮어쓰기·남의 `agent/…`·`auto/…` 브랜치 수정·`status/agent.json` 직접 수정(피클 전용). 키·주소·고객 정보는 어디에도 넣지 않는다.
 - 전체 규칙·한계·설치: `s2ongrae.github.io` 의 `docs/AGENT_COORDINATION.md`, 도구 `tools/agent-lock.ps1`.
+
+## ECC 스킬 (2026-11-19)
+
+- `affaan-m/ECC` v2.2.3에서 이 앱의 두 위험에 직접 쓰는 2개만 골라 `.claude/skills/ecc-*/`에 넣었다 — `ecc-healthcare-phi-compliance`(고객 PII 분류·응답 칸·로그/URL/저장소 누출 경로) · `ecc-verification-loop`(커밋 전 diff 리뷰 — 함수 삭제·중복 선언 사고).
+- 본문은 영어 원문 그대로, 앞머리에 이 레포 기준 한국어 메모. 고른 이유·갱신은 `.claude/skills/ECC.md`. **부딪히면 이 CLAUDE.md와 `tests/security.test.js`가 우선한다.**
