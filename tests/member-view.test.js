@@ -84,6 +84,18 @@ ok(D.get(`remodelRoleOf('${jid}', {id:${ex[0]}})`) === 'after' && D.get(`remodel
 D.get('importBomappData(__f)');
 ok(D.get(`COVERAGES['${jid}'].externalPolicies.length`) === 2, '다시 가져와도 중복 안 생김');
 
+console.log('H) 가족이 피보험자인 보험: 특약이 전부 "내 계약 아님"으로 와도 그 가족 몫 담보로 들어옴 (조유건 농협 담보가 비던 문제)');
+const famRider = (id, name, ins, mine) => ({ contractId: id, name, joinAmount: 20000000, maturityDate: '2045-01-01', insuredName: ins, contractStatus: '정상', isMyContract: mine });
+D.ctx.__g = { source: 'bomapp-planner', version: 1, exportedAt: '2026-11-19T00:00:00.000Z', customers: [{ plannerMemberId: 7, memberId: 7, name: '김아름', policies: [
+  pol(1, '김아름', '김아름', true), pol(2, '조*건', '김아름'), pol(3, '조*건', '김*름'), pol(4, '조*인', '김*름'),
+  Object.assign(pol(8, '조*건', '김아름'), { riders: [famRider(81, '농협특약A', '조*건', false), famRider(82, '농협특약B', '조*건', false), famRider(83, '다른사람 특약', '박*수', false)] })] }] };
+D.get('importBomappData(__g)');
+const nh = D.get(`COVERAGES['${jid}'].externalPolicies.find(x=>x.bm.id===8)`);
+ok(nh.items.map(i => i.name).sort().join() === '농협특약A,농협특약B', '같은 피보험자(조*건)의 특약 2개는 담보로');
+ok(nh.bm.extra.length === 1 && nh.bm.extra[0].name === '다른사람 특약', '피보험자가 다른 사람(박*수)인 특약만 따로(합계에 안 넣음)');
+const own = D.get(`COVERAGES['${pidOf('김아름')}'].externalPolicies.find(x=>x.bm.id===1)`);
+ok(own.items.length === 1 && own.bm.extra.length === 0, '고객 본인 보험은 예전처럼');
+
 console.log(`\n가입자 기준 화면 테스트: ${pass}건 통과, ${fail}건 실패`);
 process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

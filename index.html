@@ -3605,7 +3605,9 @@ function bmPolicyRecord(p, old, newId, at){
     const it = {name: String(r.name), amount: (Number(r.joinAmount)||0)/10000, unit:'만원', price:0,
       until: bmDate(r.maturityDate), bmStd: std.slice(0,8)};
     if(r.contractStatus && r.contractStatus!=='정상'){ it.st = String(r.contractStatus); extra.push(it); }
-    else if(r.isMyContract===false){ it.who = String(r.insuredName||''); extra.push(it); }
+    // "내 계약 아님"이어도 그 특약의 피보험자가 이 보험의 피보험자와 같으면 이 보험(= 그 가족 몫)의 담보다.
+    // (고객 본인이 아닌 가족 피보험자의 보험은 특약이 전부 isMyContract=false 로 와서 담보가 하나도 안 잡히던 문제, 2026-11-19)
+    else if(r.isMyContract===false && !(String(r.insuredName||'').trim() && String(r.insuredName).trim() === String(p.primaryInsuredName||'').trim())){ it.who = String(r.insuredName||''); extra.push(it); }
     else items.push(it);
   });
   const o = isPlain(old) ? old : {};
