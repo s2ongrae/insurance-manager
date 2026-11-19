@@ -2351,7 +2351,7 @@ function prospectGroupRowHtml(p){
   const who = `<td style="font-weight:600">${esc(p.label)} <span class="cov-prospect">예비</span>${profileHintHtml(p.name)}</td><td style="color:var(--muted)">${esc(p.name)}</td>`;
   const badge = '<td><span class="kind-badge kind-prospect">🌱 계약 전</span></td>';
   const go = `<button type="button" class="btn btn-secondary btn-sm" data-pid="${esc(p.pid)}" onclick="openCovCustomer(this.dataset.pid)" title="보장분석 보기">📋</button>`;
-  const sel = groupSelectHtml(prospectGroupOf(p.name), p.name);
+  const sel = groupSelectHtml(prospectGroupOf(p.name), p.name, true);
   if(!pols.length) return `<tr class="pros-tr">${who}<td style="color:var(--hint)">-</td><td style="color:var(--hint)">-</td>
     <td colspan="2" style="color:var(--muted);font-size:12px">가져온 보험 없음</td><td style="text-align:right;color:var(--hint)">-</td>${badge}<td class="td-act">${sel}${go}</td></tr>`;
   return pols.map((o, i) => `<tr class="pros-tr">${who}
@@ -2494,22 +2494,23 @@ function prospectGroupOf(name){ const g = getProfile(name).group; return g && ha
 // 한 사람이 속한 그룹들: 계약이 있으면 계약의 그룹, 없으면(예비 고객) 고객 정보의 그룹
 function personGroupList(p){ return p.cs.length ? [...new Set(p.cs.map(c => c.g).filter(Boolean))] : [prospectGroupOf(p.name)].filter(Boolean); }
 // 고객(계약자 이름)을 다른 그룹으로: 계약이 있으면 그 계약자의 모든 계약의 그룹을, 없으면(예비 고객) 고객 정보의 그룹을 바꾼다. val: 그룹명 / '' (그룹 없음) / '__new__' (새로 만들기)
-function moveCustomerGroup(name, val){
+// pros=true: 예비 고객 행에서 옮길 때. 이 사람이 다른 사람(가입자) 계약의 계약자이기도 하면, 예전엔 그 계약들의 그룹만 바뀌고 예비 고객 자신의 그룹은 안 바뀌었다(2026-11-19 수정)
+function moveCustomerGroup(name, val, pros){
   let g = String(val || '');
   if(g === '__new__'){
     const nn = prompt('새 그룹 이름을 입력해 주세요'); if(nn === null) return false;
     const r = createGroup(nn); if(!r.ok){ showToast('⚠️ ' + r.error); return false; }
     g = r.name;
   } else if(g && !hasOwn(GROUPS, g)){ showToast('⚠️ 없는 그룹이에요'); return false; }
-  if(CONTRACTS.some(r => r.c === name)) CONTRACTS = CONTRACTS.map(r => r.c === name ? Object.assign({}, r, {g}) : r);
+  if(!pros && CONTRACTS.some(r => r.c === name)) CONTRACTS = CONTRACTS.map(r => r.c === name ? Object.assign({}, r, {g}) : r);
   else setProfile(name, {group: g});
   persistLocal(); scheduleSave(); renderAll();
   showToast(g ? `✅ '${name}' 님을 '${g}' 그룹으로 옮겼어요` : `✅ '${name}' 님의 그룹을 비웠어요`);
   return true;
 }
-function groupSelectHtml(cur, name){
+function groupSelectHtml(cur, name, pros){
   const opts = ['<option value="">(그룹 없음)</option>', ...Object.keys(GROUPS).map(g => `<option value="${esc(g)}"${g === cur ? ' selected' : ''}>${esc(g)}</option>`), '<option value="__new__">＋ 새 그룹 만들기…</option>'];
-  return `<select class="grp-move" data-name="${esc(name)}" onclick="event.stopPropagation()" onchange="if(!moveCustomerGroup(this.dataset.name,this.value))renderAll()">${opts.join('')}</select>`;
+  return `<select class="grp-move" data-name="${esc(name)}"${pros ? ' data-pros="1"' : ''} onclick="event.stopPropagation()" onchange="if(!moveCustomerGroup(this.dataset.name,this.value,this.dataset.pros==='1'))renderAll()">${opts.join('')}</select>`;
 }
 function profileHintHtml(name){
   const pr = getProfile(name);
@@ -2534,7 +2535,7 @@ function customerPanelHtml(name, pid){
       ${f('cp-region', '사는 곳', pr.region, '예) 대전 서구')}${f('cp-addr', '주소', pr.addr, '상세 주소', 'cp-wide')}
     </div>
     <label class="cp-f cp-wide" style="margin-top:8px"><span>메모</span><textarea id="cp-memo" rows="3" maxlength="2000" placeholder="상담 내용·특이사항 등">${esc(pr.memo || '')}</textarea></label>
-    <div class="cp-row"><label class="cp-grp"><span>그룹</span>${groupSelectHtml(cur[0] || '', name)}</label>
+    <div class="cp-row"><label class="cp-grp"><span>그룹</span>${groupSelectHtml(cur[0] || '', name, isPros)}</label>
       ${cur.length > 1 ? `<span class="rm-fine">계약이 ${cur.length}개 그룹에 걸쳐 있어요 — 옮기면 모두 한 그룹으로 모여요</span>` : ''}
       <span style="flex:1"></span>
       ${target ? `<button type="button" class="btn btn-secondary btn-sm" data-pid="${esc(target)}" onclick="openCovCustomer(this.dataset.pid)">📋 보장분석 보기</button>` : ''}
@@ -2624,13 +2625,18 @@ function prospectPolicyTableHtml(p){
   rows.sort((a, b) => String(a.d || '').localeCompare(String(b.d || '')));
   const sum = rows.reduce((s, o) => s + (Number(o.pr) || 0), 0);
   const dupN = {}; rows.forEach(o => { o.dk = [polDupKey({co: o.co, n: o.n}, o.x), bmCorpKey(o.co) + '|' + bmProdKey(o.n)]; o.dk.forEach(k => { dupN[k] = (dupN[k] || 0) + 1; }); });   // 같은 보맵 번호 또는 같은 보험사+상품명 → ⚠️ 중복 의심
-  return head + `<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr style="background:var(--surface2)">
+  // 피보험자가 이 사람이 아닌 보험(다른 사람 보험이 잘못 섞여 들어온 것)은 이름을 달고, 한꺼번에 옮기는 버튼을 위에 띄운다
+  const foreign = foreignInsureds(p.pid), foreignOf = {}; Object.keys(foreign).forEach(nm => foreign[nm].forEach(id => { foreignOf[String(id)] = nm; }));
+  const foreignBar = Object.keys(foreign).map(nm => `<div style="margin:0 0 8px;padding:8px 12px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;font-size:12.5px;color:#92400E;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <span>⚠️ 피보험자가 <b>${esc(nm)}</b> 인 보험 ${foreign[nm].length}건이 ${esc(p.name)}님 쪽에 들어 있어요. 다른 사람 보험이면 옮겨 주세요.</span>
+    <button type="button" class="btn btn-primary btn-sm" data-pid="${esc(p.pid)}" data-ins="${esc(nm)}" onclick="moveInsuredPolicies(this.dataset.pid,this.dataset.ins)">➡️ 모두 옮기기</button></div>`).join('');
+  return head + foreignBar + `<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr style="background:var(--surface2)">
     ${['가입일', '상태', '보험회사', '보험명', '월보험료', ''].map(h => `<th style="padding:6px 10px;text-align:left;font-weight:600;color:var(--muted);white-space:nowrap">${h}</th>`).join('')}</tr></thead>
     <tbody>${rows.map((o, i) => `<tr style="border-bottom:1px dashed var(--border);background:${i % 2 ? '#F7FDF9' : '#fff'}">
       <td style="padding:7px 10px;color:var(--muted);white-space:nowrap">${esc(o.d || '')}</td>
       <td style="padding:7px 10px;white-space:nowrap">${esc(o.st || '')}</td>
       <td style="padding:7px 10px;white-space:nowrap">${esc(o.co || '')}</td>
-      <td style="padding:7px 10px;font-weight:500">${esc(o.n || '')}${o.dk.some(k => dupN[k] > 1) ? ' <span class="pol-dup" title="같은 보험이 두 번 들어가 있을 수 있어요. 하나를 지워주세요">⚠️ 중복 의심</span>' : ''}</td>
+      <td style="padding:7px 10px;font-weight:500">${esc(o.n || '')}${o.dk.some(k => dupN[k] > 1) ? ' <span class="pol-dup" title="같은 보험이 두 번 들어가 있을 수 있어요. 하나를 지워주세요">⚠️ 중복 의심</span>' : ''}${foreignOf[String(o.x.id)] ? ` <span class="rm-fine" style="white-space:nowrap">피보험자 ${esc(foreignOf[String(o.x.id)])}</span>` : ''}</td>
       <td style="padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">${o.pr ? wonN(o.pr) + '원' : '-'}</td>
       <td style="padding:7px 10px;text-align:right;white-space:nowrap">${proposalLinkHtml(o.pu, true)}<button type="button" class="btn btn-secondary btn-sm" title="이 보험을 다른 사람 것으로 옮기기 (목록에 없는 사람은 새로 만들 수 있어요)" onclick="movePolicyTo('${esc(p.pid)}',${jsId(o.x.id)})">➡️ 옮기기</button> <button type="button" class="btn btn-secondary btn-sm" title="이 보험 삭제 (중복 정리)" onclick="deletePolicy('${esc(p.pid)}',${jsId(o.x.id)})">🗑</button></td></tr>`).join('')}</tbody></table>
     <div style="margin-top:10px;padding:10px 12px;background:#ECFDF5;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
@@ -3835,42 +3841,60 @@ function deletePolicy(pid, polId){
 }
 // 잘못 들어간 보험(보맵·외부·기존)을 다른 사람 것으로 옮김. 목록에 없는 사람(예: 보맵에 없던 가족)은 이름을 입력해 새로 만든다. (사용자 요청 2026-11-19)
 // 옮긴 보험은 그 사람 기록에 들어가므로 보맵을 다시 가져와도 그 자리에서 갱신된다(bmPolicyHome). 내 계약은 여기서 못 옮김(계약 수정에서 가입자를 바꿈).
-function movePolicyTo(fromPid, polId){
+function movePolicyTo(fromPid, polId){ movePolicies(fromPid, [polId]); }
+// 피보험자가 이 사람이 아닌 보험을 피보험자 이름별로 묶어서 돌려줌 → {이름: [보험 id…]}. 가려진 이름(조*인)이 이 사람 이름과 글자가 맞으면 제외 (제대로 옮겨 둔 것)
+function foreignInsureds(pid){
+  const p = peopleList().find(x => x.pid === pid), rec = COVERAGES[pid] || {}, out = {};
+  if(!p) return out;
+  ['externalPolicies', 'otherPolicies'].forEach(k => (Array.isArray(rec[k]) ? rec[k] : []).forEach(x => {
+    const ins = isPlain(x) && isPlain(x.bm) ? String(x.bm.insured || '').trim() : '';
+    if(!ins || x.userMoved || ins === p.name || (isMaskedName(ins) && maskPattern(ins).test(p.name))) return;   // userMoved: 설계사가 직접 옮겨 둔 보험은 다시 경고하지 않음
+    (out[ins] = out[ins] || []).push(x.id);
+  }));
+  return out;
+}
+function moveInsuredPolicies(pid, insured){ const ids = foreignInsureds(pid)[insured]; if(ids && ids.length) movePolicies(pid, ids); }
+function movePolicies(fromPid, polIds){
   const rec = isPlain(COVERAGES[fromPid]) ? COVERAGES[fromPid] : null; if(!rec) return;
-  let fld = null, x = null;
-  for(const k of ['externalPolicies', 'otherPolicies']){ const hit = (Array.isArray(rec[k]) ? rec[k] : []).find(p => isPlain(p) && String(p.id) === String(polId)); if(hit){ fld = k; x = hit; break; } }
-  if(!x){ showToast('옮길 수 있는 보험이 아니에요 (내 계약은 계약 수정에서 가입자를 바꿔요)'); return; }
+  const found = [];                                                    // [{fld, x}]
+  polIds.forEach(pid0 => {
+    for(const k of ['externalPolicies', 'otherPolicies']){ const hit = (Array.isArray(rec[k]) ? rec[k] : []).find(p => isPlain(p) && String(p.id) === String(pid0)); if(hit){ found.push({fld: k, x: hit}); break; } }
+  });
+  if(!found.length){ showToast('옮길 수 있는 보험이 아니에요 (내 계약은 계약 수정에서 가입자를 바꿔요)'); return; }
   const others = peopleList().filter(p => p.pid !== fromPid);
-  const label = `${shortCo(x.co)} ${x.n || x.name || ''}`.trim();
+  const label = found.length === 1 ? `${shortCo(found[0].x.co)} ${found[0].x.n || found[0].x.name || ''}`.trim() : `보험 ${found.length}건`;
   const menu = ['0. ＋ 목록에 없는 새 사람 만들기 (이름 입력)', ...others.map((p, i) => `${i + 1}. ${p.label} — ${describePerson(p)}`)].join('\n');
-  const ans = prompt(`'${label}' 보험을 누구 것으로 옮길까요?\n(지금: ${personLabel(fromPid)})\n\n${menu}\n\n번호를 입력해주세요 (취소하거나 비워두면 그대로 둬요)`);
+  const ans = prompt(`'${label}' 을(를) 누구 것으로 옮길까요?\n(지금: ${personLabel(fromPid)})\n\n${menu}\n\n번호를 입력해주세요 (취소하거나 비워두면 그대로 둬요)`);
   if(ans === null || String(ans).trim() === '') return;
   const n = parseInt(ans, 10);
   if(!(n >= 0 && n <= others.length)) return;
-  let dstPid, dstName;
+  let dstPid, dstName, createdNew = false;
   if(n === 0){
     const nm = String(prompt('새로 만들 사람의 이름을 입력해주세요 (예: 딸 이름, 남편 이름)', '') || '').trim().slice(0, 40);
     if(!nm) return;
     if(peopleList().some(p => p.name === nm)){ showToast(`'${nm}' 님은 이미 있어요 — 번호로 골라주세요`); return; }
-    dstPid = newPid(); dstName = nm;
-    const created = {policies: [], person: {name: nm, src: 'split', familyPid: rootFamilyPid(fromPid)}};
-    if(isPlain(rec.bomapp)) created.bomapp = {memberId: rec.bomapp.memberId, plannerMemberId: rec.bomapp.plannerMemberId, insured: nm};   // 다시 가져와도 원래 고객 쪽으로 안 돌아가게
-    COVERAGES[dstPid] = created;
+    dstPid = newPid(); dstName = nm; createdNew = true;
   } else { dstPid = others[n - 1].pid; dstName = others[n - 1].name; }
-  if(!confirm(`'${label}' 보험을 '${dstName}' 님 것으로 옮깁니다. 계속할까요?\n(옮기기 직전 상태는 이 기기 체크포인트로 남겨요)`)){ if(n === 0) delete COVERAGES[dstPid]; return; }
+  if(!confirm(`'${label}' 을(를) '${dstName}' 님 것으로 옮깁니다. 계속할까요?\n(옮기기 직전 상태는 이 기기 체크포인트로 남겨요)`)) return;
   saveCheckpoint('보험 이동 전');
-  const roleKey = 'r' + String(polId);
-  const src = Object.assign({}, rec, {[fld]: rec[fld].filter(p => p !== x)});
-  if(isPlain(src.remodel) && isPlain(src.remodel.roles)){ const roles = Object.assign({}, src.remodel.roles); delete roles[roleKey]; src.remodel = Object.assign({}, src.remodel, {roles}); }
-  COVERAGES[fromPid] = src;
-  const dst = isPlain(COVERAGES[dstPid]) ? COVERAGES[dstPid] : {policies: []};
-  const dstList = Array.isArray(dst[fld]) ? dst[fld] : [];
-  let moved = x;
-  if(dstList.some(p => isPlain(p) && String(p.id) === String(x.id)))                // 번호가 겹치면 새 번호 (그 사람 안에서 보험을 번호로 찾기 때문)
-    moved = Object.assign({}, x, {id: typeof x.id === 'number' ? -((Date.now() % 1e9) * 100 + Math.floor(Math.random() * 100)) : 'ext_' + Date.now() + Math.floor(Math.random() * 100)});
-  COVERAGES[dstPid] = Object.assign({}, dst, {[fld]: [...dstList, moved]});
+  if(createdNew){
+    const created = {policies: [], person: {name: dstName, src: 'split', familyPid: rootFamilyPid(fromPid)}};
+    if(isPlain(rec.bomapp)) created.bomapp = {memberId: rec.bomapp.memberId, plannerMemberId: rec.bomapp.plannerMemberId, insured: dstName};   // 다시 가져와도 원래 고객 쪽으로 안 돌아가게
+    COVERAGES[dstPid] = created;
+  }
+  let src = Object.assign({}, rec), dst = isPlain(COVERAGES[dstPid]) ? COVERAGES[dstPid] : {policies: []};
+  found.forEach(({fld, x}) => {
+    src[fld] = (src[fld] || []).filter(p => p !== x);
+    if(isPlain(src.remodel) && isPlain(src.remodel.roles)){ const roles = Object.assign({}, src.remodel.roles); delete roles['r' + String(x.id)]; src.remodel = Object.assign({}, src.remodel, {roles}); }
+    const dstList = Array.isArray(dst[fld]) ? dst[fld] : [];
+    let moved = Object.assign({}, x, {userMoved: true});
+    if(dstList.some(p => isPlain(p) && String(p.id) === String(x.id)))              // 번호가 겹치면 새 번호 (그 사람 안에서 보험을 번호로 찾기 때문)
+      moved = Object.assign({}, moved, {id: typeof x.id === 'number' ? -((Date.now() % 1e9) * 100 + Math.floor(Math.random() * 100)) : 'ext_' + Date.now() + Math.floor(Math.random() * 100)});
+    dst = Object.assign({}, dst, {[fld]: [...dstList, moved]});
+  });
+  COVERAGES[fromPid] = src; COVERAGES[dstPid] = dst;
   saveCoverages(); renderAll();
-  showToast(`✅ '${label}' 보험을 '${dstName}' 님 것으로 옮겼어요`);
+  showToast(`✅ '${label}' 을(를) '${dstName}' 님 것으로 옮겼어요`);
 }
 // ── 🧹 보장분석 자료 점검·정리 (사용자 요청 2026-11-12) ─────────────
 // 계획(covTidyPlan)은 데이터를 바꾸지 않고 세기만 하고, 적용(covTidyApply)은 체크포인트를 남긴 뒤 한 번에 고친다.

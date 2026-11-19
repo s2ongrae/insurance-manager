@@ -59,6 +59,27 @@ console.log('E) 내 계약은 여기서 못 옮김');
 D.run(`movePolicyTo('pid_a', 1)`);
 ok(D.get(`CONTRACTS.filter(c=>cpid(c)==='pid_a').length`) === 1, '내 계약은 그대로');
 
+console.log('F) 피보험자가 다른 사람인 보험이 잘못 섞였으면 알려주고 한꺼번에 옮김 (가려진 이름 → 실제 이름)');
+D.run(`COVERAGES['${jp}'].externalPolicies.push({id:-901, co:'가나화재', n:'가려진보험1', pr:100, items:[], bm:{id:901, insured:'조*인', issue:'2024.01.01', status:'정상'}}, {id:-902, co:'가나화재', n:'가려진보험2', pr:200, items:[], bm:{id:902, insured:'조*인', issue:'2024.02.01', status:'정상'}}); expandedCustomer='p:${jp}'; renderCustomers()`);
+h = D.el('pane-고객별').innerHTML;
+ok(JSON.stringify(D.get(`Object.keys(foreignInsureds('${jp}'))`)) === '["조*인"]' && /피보험자가 <b>조\*인<\/b> 인 보험 2건/.test(h) && /moveInsuredPolicies/.test(h), '조종연 님 쪽에 조*인 보험 2건이 섞여 있다고 알려줌');
+ok(h.split('피보험자 조*인').length - 1 === 2, '해당 줄마다 피보험자 이름이 달림');
+const dstNames = D.get(`peopleList().filter(p=>p.pid!=='${jp}').map(p=>p.name)`);
+D.promptQ.push(String(dstNames.indexOf('조해인') + 1)); D.confirmQ.push(true);
+D.run(`moveInsuredPolicies('${jp}', '조*인')`);
+ok(ext('조해인').includes('가려진보험1') && ext('조해인').includes('가려진보험2') && !ext('조종연').includes('가려진보험1') && !ext('조종연').includes('가려진보험2'), '두 건이 한 번에 조해인 님으로');
+ok(D.get(`Object.keys(foreignInsureds('${idOf('조해인')}')).length`) === 0 && D.get(`Object.keys(foreignInsureds('${jp}')).length`) === 0, '조*인 은 조해인 과 글자가 맞아 더 이상 경고하지 않음');
+
+console.log('G) 다른 사람 계약의 계약자이기도 한 예비 고객도 그룹이 옮겨짐');
+D.ctx.__f2 = { source: 'bomapp-planner', version: 1, exportedAt: '2026-11-19T00:00:00.000Z', customers: [{ plannerMemberId: 11, memberId: 11, name: '박예비', policies: [pol(21, '박예비', '예비보험')] }] };
+D.get('importBomappData(__f2)');
+D.run(`CONTRACTS = [...CONTRACTS, {id:77, pid:'pid_kid', c:'박예비', p:'박아이', co:'다라생명', n:'아이보험', s:'계약완료', d:'25.01.01', pr:1000, g:''}]; createGroup('친구'); renderAll()`);
+ok(D.get(`isProspectPerson(peopleList().find(p=>p.name==='박예비'))`), '박예비 님은 계약자이지만 자기 계약은 없어 예비 고객');
+D.run(`renderGroups()`); const gh = D.el('pane-그룹별').innerHTML;
+ok(/class="grp-move"[^>]*data-pros="1"/.test(gh), '그룹별 탭의 예비 고객 그룹 선택칸은 예비 고객용 표시(data-pros)');
+ok(D.run(`moveCustomerGroup('박예비', '친구', true)`) === true && D.get(`prospectGroupOf('박예비')`) === '친구', '그룹을 옮기면 예비 고객 자신의 그룹이 바뀜');
+ok(D.get(`CONTRACTS.find(c=>c.id===77).g`) === '', '그 사람이 계약자인 다른 사람 계약의 그룹은 안 건드림');
+
 console.log(`\n보험 이동·삭제 테스트: ${pass}건 통과, ${fail}건 실패`);
 process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

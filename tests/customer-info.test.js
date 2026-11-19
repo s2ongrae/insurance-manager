@@ -104,7 +104,7 @@ D.run(`COVERAGES['${pros}'].externalPolicies.push({id:-99, co:'다라생명', n:
 ok(rowsOf(card('친구')) === 2 && /추가보험/.test(card('친구')) && /20,000/.test(card('친구')) && card('친구').split('class="grp-move"').length - 1 === 1, '보험이 2건이면 두 줄, 그룹 선택칸은 사람당 한 번만');
 ok(!/class="gamt"[^>]*>[^<]*20,000/.test(card('친구')), '예비 고객 보험료는 그룹 월 합계에 안 더함');
 const free = card('🌱 예비 고객 (그룹 미지정)');
-ok(/최가족/.test(free) && /class="grp-move"/.test(free) && /moveCustomerGroup\(this\.dataset\.name,this\.value\)/.test(free), '그룹 미지정 예비 고객은 맨 아래 카드에, 거기서 바로 그룹 선택');
+ok(/최가족/.test(free) && /class="grp-move"/.test(free) && /data-pros="1"/.test(free) && /moveCustomerGroup\(this\.dataset\.name,this\.value,this\.dataset\.pros==='1'\)/.test(free), '그룹 미지정 예비 고객은 맨 아래 카드에, 거기서 바로 그룹 선택');
 ok(/class="gtoolbar"/.test(gh) && /openGroupManager/.test(gh), '그룹별 탭 위에 🗂️ 그룹 관리 버튼');
 let list = D.get('covPeopleListHtml()');
 const famBlock = n => { const i = list.indexOf(`data-fam="${n}"`); return i < 0 ? '' : list.slice(i, list.indexOf('</details>', i)); };
