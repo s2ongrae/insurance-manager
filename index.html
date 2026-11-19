@@ -1741,23 +1741,6 @@ function familyNameOf(p){
   const cnt = {}; (p.cs || []).forEach(c => { const h = String(c.c || '').trim(); if(h) cnt[h] = (cnt[h] || 0) + 1; });
   return Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || p.name;
 }
-function setFamily(pid){
-  const others = peopleList().filter(x => x.pid !== pid);
-  if(!others.length){ showToast('묶을 다른 사람이 없어요'); return; }
-  const menu = others.map((x, i) => `${i + 1}. ${x.label}`).join('\n');
-  const ans = prompt(`'${personLabel(pid)}' 님을 누구의 가족으로 묶을까요? 그 사람 번호를 입력해주세요.\n0 을 넣으면 직접 묶은 가족을 풀어요.\n\n${menu}`);
-  if(ans === null) return;
-  const n = parseInt(ans, 10);
-  if(!(n >= 0 && n <= others.length)) return;
-  const target = n === 0 ? null : rootFamilyPid(others[n - 1].pid);
-  if(target === pid){ showToast('자기 자신과는 묶을 수 없어요'); return; }
-  const rec = isPlain(COVERAGES[pid]) ? COVERAGES[pid] : {policies: []};
-  const person = Object.assign({}, isPlain(rec.person) ? rec.person : {name: personName(pid)});
-  if(target) person.familyPid = target; else delete person.familyPid;
-  COVERAGES[pid] = Object.assign({}, rec, {person});
-  saveCoverages(); renderAll();
-  showToast(target ? `👪 '${personName(target)}' 님 가족으로 묶었어요` : '직접 묶은 가족을 풀었어요');
-}
 const personLabel = pid => (peopleList().find(p => p.pid === pid) || {}).label || '(이름 없음)';
 const personName  = pid => (peopleList().find(p => p.pid === pid) || {}).name  || '(이름 없음)';
 function describePerson(p){
@@ -5139,7 +5122,6 @@ function renderCovDetail(name){                          // name 은 가입자 �
           <div class="more-pop" onclick="if(event.target.closest('.btn'))this.closest('details').open=false">
             <button class="btn btn-secondary btn-sm" onclick="renamePerson('${name}')" title="이름을 바꿔도 보장분석·고객 링크는 그대로 유지돼요">✏️ 이름 변경</button>
             <button class="btn btn-secondary btn-sm" onclick="mergePerson('${name}')" title="같은 사람이 둘로 나뉘어 있을 때 하나로 합치기">🔀 합치기</button>
-            <button class="btn btn-secondary btn-sm" onclick="setFamily('${name}')" title="가족끼리 목록에서 한 묶음으로 보여요">👪 가족으로 묶기</button>
             <button class="btn btn-secondary btn-sm" onclick="splitPerson('${name}')" title="이름이 같은 다른 사람이 한 사람으로 묶여 있을 때 갈라내기">✂️ 분리</button>
             <button class="btn btn-secondary btn-sm" onclick="openDocGuide()">📋 청구 서류</button>
             <button class="btn btn-secondary btn-sm" onclick="openCovGroupEditor()">⚙️ 그룹 설정</button>
