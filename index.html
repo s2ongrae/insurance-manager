@@ -3468,9 +3468,32 @@ function remItemHtml(x){
     </div>
   </div>`;
 }
+// 🎂 생일 · 보험나이 바뀌는 날 (사용자 요청 2026-11-19 "더 고민해서"): 고객 정보의 생년월일로 계산만 하고 저장은 안 한다(그래서 동기화·백업에 영향 없음).
+// 보험나이는 만 나이에 6개월이 지나면 1 늘어난다 → 상령일 = 생일 6개월 뒤. 30일 안 · 지난 3일까지.
+function birthdayNotices(){
+  const today = todayStart(), out = [];
+  const known = new Set([...peopleList().map(p => p.name), ...CONTRACTS.map(c => String(c.c || '').trim())]);
+  profileNames().forEach(nm => {
+    if(!known.has(nm)) return;                                   // 지워진 사람의 옛 정보는 안 보여줌
+    const m = String(getProfile(nm).birth || '').match(/^(\d{4})\.(\d{2})\.(\d{2})$/); if(!m) return;
+    const by = +m[1], bm = +m[2], bd = +m[3];
+    [today.getFullYear() - 1, today.getFullYear(), today.getFullYear() + 1].forEach(y => {   // 지난해 상령일이 올해 초에 걸칠 수 있어서 3년을 본다
+      const age = y - by; if(age < 0) return;
+      const bday = new Date(y, bm - 1, Math.min(bd, new Date(y, bm, 0).getDate()));         // 2/29 생일은 평년엔 2/28
+      const add = (kind, dt, label) => { const days = daysUntil(dt); if(days >= -3 && days <= 30) out.push({name: nm, kind, date: dt, days, label}); };
+      add('birthday', bday, `만 ${age}세 생일`);
+      add('age', addMonthsClamp(bday, 6), `보험나이 ${age}→${age + 1}세`);
+    });
+  });
+  return out.sort((a, b) => a.date - b.date || a.name.localeCompare(b.name, 'ko'));
+}
 function renderReminders(){
   const b = reminderBuckets(), el = document.getElementById('rem-list');
   if(!el) return;
+  const bdHtml = birthdayNotices().map(x => `<div class="rem-item ms">
+      <div class="rem-when" style="color:${x.days < 0 ? 'var(--hint)' : x.days <= 7 ? '#7C3AED' : 'var(--blue)'}">${fmtYMD(x.date)}<small>${ddayLabel(x.days)}</small></div>
+      <div class="rem-body">${x.kind === 'birthday' ? '🎂' : '🔄'} ${esc(x.name)} · ${esc(x.label)}${x.kind === 'age' ? '<span class="sub">보험나이가 바뀌어요 — 보험료·가입 가능 여부를 확인하세요</span>' : ''}</div>
+    </div>`).join('');
   const msHtml = b.ms.map(({r, m}) => `<div class="rem-item ms">
       <div class="rem-when" style="color:${m.days < 0 ? 'var(--hint)' : m.days <= 7 ? 'var(--red)' : 'var(--blue)'}">${m.label}<small>${ddayLabel(m.days)}</small></div>
       <div class="rem-body">2년 1개월 도래<span class="sub">${esc(r.c)} · ${esc(r.co)} ${esc(r.n)} (가입 ${esc(r.d)})</span></div>
@@ -3480,6 +3503,8 @@ function renderReminders(){
     ${b.due.length ? b.due.map(remItemHtml).join('') : '<div class="rem-empty">오늘까지 할 일이 없어요</div>'}
     <div class="rem-sec" style="color:var(--blue)">🗓️ 2년 1개월 도래 <span style="font-weight:400;color:var(--hint)">30일 안 · 지난 7일</span></div>
     ${msHtml || '<div class="rem-empty">30일 안에 2년 1개월이 되는 계약이 없어요</div>'}
+    <div class="rem-sec" style="color:#7C3AED">🎂 생일 · 보험나이 바뀌는 날 <span style="font-weight:400;color:var(--hint)">30일 안 · 지난 3일</span></div>
+    ${bdHtml || '<div class="rem-empty">30일 안에 생일이나 보험나이가 바뀌는 고객이 없어요 (고객 정보에 생년월일을 넣으면 나와요)</div>'}
     <div class="rem-sec">📅 다가오는 알림 <span style="font-weight:400;color:var(--hint)">${b.soon.length}건</span></div>
     ${b.soon.length ? b.soon.map(remItemHtml).join('') : '<div class="rem-empty">예약된 알림이 없어요</div>'}
     ${b.done.length ? `<details style="margin-top:10px"><summary class="rem-sec" style="cursor:pointer;color:var(--muted)">✅ 완료한 알림 ${b.done.length}건</summary>${b.done.slice(0, 50).map(remItemHtml).join('')}</details>` : ''}`;
