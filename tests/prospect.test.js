@@ -43,26 +43,26 @@ D.run(`selectedCovCustomer='${mem}'; renderCovDetail('${mem}')`);
 ok(!/예비 고객 · 계약 전/.test(D.el('cov-detail').innerHTML), '가입자 상세에는 안 나옴');
 
 console.log('C) 고객별 탭: 구분 열(가입자 / 예비 고객) · 필터 · 눌러서 보장분석');
-D.run('renderCustomers()');
-let h = D.el('pane-고객별').innerHTML;
+D.run('renderGroups()');
+let h = D.el('pane-그룹별').innerHTML;
 ok(/<th>구분<\/th>/.test(h) && count(h, 'kind-badge kind-member') === 2 && count(h, 'kind-badge kind-prospect') === 3, '구분 열: 가입자 2 · 예비 고객 3');
 ok(/전체 <b>5<\/b>/.test(h) && /가입자 <b>2<\/b>/.test(h) && /예비 고객 <b>3<\/b>/.test(h), '필터 버튼 건수: 전체 5 · 가입자 2 · 예비 고객 3');
 ok(/박예비/.test(h) && /보험 1건/.test(h) && /보험1/.test(h), '예비 고객 행: 이름 · 보험 건수 · 보험 이름');
-D.run(`setCustKind('prospect')`); h = D.el('pane-고객별').innerHTML;
+D.run(`setCustKind('prospect')`); h = D.el('pane-그룹별').innerHTML;
 ok(count(h, 'kind-badge kind-member') === 0 && count(h, 'kind-badge kind-prospect') === 3 && !/김가입/.test(h), '예비 고객만 보기');
-D.run(`setCustKind('member')`); h = D.el('pane-고객별').innerHTML;
+D.run(`setCustKind('member')`); h = D.el('pane-그룹별').innerHTML;
 ok(count(h, 'kind-badge kind-member') === 2 && count(h, 'kind-badge kind-prospect') === 0 && /김가입/.test(h), '가입자만 보기');
 D.run(`setCustKind('all')`);
 D.run(`openCovCustomer('${pros}')`);
 ok(D.get(`selectedCovCustomer`) === pros && D.get(`window._covSubTab`) === '보장분석', '예비 고객 행을 누르면 그 사람의 보장분석으로');
-D.run(`expandedCustomer='pid_member1'; renderCustomers()`); h = D.el('pane-고객별').innerHTML;
-ok(/colspan="9"/.test(h), '가입자 상세 행도 열 수에 맞음 (colspan 9)');
+D.run(`expandedCustomer='pid_member1'; renderGroups()`); h = D.el('pane-그룹별').innerHTML;
+ok(/colspan="8"/.test(h), '가입자 상세 행도 열 수에 맞음 (colspan 8)');
 D.run(`expandedCustomer=null`);
-D.run(`toggleProspectDetail('${pros}')`); h = D.el('pane-고객별').innerHTML;
+D.run(`toggleProspectDetail('${pros}')`); h = D.el('pane-그룹별').innerHTML;
 ok(/📋 박예비님이 가진 보험 \(1건\)/.test(h) && /가나화재/.test(h) && /보험1/.test(h) && /월 합계 보험료/.test(h) && /1,000원/.test(h), '예비 고객을 펼치면 가져온 보험 목록(보험사·보험명·월보험료·합계)이 표로 나옴');
-D.run(`expandedCustomer='p:' + peopleList().find(p=>p.name==='최가족').pid; renderCustomers()`); h = D.el('pane-고객별').innerHTML;
+D.run(`expandedCustomer='p:' + peopleList().find(p=>p.name==='최가족').pid; renderGroups()`); h = D.el('pane-그룹별').innerHTML;
 ok(/최가족님이 가진 보험 \(1건\)/.test(h) && /최아들/.test(D.get(`peopleList().find(p=>p.name==='최아들').label`)), '다른 예비 고객도 자기 보험만 (가족 보험은 그 가족 쪽)');
-D.run(`expandedCustomer=null; renderCustomers()`);
+D.run(`expandedCustomer=null; renderGroups()`);
 
 console.log('D) 나중에 계약을 등록하면 같은 사람으로 이어짐 (가입자가 됨)');
 const e = D.el;
@@ -78,8 +78,8 @@ ok(D.get(`peopleList().length`) === 5 && D.get(`peopleList().filter(isProspectPe
 ok(D.get(`(COVERAGES['${pros}'].externalPolicies||[]).length`) === 1, '가져왔던 보맵 보험(보장분석)은 그대로 유지');
 list = D.get('covPeopleListHtml()');
 ok(count(list, 'class="cov-prospect">예비') === 2 && /🌱 예비 고객<\/span> <span class="cov-cust-cnt">2명 · 계약 전/.test(list), '목록에서 박예비의 예비 배지가 사라짐');
-D.run('renderCustomers()');
-ok(count(D.el('pane-고객별').innerHTML, 'kind-badge kind-member') === 3 && count(D.el('pane-고객별').innerHTML, 'kind-badge kind-prospect') === 2, '고객별 탭도 가입자 3 · 예비 고객 2');
+D.run('renderGroups()');
+ok(count(D.el('pane-그룹별').innerHTML, 'kind-badge kind-member') === 3 && count(D.el('pane-그룹별').innerHTML, 'kind-badge kind-prospect') === 2, '고객별 탭도 가입자 3 · 예비 고객 2');
 
 console.log('E) 상태 점검에 예비 고객 수');
 const rows = await D.run('healthCheckData()');

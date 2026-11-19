@@ -18,7 +18,7 @@ D.get('importBomappData(__f)');
 const pidOf = n => D.get(`peopleList().find(p=>p.name==='${n}').pid`);
 
 console.log('A) 고객별: 가입자가 한 줄 (계약자는 뒤 칸). 조유건이 김아름 밑에 묻히지 않고 따로 보임');
-D.run(`renderCustomers()`); let h = D.el('pane-고객별').innerHTML;
+D.run(`renderGroups()`); let h = D.el('pane-그룹별').innerHTML;
 ok(h.indexOf('<th>가입자</th>') > -1 && h.indexOf('<th>가입자</th>') < h.indexOf('<th>계약자</th>'), '표 머리: 가입자 → 계약자 순서');
 const rowOf = n => { const i = h.indexOf(`data-pid="${pidOf(n)}"`); return i < 0 ? '' : h.slice(i, h.indexOf('</tr>', i)); };
 ok(/조유건/.test(rowOf('조유건')) && />김아름</.test(rowOf('조유건').replace(/\s+/g, '').replace(/<td[^>]*>/g, '>').replace(/<\/td>/g, '<')), '조유건 행이 따로 있고 계약자 칸에 김아름');
@@ -28,7 +28,7 @@ ok(/\+보맵2/.test(rowOf('조유건')), '조유건 줄에 +보맵 2건 표시')
 
 console.log('B) 펼치면: 내 계약 + 가져온 보맵 보험 (조유건 보험 2개가 안 보이던 문제), 계약자 칸');
 const jid = pidOf('조유건');
-D.run(`expandedCustomer='${jid}'; renderCustomers()`); h = D.el('pane-고객별').innerHTML;
+D.run(`expandedCustomer='${jid}'; renderGroups()`); h = D.el('pane-그룹별').innerHTML;
 ok(/조유건님이 가진 보험 \(계약 1건 \+ 보맵·외부 2건\)/.test(h), '계약 1건 + 보맵·외부 2건');
 ok(/보험2/.test(h) && /보험3/.test(h) && /계약2/.test(h), '계약과 보맵 보험 3줄 모두 보임');
 ok(h.split('class="pol-row"').length - 1 >= 3 && /openPolicyPopup\('pid_j',2\)/.test(h), '줄마다 눌러서 팝업');
@@ -45,28 +45,44 @@ ok(D.get(`resolveHolder('홍길동', '${jid}')`) === '홍길동' && D.get(`resol
 console.log('D) 가입자 줄에서 그룹을 바꾸면 그 가입자의 계약만 (계약자인 다른 사람 계약은 안 건드림)');
 D.run(`moveCustomerGroup('조유건', '친구', false, '${jid}')`);
 ok(D.get(`CONTRACTS.find(c=>c.id===2).g`) === '친구' && D.get(`CONTRACTS.find(c=>c.id===1).g`) === '지인', '조유건 계약만 친구로, 김아름 본인 계약은 그대로 (계약자가 같아도)');
-D.run(`expandedCustomer='${jid}'; renderCustomers()`); h = D.el('pane-고객별').innerHTML;
+D.run(`expandedCustomer='${jid}'; renderGroups()`); h = D.el('pane-그룹별').innerHTML;
 ok(/data-pid="pid_j"/.test(h) && />친구</.test(h.slice(h.indexOf('data-pid="pid_j"'), h.indexOf('data-pid="pid_j"') + 4000)), '펼친 칸의 그룹 선택도 조유건 기준');
 D.run(`expandedCustomer=null; moveCustomerGroup('조유건', '가족', false, '${jid}')`);
 
-console.log('E) 그룹별: 가입자 → 계약자 순서, 가져온 보맵 보험도 같은 그룹 카드에');
-D.run(`renderGroups()`); const gh = D.el('pane-그룹별').innerHTML;
+console.log('E) 그룹별(그룹 → 고객 → 계약): 가입자 → 계약자 순서, 처음엔 접힘, 고객을 누르면 계약·가져온 보맵 보험');
+D.run(`expandedCustomer=null; renderGroups()`); let gh = D.el('pane-그룹별').innerHTML;
 ok(gh.indexOf('<th>가입자</th>') > -1 && gh.indexOf('<th>가입자</th>') < gh.indexOf('<th>계약자</th>'), '그룹별 표 머리: 가입자 → 계약자');
 const card = name => { const i = gh.indexOf(`<span class="gname">${name}</span>`); return i < 0 ? '' : gh.slice(gh.lastIndexOf('<div class="gcard">', i), gh.indexOf('<div class="gcard">', i) < 0 ? gh.length : gh.indexOf('<div class="gcard">', i)); };
-const fam = card('가족');
-ok(/조유건/.test(fam) && /보험2/.test(fam) && /보험3/.test(fam) && /보맵·외부/.test(fam), '가족 그룹 카드에 조유건의 계약 + 보맵 보험 2건');
-ok(/>김아름</.test(fam.replace(/\s+/g, '')) && /1명/.test(fam), '계약자 칸에 김아름, 인원은 가입자 수(1명)');
-ok(!/보험2/.test(card('지인')), '다른 그룹엔 없음');
-ok(/openPolicyPopup\('pid_j'/.test(fam), '그룹별 보맵 보험 줄도 눌러서 팝업');
+ok(!/class="gtbl open"/.test(gh) && !/class="gtoolbar"/.test(gh), '그룹 카드는 처음에 모두 접혀 있음 (기본값)');
+let fam = card('가족');
+ok(/조유건/.test(fam) && /\+보맵2/.test(fam) && />김아름</.test(fam.replace(/\s+/g, '').replace(/<td[^>]*>/g, '>').replace(/<\/td>/g, '<')) && /1명/.test(fam), '가족 그룹 카드: 조유건 한 줄 (계약자 김아름, 보맵 2건, 인원은 가입자 수 1명)');
+ok(!/님이 가진 보험/.test(fam) && !/openPolicyPopup/.test(fam), '고객을 누르기 전엔 계약·보험 목록(표)이 안 나옴');
+D.run(`toggleCustomerDetail('${jid}')`); gh = D.el('pane-그룹별').innerHTML; fam = card('가족');
+ok(/class="gtbl open"/.test(fam) && /보험2/.test(fam) && /보험3/.test(fam) && /계약2/.test(fam) && /보맵·외부/.test(fam), '조유건을 누르면 그 그룹 카드가 열리고 계약 + 보맵 보험 2건이 나옴');
+ok(/openPolicyPopup\('pid_j'/.test(fam), '보험 줄을 누르면 팝업');
+ok(!/님이 가진 보험/.test(card('지인')) && !/class="gtbl open"/.test(card('지인')), '다른 그룹은 그대로 접힘');
+D.run(`toggleG('g0','가족')`);
+D.run(`toggleCustomerDetail('${jid}')`);                                   // 접기
+ok(D.get('expandedCustomer') === null, '한 번 더 누르면 접힘');
 
-console.log('F) 예비 고객(조해인 될 사람): 그룹별·고객별 모두 가입자 앞, 계약자(김아름)는 뒤');
+console.log('F) 예비 고객(조해인 될 사람): 가입자 앞, 계약자(김아름)는 뒤');
 const mk = pidOf('조*인');
 D.run(`moveCustomerGroup('조*인', '친구', true)`);
 D.run(`renderGroups()`); const gh2 = D.el('pane-그룹별').innerHTML;
-const i2 = gh2.indexOf('조*인'), row2 = gh2.slice(gh2.lastIndexOf('<tr', i2), gh2.indexOf('</tr>', i2));
-ok(/조\*인/.test(row2) && />김아름</.test(row2.replace(/\s+/g, '').replace(/<td[^>]*>/g, '>').replace(/<\/td>/g, '<')) && row2.indexOf('조*인') < row2.indexOf('김아름'), '그룹별 예비 고객 줄: 가입자 조*인 다음에 계약자 김아름 (조*인 본인이 계약자로 나오지 않음)');
-D.run(`expandedCustomer='p:${mk}'; renderCustomers()`); h = D.el('pane-고객별').innerHTML;
-ok(/조\*인님이 가진 보험 \(1건\)/.test(h) && /김아름/.test(h.slice(h.indexOf('조*인님이 가진 보험'))), '고객별 예비 고객 보험 표에도 계약자 김아름');
+const i2 = gh2.indexOf(`data-pid="${mk}"`), row2 = gh2.slice(i2, gh2.indexOf('</tr>', i2));
+ok(i2 > -1 && /조\*인/.test(row2) && />김아름</.test(row2.replace(/\s+/g, '').replace(/<td[^>]*>/g, '>').replace(/<\/td>/g, '<')) && row2.indexOf('조*인') < row2.indexOf('김아름'), '예비 고객 줄: 가입자 조*인 다음에 계약자 김아름 (조*인 본인이 계약자로 나오지 않음)');
+ok(/class="gtbl open"/.test(card('친구')) === false, '친구 그룹도 접힌 채 (펼치기 전)');
+D.run(`expandedCustomer='p:${mk}'; renderGroups()`); h = D.el('pane-그룹별').innerHTML;
+ok(/조\*인님이 가진 보험 \(1건\)/.test(h) && /김아름/.test(h.slice(h.indexOf('조*인님이 가진 보험'))), '예비 고객을 펼치면 보험 표에도 계약자 김아름');
+
+console.log('G) 내 계약과 겹치지 않는 새 보맵 보험은 보장분석에서 기본 "기존"으로 체크');
+const ex = D.get(`COVERAGES['${jid}'].externalPolicies.map(x=>x.id)`);
+ok(ex.length === 2 && ex.every(id => D.get(`remodelRoleOf('${jid}', {id:${id}})`) === 'both'), '조유건의 새 보맵 보험 2건이 모두 "기존"(both)으로');
+D.run(`setRemodelRole('${jid}', ${ex[0]}, 'after')`);
+D.get('importBomappData(__f)');
+ok(D.get(`remodelRoleOf('${jid}', {id:${ex[0]}})`) === 'after' && D.get(`remodelRoleOf('${jid}', {id:${ex[1]}})`) === 'both', '다시 가져와도 이미 고른 역할은 그대로');
+D.get('importBomappData(__f)');
+ok(D.get(`COVERAGES['${jid}'].externalPolicies.length`) === 2, '다시 가져와도 중복 안 생김');
 
 console.log(`\n가입자 기준 화면 테스트: ${pass}건 통과, ${fail}건 실패`);
 process.exit(fail ? 1 : 0);

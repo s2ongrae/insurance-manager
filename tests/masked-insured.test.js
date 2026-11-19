@@ -25,8 +25,8 @@ const mp = idOf('조*건');
 ok(/assignMaskedPerson/.test(D.get(`maskNoticeHtml('${mp}', '조*건')`)) && D.get(`maskNoticeHtml('${idOf('김아름')}', '김아름')`) === '', '가려진 이름에만 "누구 보험인지 지정" 안내');
 D.run(`selectedCovCustomer='${mp}'; renderCovDetail('${mp}')`);
 ok(/누구 보험인지 지정/.test(D.el('cov-detail').innerHTML), '보장분석 상세 맨 위에 안내가 보임');
-D.run(`expandedCustomer='p:${mp}'; renderCustomers()`);
-ok(/누구 보험인지 지정/.test(D.el('pane-고객별').innerHTML), '고객별 탭 펼친 칸에도 보임');
+D.run(`expandedCustomer='p:${mp}'; renderGroups()`);
+ok(/누구 보험인지 지정/.test(D.el('pane-그룹별').innerHTML), '고객별 탭 펼친 칸에도 보임');
 D.run(`expandedCustomer=null`);
 
 console.log('B) 취소하면 그대로, 고르면 기존 고객에게 합쳐짐 (계약 있는 사람)');
@@ -110,17 +110,17 @@ const D5 = makeDevice({ session: { ins_unlocked: '1' }, ls: { ins_contracts: JSO
 D5.ctx.__f = file([pol(1, '김아름'), pol(2, '조*인', false)]);
 D5.get('importBomappData(__f)');
 const ar = D5.get(`peopleList().find(p=>p.name==='김아름').pid`);
-D5.run(`COVERAGES['${ar}'].externalPolicies.push({id:-501, co:'가나화재', n:'어린이보험', pr:1, items:[], bm:{id:501, insured:'조*건', issue:'2014.01.01', status:'정상'}}); renderCustomers()`);
-let ph = D5.el('pane-고객별').innerHTML;
+D5.run(`COVERAGES['${ar}'].externalPolicies.push({id:-501, co:'가나화재', n:'어린이보험', pr:1, items:[], bm:{id:501, insured:'조*건', issue:'2014.01.01', status:'정상'}}); renderGroups()`);
+let ph = D5.el('pane-그룹별').innerHTML;
 ok(/정리가 필요한 보험 2건/.test(ph) && /조\*인<\/b> <span class="rm-fine">\(가려진 이름/.test(ph) && /피보험자가 <b>조\*건<\/b> 인 보험 1건/.test(ph), '가려진 이름 사람 1명 + 다른 사람 보험이 섞인 1건을 한곳에 모아 보여줌');
-D5.run(`CONTRACTS = [...CONTRACTS, {id:55, pid:'pid_j', c:'김아름', p:'조유건', co:'다라생명', n:'조유건계약', s:'계약완료', d:'25.03.03', pr:9000, g:''}]; renderCustomers()`);
-ph = D5.el('pane-고객별').innerHTML;
+D5.run(`CONTRACTS = [...CONTRACTS, {id:55, pid:'pid_j', c:'김아름', p:'조유건', co:'다라생명', n:'조유건계약', s:'계약완료', d:'25.03.03', pr:9000, g:''}]; renderGroups()`);
+ph = D5.el('pane-그룹별').innerHTML;
 ok(/⭐ 조유건 님으로 옮기기/.test(ph), '조*건 후보(조유건)가 있으면 ⭐ 한 번에 옮기기 버튼');
 D5.confirmQ.push(true);
 D5.run(`moveInsuredPolicies('${ar}', '조*건', 'pid_j')`);                     // 번호 묻기 없이 바로
 ok(D5.get(`((COVERAGES['pid_j']||{}).externalPolicies||[]).map(x=>x.n).join()`) === '어린이보험' && !D5.get(`COVERAGES['${ar}'].externalPolicies.some(x=>x.n==='어린이보험')`), '조유건 님 쪽으로 옮겨짐');
 ok(D5.get(`Object.values(COVERAGES['${ar}'].insuredMap||{}).includes('pid_j')`), '옮긴 결과도 insuredMap 에 남아 다시 가져와도 같은 사람');
-D5.run(`renderCustomers()`); ph = D5.el('pane-고객별').innerHTML;
+D5.run(`renderGroups()`); ph = D5.el('pane-그룹별').innerHTML;
 ok(/정리가 필요한 보험 1건/.test(ph) && !/피보험자가 <b>조\*건/.test(ph), '옮기고 나면 그 항목은 패널에서 사라짐');
 
 console.log(`\n가려진 이름 지정 테스트: ${pass}건 통과, ${fail}건 실패`);

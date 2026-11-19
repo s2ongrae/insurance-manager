@@ -46,8 +46,8 @@ D.run(`setProfile('임시사람', {phone:'01012345678'})`);                     
 D.promptQ.push('1'); D.confirmQ.push(true);
 D.run(`movePolicyTo('${tmp}', ${D.get(`COVERAGES['${tmp}'].externalPolicies[0].id`)})`);
 ok(has('임시사람') && D.get(`isShellPerson('${tmp}')`) === false, '정보가 입력된 사람은 보험이 0건이어도 자동 삭제 안 함');
-D.run(`expandedCustomer='p:${tmp}'; renderCustomers()`);
-const ph0 = D.el('pane-고객별').innerHTML;
+D.run(`expandedCustomer='p:${tmp}'; renderGroups()`);
+const ph0 = D.el('pane-그룹별').innerHTML;
 ok(/renamePerson/.test(ph0) && /mergePerson/.test(ph0) && /deletePerson/.test(ph0), '펼친 칸에 ✏️ 이름 변경 · 🔀 합치기 · 🗑 삭제 버튼');
 D.run(`deleteEmptyPerson('${idOf('조유건')}')`);
 ok(has('조유건'), '보험·계약이 있는 사람은 지워지지 않음');
@@ -55,8 +55,8 @@ D.confirmQ.push(true); D.run(`deleteEmptyPerson('${tmp}')`);
 ok(!has('임시사람') && D.get(`MEMOS['cust:임시사람'] === undefined`), '빈 사람을 지우면 입력해 둔 정보도 같이 정리');
 
 console.log('D) 🔎 정리 패널에 빈 사람이 뜸');
-D.run(`COVERAGES['pid_shell'] = {policies: [], person: {name: '빈사람', src: 'split'}}; renderCustomers()`);
-let h = D.el('pane-고객별').innerHTML;
+D.run(`COVERAGES['pid_shell'] = {policies: [], person: {name: '빈사람', src: 'split'}}; renderGroups()`);
+let h = D.el('pane-그룹별').innerHTML;
 ok(/빈사람<\/b> <span class="rm-fine">\(보험·계약이 하나도 없는 빈 사람\)/.test(h) && /deleteEmptyPerson/.test(h), '정리 패널에 빈 사람 + 🗑 삭제 / 🔀 합치기');
 D.confirmQ.push(true); D.run(`deleteEmptyPerson('pid_shell')`);
 ok(!has('빈사람'), '패널에서 지우면 사라짐');
@@ -71,8 +71,8 @@ D.promptQ.push('0'); D.promptQ.push('조유건'); D.confirmQ.push(true); D.run(`
 ok(!has('조*인') && D.get(`peopleList().filter(p=>p.name==='조유건').length`) === 1 && ext('조유건').includes('보험32'), '이미 있는 조유건 이름이면 새로 안 만들고 그 사람에게 (그 사람 기록이 지워지지도 않음)');
 
 console.log('F) 그룹별·고객별에서 이름 변경(이미 있는 이름이면 합치기 선택) · 삭제');
-D.run(`renderGroups()`);
-ok(/renamePerson/.test(D.el('pane-그룹별').innerHTML) && /deletePerson/.test(D.el('pane-그룹별').innerHTML) && /mergePerson/.test(D.el('pane-그룹별').innerHTML), '그룹별 탭의 예비 고객 줄에도 ✏️ 🔀 🗑 버튼');
+D.run(`expandedCustomer='p:${pb}'; renderGroups()`);
+ok(/renamePerson/.test(D.el('pane-그룹별').innerHTML) && /deletePerson/.test(D.el('pane-그룹별').innerHTML) && /mergePerson/.test(D.el('pane-그룹별').innerHTML), '그룹별 탭에서 예비 고객을 펼치면 ✏️ 🔀 🗑 버튼');
 D.ctx.__h = { source: 'bomapp-planner', version: 1, exportedAt: '2026-11-19T00:00:00.000Z', customers: [{ plannerMemberId: 20, memberId: 20, name: '이름틀림', policies: [pol(41, '이름틀림')] }] };
 D.get('importBomappData(__h)');
 const wrong = idOf('이름틀림');

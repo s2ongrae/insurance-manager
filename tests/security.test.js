@@ -59,7 +59,7 @@ console.log('C) 관리 화면: 그룹 이름·색, 고객별·월별 탭, 보맵
   ok(D.errors.length === 0, '로드 오류 없음 ' + D.errors.join('|'));
   D.run("renderTab('리스트')"); const lr = D.el('list-results').innerHTML;
   ok(!lr.includes(X) && !/onmouseover="alert/.test(lr), '계약 리스트: 그룹 이름·색이 코드로 안 들어감');
-  D.run("expandedCustomer=peopleList().find(p=>p.cs.some(r=>r.c==='고객'+" + JSON.stringify(X) + ")).pid; renderTab('고객별')"); const cr = D.el('pane-고객별').innerHTML;
+  D.run("expandedCustomer=peopleList().find(p=>p.cs.some(r=>r.c==='고객'+" + JSON.stringify(X) + ")).pid; renderTab('그룹별')"); const cr = D.el('pane-그룹별').innerHTML;
   ok(!cr.includes(X) && /고객&lt;img/.test(cr) && /data-pid="pid_/.test(cr), '고객별 탭: 이름·보험사·상품명 이스케이프, 펼치기는 이름이 아니라 data-pid 로');
   ok(!/⚠️ 오류/.test(cr), '가입일이 빈 계약이 있어도 고객별 탭이 오류로 바뀌지 않음');
   ok(!/onclick="toggleCustomerDetail\('/.test(cr), '고객 이름을 onclick 코드 글자에 넣지 않음');

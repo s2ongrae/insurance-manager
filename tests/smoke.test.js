@@ -20,7 +20,7 @@ ok(D.errors.length===0,'스크립트 로드 오류 없음 '+D.errors.join('|'));
   ok((hdr.match(/rel="noopener"/g)||[]).length===3 && (hdr.match(/target="_blank"/g)||[]).length===3,'새 탭 링크는 모두 rel=noopener');
   const app=html.indexOf('<div id="app-wrap"'), cust=html.indexOf('<div class="hdr-links">');
   ok(app>0 && cust>app,'링크는 app-wrap 안에 있어서 고객 전용 화면에는 안 보임'); }
-const tabs=[['리스트','list-results'],['그룹별','pane-그룹별'],['고객별','pane-고객별'],['월별','pane-월별'],['보장분석','pane-보장분석']];
+const tabs=[['리스트','list-results'],['그룹별','pane-그룹별'],['월별','pane-월별'],['보장분석','pane-보장분석']];
 for(const [t,id] of tabs){
   try{ D.run(`currentTab='${t}'; renderTab('${t}')`); ok(D.el(id).innerHTML.length>200, `${t} 탭 렌더링 (${D.el(id).innerHTML.length}자)`); }
   catch(e){ ok(false,`${t} 탭 렌더링 오류: ${e.message}`); }
@@ -109,7 +109,7 @@ console.log('H) 디자인 점검 (그룹 표 폭·작은 글자·폰 배치)');
 try{
   D.run("renderTab('그룹별')"); const gp=D.el('pane-그룹별').innerHTML;
   ok(!/display='table'|display==='table'/.test(html),'그룹 표를 display:table 로 열지 않음 (상자가 내용 폭으로 줄어 표가 반쪽이 되던 원인)');
-  ok(/\.gtbl\.open\{display:block\}/.test(html)&&/onclick="toggleG\('g\d+'\)"/.test(gp),'그룹은 순번 id + open 클래스로 펼침');
+  ok(/\.gtbl\.open\{display:block\}/.test(html)&&/onclick="toggleG\('g\d+', this\.dataset\.k\)"/.test(gp),'그룹은 순번 id + open 클래스로 펼침');
   const t={classList:{_o:false,contains(){return this._o;},toggle(c,v){this._o=v;}}}, a={textContent:''};
   D.ctx.document.getElementById=id=>id==='gt-g0'?t:id==='arr-g0'?a:{style:{}};
   D.run("toggleG('g0')"); ok(t.classList._o===true&&a.textContent==='▲','toggleG: 누르면 펼치고 ▲');

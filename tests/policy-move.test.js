@@ -22,7 +22,7 @@ D.get('importBomappData(__f)');
 const jp = idOf('조종연');
 
 console.log('A) 표에 중복 의심 · 옮기기 · 삭제 버튼');
-D.run(`expandedCustomer='p:${jp}'; renderCustomers()`); let h = D.el('pane-고객별').innerHTML;
+D.run(`expandedCustomer='p:${jp}'; renderGroups()`); let h = D.el('pane-그룹별').innerHTML;
 ok(h.split('class="pol-dup"').length - 1 === 2, '같은 보험이 두 번이면 두 줄에 ⚠️ 중복 의심 (2개)');
 ok(h.split('movePolicyTo(').length - 1 === 4 && h.split("deletePolicy('").length - 1 === 4, '보험마다 ➡️ 옮기기 · 🗑 버튼');
 
@@ -60,8 +60,8 @@ D.run(`movePolicyTo('pid_a', 1)`);
 ok(D.get(`CONTRACTS.filter(c=>cpid(c)==='pid_a').length`) === 1, '내 계약은 그대로');
 
 console.log('F) 피보험자가 다른 사람인 보험이 잘못 섞였으면 알려주고 한꺼번에 옮김 (가려진 이름 → 실제 이름)');
-D.run(`COVERAGES['${jp}'].externalPolicies.push({id:-901, co:'가나화재', n:'가려진보험1', pr:100, items:[], bm:{id:901, insured:'조*인', issue:'2024.01.01', status:'정상'}}, {id:-902, co:'가나화재', n:'가려진보험2', pr:200, items:[], bm:{id:902, insured:'조*인', issue:'2024.02.01', status:'정상'}}); expandedCustomer='p:${jp}'; renderCustomers()`);
-h = D.el('pane-고객별').innerHTML;
+D.run(`COVERAGES['${jp}'].externalPolicies.push({id:-901, co:'가나화재', n:'가려진보험1', pr:100, items:[], bm:{id:901, insured:'조*인', issue:'2024.01.01', status:'정상'}}, {id:-902, co:'가나화재', n:'가려진보험2', pr:200, items:[], bm:{id:902, insured:'조*인', issue:'2024.02.01', status:'정상'}}); expandedCustomer='p:${jp}'; renderGroups()`);
+h = D.el('pane-그룹별').innerHTML;
 ok(JSON.stringify(D.get(`Object.keys(foreignInsureds('${jp}'))`)) === '["조*인"]' && /피보험자가 <b>조\*인<\/b> 인 보험 2건/.test(h) && /moveInsuredPolicies/.test(h), '조종연 님 쪽에 조*인 보험 2건이 섞여 있다고 알려줌');
 ok(h.split('피보험자 조*인').length - 1 === 2, '해당 줄마다 피보험자 이름이 달림');
 const dstNames = D.get(`peopleList().filter(p=>p.pid!=='${jp}').map(p=>p.name)`);

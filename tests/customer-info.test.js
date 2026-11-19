@@ -48,18 +48,18 @@ ok(D.get(`({}).memo === undefined && 'cust:__proto__' in MEMOS`), '__proto__ 이
 D.run(`delete MEMOS['cust:__proto__']; setProfile('김가입', {phone:'${P1}'})`);
 
 console.log('C) 고객별 탭: 클릭은 펼침만 (보장분석으로 안 감) + 정보 입력·수정');
-D.run(`window._covSubTab='청구서류'; selectedCovCustomer=null; renderCustomers()`);
-let h = D.el('pane-고객별').innerHTML;
+D.run(`window._covSubTab='청구서류'; selectedCovCustomer=null; renderGroups()`);
+let h = D.el('pane-그룹별').innerHTML;
 ok(!/openCovCustomer/.test(h) && count(h, 'toggleProspectDetail') >= 2, '예비 고객 행 클릭은 보장분석 이동이 아니라 펼침(toggleProspectDetail)');
 ok(h.includes('📞 ' + P1 + ' · 📍 대전 서구 · 📝 메모'), '표의 이름 아래에 핸드폰·사는 곳·메모 표시 (내용은 안 보이고 메모 있음만)');
 ok(!/바뀐메모/.test(h), '메모 내용은 표에 노출하지 않음');
-D.run(`toggleProspectDetail('${pros}')`); h = D.el('pane-고객별').innerHTML;
+D.run(`toggleProspectDetail('${pros}')`); h = D.el('pane-그룹별').innerHTML;
 ok(D.get('expandedCustomer') === 'p:' + pros && D.get('selectedCovCustomer') === null && D.get('window._covSubTab') === '청구서류', '예비 고객 클릭 → 펼쳐지기만, 보장분석 선택·탭 이동 없음');
 ok(/👤 박예비 님 정보/.test(h) && /id="cp-birth"/.test(h) && /id="cp-phone"/.test(h) && /id="cp-region"/.test(h) && /id="cp-addr"/.test(h) && /id="cp-memo"/.test(h), '정보 칸: 생년월일·핸드폰·사는 곳·주소·메모');
 ok(/data-pid="[^"]+" onclick="openCovCustomer\(this\.dataset\.pid\)">📋 보장분석 보기/.test(h), '"📋 보장분석 보기" 버튼을 눌러야 이동');
 D.run(`toggleProspectDetail('${pros}')`);
 ok(D.get('expandedCustomer') === null, '한 번 더 누르면 접힘');
-D.run(`toggleCustomerDetail('pid_kim')`); h = D.el('pane-고객별').innerHTML;
+D.run(`toggleCustomerDetail('pid_kim')`); h = D.el('pane-그룹별').innerHTML;
 ok(D.get('selectedCovCustomer') === null && /👤 김가입 님 정보/.test(h) && h.includes('value="' + P1 + '"') && /value="1990.01.02"/.test(h), '가입자 클릭도 펼침 + 저장된 값이 채워져 있음');
 ok(/📋 보장분석 보기/.test(h) && /계약이 2개 그룹에 걸쳐 있어요/.test(h), '가입자: 보장분석 보기 버튼 + 여러 그룹 안내');
 // 입력 → 저장
@@ -69,7 +69,7 @@ E('cp-region').value = '세종'; E('cp-addr').value = '<img src=x onerror=alert(
 ok(D.run(`saveCustomerProfile('김가입')`) === true, '저장 성공');
 pr = D.get(`getProfile('김가입')`);
 ok(pr.birth === '1991.03.04' && pr.phone === P2 && pr.email === 'kim@example.com' && pr.region === '세종' && pr.memo === '두 번째\n줄', '정규화돼서 저장 (1991.03.04)');
-h = D.el('pane-고객별').innerHTML;
+h = D.el('pane-그룹별').innerHTML;
 ok(!/<img src=x/.test(h) && /&lt;img src=x/.test(h), '주소에 넣은 태그는 글자 그대로 (실행 안 됨)');
 E('cp-birth').value = '900102'; const before = D.get(`MEMOS['cust:김가입']`);
 ok(D.run(`saveCustomerProfile('김가입')`) === false && D.get(`MEMOS['cust:김가입']`) === before, '잘못된 생년월일(6자리)은 저장 안 하고 거절');
@@ -96,23 +96,26 @@ ok(D.get(`prospectGroupOf('최가족')`) === '', '그룹 없음으로 비우기'
 console.log('E) 그룹별 탭·보장분석 목록에 예비 고객이 그 그룹으로 보임');
 D.run(`renderGroups()`); let gh = D.el('pane-그룹별').innerHTML;
 const card = name => { const i = gh.indexOf(`<span class="gname">${name}</span>`); return i < 0 ? '' : gh.slice(gh.lastIndexOf('<div class="gcard">', i), gh.indexOf('<div class="gcard">', i) < 0 ? gh.length : gh.indexOf('<div class="gcard">', i)); };
-ok(/박예비/.test(card('친구')) && /cov-prospect/.test(card('친구')) && /🌱 예비 1명/.test(card('친구')), '친구 그룹 카드에 박예비(🌱 예비) 표시');
+ok(/박예비/.test(card('친구')) && /kind-prospect/.test(card('친구')) && /🌱 예비 1명/.test(card('친구')), '친구 그룹 카드에 박예비(🌱 예비) 표시');
 ok(!/박예비/.test(card('지인')), '다른 그룹엔 없음');
-const rowsOf = html => html.split('<tr class="pros-tr').length - 1;
-ok(rowsOf(card('친구')) === 1 && /가나화재/.test(card('친구')) && /보험1/.test(card('친구')), '가져온 보험이 계약 행처럼 한 줄씩 (보험사·보험명)');
+ok(/보험 1건/.test(card('친구')) && !/가나화재/.test(card('친구')), '그룹 카드 안엔 고객 한 줄(보험 1건)만, 보험은 고객을 눌러야 나옴');
+D.run(`expandedCustomer='p:${pros}'; renderGroups()`); gh = D.el('pane-그룹별').innerHTML;
+ok(/가나화재/.test(card('친구')) && /보험1/.test(card('친구')) && /class="gtbl open"/.test(card('친구')), '고객을 펼치면 가져온 보험이 보이고, 그 그룹 카드는 자동으로 열림');
 D.run(`COVERAGES['${pros}'].externalPolicies.push({id:-99, co:'다라생명', n:'추가보험', pr:20000, items:[], bm:{issue:'2024.05.06', status:'정상'}}); renderGroups()`); gh = D.el('pane-그룹별').innerHTML;
-ok(rowsOf(card('친구')) === 2 && /추가보험/.test(card('친구')) && /20,000/.test(card('친구')) && card('친구').split('class="grp-move"').length - 1 === 1, '보험이 2건이면 두 줄, 그룹 선택칸은 사람당 한 번만');
+ok(/보험 2건/.test(card('친구')) && /추가보험/.test(card('친구')) && /20,000/.test(card('친구')), '보험이 2건이면 두 줄');
 ok(!/class="gamt"[^>]*>[^<]*20,000/.test(card('친구')), '예비 고객 보험료는 그룹 월 합계에 안 더함');
+D.run(`expandedCustomer=null; renderGroups()`); gh = D.el('pane-그룹별').innerHTML;
+ok(!/class="gtbl open"/.test(card('친구')), '아무것도 안 펼쳤으면 그룹 카드는 접힌 채 (기본값)');
 const free = card('🌱 예비 고객 (그룹 미지정)');
 ok(/최가족/.test(free) && /class="grp-move"/.test(free) && /data-pros="1"/.test(free) && /moveCustomerGroup\(this\.dataset\.name,this\.value,this\.dataset\.pros==='1',this\.dataset\.pid\|\|''\)/.test(free), '그룹 미지정 예비 고객은 맨 아래 카드에, 거기서 바로 그룹 선택');
-ok(/class="gtoolbar"/.test(gh) && /openGroupManager/.test(gh), '그룹별 탭 위에 🗂️ 그룹 관리 버튼');
+ok(/openGroupManager/.test(gh), '그룹별 탭 위에 🗂️ 그룹 관리 버튼');
 let list = D.get('covPeopleListHtml()');
 const famBlock = n => { const i = list.indexOf(`data-fam="${n}"`); return i < 0 ? '' : list.slice(i, list.indexOf('</details>', i)); };
 ok(/박예비/.test(famBlock('친구')) && !/박예비/.test(famBlock('🌱 예비 고객')) && /최가족/.test(famBlock('🌱 예비 고객')), '보장분석 목록: 박예비는 친구 그룹에, 그룹 없는 최가족만 🌱 예비 고객 묶음에');
 D.run(`window._covSearch='친구'`); list = D.get('covPeopleListHtml()');
 ok(/박예비/.test(list), '그룹 이름으로 검색해도 예비 고객이 나옴');
 D.run(`window._covSearch=''`);
-D.run(`renderCustomers()`); h = D.el('pane-고객별').innerHTML;
+D.run(`renderGroups()`); h = D.el('pane-그룹별').innerHTML;
 ok(/🗂️ 그룹 관리/.test(h) && /박예비/.test(h) && />친구</.test(h.slice(h.indexOf('박예비'), h.indexOf('박예비') + 900)), '고객별 탭: 예비 고객의 그룹 칸에 친구, 그룹 관리 버튼');
 
 console.log('F) 그룹 관리: 만들기 · 이름 · 색 · 삭제');

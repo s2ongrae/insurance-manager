@@ -31,10 +31,10 @@ ok(/보장 내역 \(2개\)/.test(h) && /암진단비/.test(h) && /뇌졸중진�
 ok(/보장분석에서 보기/.test(h) && /닫기/.test(h), '닫기 · 보장분석으로 가는 버튼');
 
 console.log('C) 고객별 탭의 줄을 누르면 팝업이 열리도록 연결됨');
-D.run(`expandedCustomer='pid_a'; renderCustomers()`);
-let t = D.el('pane-고객별').innerHTML;
+D.run(`expandedCustomer='pid_a'; renderGroups()`);
+let t = D.el('pane-그룹별').innerHTML;
 ok(/class="pol-row"[^>]*onclick="openPolicyPopup\('pid_a',1\)"/.test(t), '가입자 계약 줄: 눌러서 팝업');
-D.run(`expandedCustomer='p:${pros}'; renderCustomers()`); t = D.el('pane-고객별').innerHTML;
+D.run(`expandedCustomer='p:${pros}'; renderGroups()`); t = D.el('pane-그룹별').innerHTML;
 ok(new RegExp(`class="pol-row"[^>]*onclick="openPolicyPopup\\('${pros}',${polId}\\)"`).test(t), '예비 고객 보험 줄: 눌러서 팝업');
 ok(/onclick="event\.stopPropagation\(\);movePolicyTo\(/.test(t) && /onclick="event\.stopPropagation\(\);deletePolicy\(/.test(t), '옮기기·삭제 버튼을 눌러도 팝업은 안 뜸');
 D.run(`openPolicyPopup('${pros}', ${polId})`); D.run(`closePolicyPopup()`);
