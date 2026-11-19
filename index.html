@@ -58,6 +58,8 @@ summary.cv-sec small{order:3;flex-basis:100%;white-space:normal;font-size:12px;f
 .shrink-banner{margin:0 0 12px;padding:14px 16px;background:#FEF2F2;border:2px solid #F87171;border-radius:12px;color:#7F1D1D;font-size:13px;line-height:1.7}
 .shrink-banner b{font-size:15px;color:#991B1B}.shrink-banner .btn{margin-top:8px}
 .cov-prospect{display:inline-block;font-size:10.5px;font-weight:700;color:#047857;background:#D1FAE5;border-radius:999px;padding:1px 7px;margin-left:4px;white-space:nowrap}
+.g-search{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px}
+.g-search input{flex:1;min-width:220px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--surface);color:var(--text)}
 .cl-panel{margin:0 0 12px;border:1px solid #FCD34D;background:#FFFBEB;border-radius:10px;padding:8px 12px;font-size:13px;color:#92400E}
 .cl-panel summary{cursor:pointer;font-weight:700}
 .cl-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 0;border-top:1px dashed #FCD34D;color:var(--text)}
@@ -1883,10 +1885,24 @@ function maskedCandidate(masked, holder){                          // 계약자�
   const hits = peopleList().filter(p => !isMaskedName(p.name) && rx.test(p.name) && p.cs.some(r => String(r.c || '').trim() === h));
   return hits.length === 1 ? hits[0] : null;
 }
+// 설계사가 이미 그 사람 쪽에 옮겨 둔 가려진 이름 보험(bm.insured 가 그 가려진 이름 그대로)이 있고 이름 글자가 맞는 실제 사람이 딱 한 명이면 그 사람 — 직접 옮긴 결과에서 배움
+function maskedCandidateByTag(masked){
+  if(!isMaskedName(masked)) return null;
+  const rx = maskPattern(masked);
+  const hits = peopleList().filter(x => !isMaskedName(x.name) && rx.test(x.name) && ['externalPolicies', 'otherPolicies'].some(f => ((COVERAGES[x.pid] || {})[f] || []).some(y => isPlain(y) && isPlain(y.bm) && y.bm.insured === masked)));
+  return hits.length === 1 ? hits[0] : null;
+}
+// 근거는 없지만 앱 안에 글자가 맞는 실제 사람이 딱 한 명뿐 — 자동으로 합치진 않고 정리 패널에서 ⭐ 후보로만 보여준다
+function maskedCandidateLoose(masked){
+  if(!isMaskedName(masked)) return null;
+  const rx = maskPattern(masked), hits = peopleList().filter(x => !isMaskedName(x.name) && rx.test(x.name));
+  return hits.length === 1 ? hits[0] : null;
+}
+function maskedGuess(masked, holder){ return maskedCandidate(masked, holder) || maskedCandidateByTag(masked) || maskedCandidateLoose(masked); }
 function bmHolderName(pid){ const m = bmMainPidOf(pid); return personName(m || pid); }
 function maskNoticeHtml(pid, name){
   if(!isMaskedName(name)) return '';
-  const cand = maskedCandidate(name, bmHolderName(pid));
+  const cand = maskedGuess(name, bmHolderName(pid));
   return `<div style="margin:0 0 12px;padding:10px 12px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;font-size:12.5px;color:#92400E;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
     <span>⚠️ 보맵이 이름을 <b>${esc(name)}</b> 처럼 가려서 줬어요. 누구 보험인지 골라서 그 사람 것으로 보낼 수 있어요 (기존 고객도 돼요).</span>
     ${cand ? `<button type="button" class="btn btn-primary btn-sm" data-pid="${esc(pid)}" data-dst="${esc(cand.pid)}" onclick="linkMaskedTo(this.dataset.pid,this.dataset.dst)">⭐ ${esc(cand.name)} 님으로 연결</button>` : ''}
@@ -2385,13 +2401,25 @@ function renderGroups() { try {
   const gs = Object.entries(gm).map(([g,v])=>({g,...v,nc:v.nc.size})).sort((a,b)=>b.amt-a.amt);
   if(prosFree.length) gs.push({g:'', free:true, k:0, amt:0, cancel:0, pending:0, nc:0});
   const th = ['#', '가입자', '계약자', '구분', '건수', '월보험료', '연보험료', '보험 목록'].map(h => `<th>${h}</th>`).join('');
-  document.getElementById('pane-그룹별').innerHTML = `${cleanupPanelHtml()}${kindChipsHtml(mem.length, pros.length, kindSel)}` + gs.map((g,gi)=>{
+  // 🔍 검색 (사용자 요청 2026-11-19): 공백으로 나눈 낱말이 모두 들어 있는 고객만. 이름·계약자·그룹·연락처·주소·메모·보험사·보험명·증권번호·피보험자를 훑는다
+  const q = String(window._gSearch || '').trim().toLowerCase(), qs = q ? q.split(/\s+/) : [];
+  const hayOf = (p, rows, ext, g) => {
+    const pr = getProfile(p.name);
+    return [p.name, p.label, g, pr.phone, pr.region, pr.addr, pr.job, pr.memo, pr.email, ...rows.flatMap(r => [r.c, r.p, r.co, r.n, r.pn]), ...ext.flatMap(o => [o.co, o.n, o.holder, isPlain(o.x) && o.x.pn, isPlain(o.x) && isPlain(o.x.bm) ? o.x.bm.insured : ''])]
+      .filter(Boolean).join(' ').toLowerCase();
+  };
+  const hit = (p, rows, ext, g) => { if(!qs.length) return true; const h = hayOf(p, rows, ext, g); return qs.every(w => h.includes(w)); };
+  let foundN = 0;
+  const _pane = document.getElementById('pane-그룹별'), _act = (typeof document !== 'undefined' && document.activeElement) || null;
+  const _keep = !!(_act && _act.id === 'grp-search'), _pos = _keep ? _act.selectionStart : 0;      // 한 글자 칠 때마다 다시 그려도 글자 입력 위치를 유지
+  const _html = `${cleanupPanelHtml()}${kindChipsHtml(mem.length, pros.length, kindSel)}` + gs.map((g,gi)=>{
     const id='g'+gi, key = g.free ? '__free' : g.g;       // 그룹 이름에 따옴표가 있어도 onclick 이 깨지지 않게 순번으로
-    const ms = showMembers && !g.free ? (memBy[g.g] || []).slice().sort((a, b) => b.amt - a.amt) : [];
-    const ps = showPros ? (g.free ? prosFree : (prosBy[g.g] || [])) : [];
-    if(kindSel !== 'all' && !ms.length && !ps.length) return '';
+    const ms = (showMembers && !g.free ? (memBy[g.g] || []).slice().sort((a, b) => b.amt - a.amt) : []).filter(v => hit(v.p, v.rows, v.ext, g.g));
+    const ps = (showPros ? (g.free ? prosFree : (prosBy[g.g] || [])) : []).filter(p => hit(p, [], personExtPolicies(p.pid), g.g));
+    foundN += ms.length + ps.length;
+    if((kindSel !== 'all' || qs.length) && !ms.length && !ps.length) return '';
     const hasExp = ms.some(v => v.p.pid === expandedCustomer) || ps.some(p => 'p:' + p.pid === expandedCustomer);
-    const open = !!window._gOpen[key] || hasExp;
+    const open = !!window._gOpen[key] || hasExp || qs.length > 0;      // 검색 중이면 결과가 있는 그룹 카드는 열어서 보여줌
     const meta=[g.free?'':`${g.nc}명`,g.free?'':`${g.k}건 완료`,g.cancel?`${g.cancel}건 해지`:'',g.pending?`${g.pending}건 예정`:'',ps.length?`🌱 예비 ${ps.length}명`:''].filter(Boolean).join(' · ');
     return `<div class="gcard">
       <div class="gheader" data-k="${esc(key)}" onclick="toggleG('${id}', this.dataset.k)">
@@ -2409,6 +2437,9 @@ function renderGroups() { try {
       </div>
     </div>`;
   }).join('');
+  const searchBar = `<div class="g-search"><input id="grp-search" type="search" autocomplete="off" value="${esc(window._gSearch || '')}" oninput="setGroupSearch(this.value)" placeholder="🔍 이름·계약자·보험사·보험명·증권번호·연락처·그룹으로 검색 (띄어쓰기로 여러 낱말)">${qs.length ? `<button type="button" class="btn btn-secondary btn-sm" onclick="setGroupSearch('')">✕ 지우기</button><span class="rm-fine">${foundN}명 찾음</span>` : ''}</div>`;
+  _pane.innerHTML = searchBar + (qs.length && !foundN ? '<div style="padding:24px;color:var(--muted);text-align:center">검색 결과가 없어요</div>' : '') + _html;
+  if(_keep){ const n = document.getElementById('grp-search'); if(n){ try { n.focus(); n.setSelectionRange(_pos, _pos); } catch(e){} } }
   } catch(e) {
     console.error('renderGroups:', e);
     document.getElementById('pane-그룹별').innerHTML=`<div style="padding:30px;color:var(--red)">⚠️ 오류: ${esc(e.message)}</div>`;
@@ -2432,6 +2463,7 @@ function deletePerson(pid){                                            // 계약
   persistLocal(); scheduleSave(); renderAll();
   showToast(`🗑️ '${p.name}' 님을 지웠어요`);
 }
+function setGroupSearch(v){ window._gSearch = String(v || '').slice(0, 80); renderGroups(); }
 function toggleG(id, key){
   const t=document.getElementById('gt-'+id),a=document.getElementById('arr-'+id);
   const open=!t.classList.contains('open');            // display:table 로 열면 상자가 내용 폭만큼 줄어서 표가 반쪽이 됐어요
@@ -2672,9 +2704,9 @@ function cleanupItems(){
     if(isShellPerson(p.pid)){ items.push({kind: 'empty', pid: p.pid, name: p.name}); return; }
     const dgs = dupPolicyGroups(p.pid);
     if(dgs.length) items.push({kind: 'dups', pid: p.pid, who: p.name, groups: dgs.length, n: dgs.reduce((s, g) => s + g.drops.length, 0)});
-    if(isMaskedName(p.name)){ items.push({kind: 'person', pid: p.pid, name: p.name, n: covPolicyCount(p.pid), cand: maskedCandidate(p.name, bmHolderName(p.pid))}); return; }
+    if(isMaskedName(p.name)){ items.push({kind: 'person', pid: p.pid, name: p.name, n: covPolicyCount(p.pid), cand: maskedGuess(p.name, bmHolderName(p.pid))}); return; }
     const fi = foreignInsureds(p.pid);
-    Object.keys(fi).forEach(ins => items.push({kind: 'policies', pid: p.pid, who: p.name, ins, n: fi[ins].length, cand: isMaskedName(ins) ? maskedCandidate(ins, bmHolderName(p.pid)) : null}));
+    Object.keys(fi).forEach(ins => items.push({kind: 'policies', pid: p.pid, who: p.name, ins, n: fi[ins].length, cand: isMaskedName(ins) ? maskedGuess(ins, bmHolderName(p.pid)) : null}));
   });
   return items;
 }
@@ -3700,7 +3732,7 @@ function maskedTarget(mainPid, c, insured, pol){                    // 가려진
   if(!isMaskedName(insured)) return null;
   const mm = isPlain(COVERAGES[mainPid]) && isPlain(COVERAGES[mainPid].insuredMap) ? COVERAGES[mainPid].insuredMap[insured] : null;
   if(mm && mm !== mainPid && peopleList().some(x => x.pid === mm)) return mm;
-  const auto = maskedCandidate(insured, c.name) || maskedCandidateByPolicy(insured, pol);
+  const auto = maskedCandidate(insured, c.name) || maskedCandidateByPolicy(insured, pol) || maskedCandidateByTag(insured);
   if(auto && auto.pid !== mainPid){ setInsuredAlias(mainPid, insured, auto.pid); return auto.pid; }
   return null;
 }

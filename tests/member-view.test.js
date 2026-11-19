@@ -130,6 +130,57 @@ const left = D.get(`COVERAGES['${jid}'].externalPolicies.filter(x=>x.n==='중복
 ok(left.length === 1 && left[0].items.length === 3 && left[0].pr === 5000 && left[0].bm.holder === '김아름', '담보 3개짜리를 남기고, 월보험료(5,000)와 풀린 계약자(김아름)를 가져옴');
 ok(D.get(`COVERAGES['${jid}'].bmSkip.includes(802)`) && D.get(`cleanupItems().some(it=>it.kind==='dups' && it.pid==='${jid}')`) === false, '지운 보험은 다시 가져와도 안 생기게 기록, 패널에서도 사라짐');
 
+console.log('L) 그룹별 검색: 이름·계약자·그룹·보험사·보험명·증권번호, 낱말 여러 개(모두 포함), 결과 있는 그룹만 열림');
+D.run(`CONTRACTS = CONTRACTS.map(c => c.id === 3 ? Object.assign({}, c, {pn: 'PN-SEARCH-9', n: '검색용상품'}) : c); expandedCustomer = null; window._gSearch = ''; window._gOpen = {}; renderGroups()`);
+const names = () => { const h = D.el('pane-그룹별').innerHTML; return ['김아름', '조유건', '이무그룹', '조*인'].filter(n => h.indexOf(`data-pid="${pidOf(n)}"`) > -1); };
+ok(/id="grp-search"/.test(D.el('pane-그룹별').innerHTML) && names().length === 4, '검색창이 맨 위에 있고, 비어 있으면 모두 보임');
+D.run(`setGroupSearch('조유건')`);
+ok(JSON.stringify(names()) === '["조유건"]' && /1명 찾음/.test(D.el('pane-그룹별').innerHTML), '이름으로 검색: 조유건만');
+D.run(`setGroupSearch('이무')`);
+ok(JSON.stringify(names()) === '["이무그룹"]', '이름 일부로도 검색');
+D.run(`setGroupSearch('PN-SEARCH-9')`);
+ok(JSON.stringify(names()) === '["이무그룹"]', '증권번호로 검색');
+D.run(`setGroupSearch('검색용상품')`);
+ok(JSON.stringify(names()) === '["이무그룹"]', '보험명으로 검색');
+D.run(`setGroupSearch('가족')`);
+ok(JSON.stringify(names()) === '["조유건"]', '그룹 이름으로 검색 (가족 그룹 사람)');
+D.run(`setGroupSearch('가나화재')`);
+ok(names().includes('조유건') && names().includes('김아름') && !names().includes('이무그룹'), '가져온 보맵 보험의 보험사로도 검색 (가져온 보험이 있는 사람)');
+D.run(`setGroupSearch('김아름 가족')`);
+ok(JSON.stringify(names()) === '["조유건"]', '낱말 여러 개는 모두 들어 있어야 (계약자 김아름 + 가족 그룹)');
+D.run(`setGroupSearch('조*인')`);
+ok(JSON.stringify(names()) === '["조*인"]', '예비 고객(가려진 이름)도 검색됨');
+const ghS = D.el('pane-그룹별').innerHTML;
+ok(/class="gtbl open"/.test(ghS), '검색 중에는 결과가 있는 그룹 카드가 열려 있음');
+D.run(`setGroupSearch('없는이름xyz')`);
+ok(names().length === 0 && /검색 결과가 없어요/.test(D.el('pane-그룹별').innerHTML), '결과가 없으면 안내');
+D.run(`setGroupSearch('')`);
+ok(names().length === 4 && !/class="gtbl open"/.test(D.el('pane-그룹별').innerHTML), '지우면 전부 다시 보이고 카드는 접힌 기본값으로');
+D.run(`setGroupSearch('${'가'.repeat(200)}')`);
+ok(D.get('window._gSearch.length') === 80, '검색어는 80자까지');
+D.run(`setGroupSearch('')`);
+
+console.log('M) 조해인 같은 경우: 직접 만들어 둔 사람과 가려진 이름(조*인)이 따로 있으면 정리 패널이 알려줌, 직접 옮긴 결과는 다시 가져와도 유지');
+const D6 = makeDevice({ session: { ins_unlocked: '1' }, ls: { ins_contracts: JSON.stringify([K(1, 'pid_a', '김아름', '김아름', '지인')]), ins_coverages: '{}', ins_monthly: '[]', ins_groups: '{}', ins_reminders: '{}' } });
+D6.ctx.__f = { source: 'bomapp-planner', version: 1, exportedAt: '2026-11-19T00:00:00.000Z', customers: [{ plannerMemberId: 7, memberId: 7, name: '김아름', policies: [pol(1, '김아름', '김아름', true), pol(5, '조*인', '김*름'), pol(6, '조*인', '김*름')] }] };
+D6.get('importBomappData(__f)');
+const star = D6.get(`peopleList().find(p=>p.name==='조*인').pid`);
+// 설계사가 예전에 조해인을 따로 만들어 두었다고 가정 (계약도 보험도 없는 빈 사람)
+D6.run(`COVERAGES['pid_hi'] = {policies: [], person: {name: '조해인', src: 'split'}}; renderGroups()`);
+let ph6 = D6.el('pane-그룹별').innerHTML;
+ok(/조\*인<\/b> <span class="rm-fine">\(가려진 이름/.test(ph6) && /⭐ 조해인 님으로 연결/.test(ph6), '가려진 조*인 옆에 "⭐ 조해인 님으로 연결" (글자가 맞는 사람이 한 명뿐)');
+D6.confirmQ.push(true); D6.run(`linkMaskedTo('${star}', 'pid_hi')`);
+ok(!D6.get(`peopleList().some(p=>p.name==='조*인')`) && D6.get(`COVERAGES['pid_hi'].externalPolicies.length`) === 2, '연결하면 조해인 님에게 보험 2건');
+// 조해인 쪽에 직접 옮겨 둔 상태에서 보맵을 다시 가져와도(별칭 기록 없이) 조*인 이 또 생기지 않음
+D6.run(`COVERAGES['pid_hi'].bomapp = undefined; const r = COVERAGES['${D6.get(`peopleList().find(p=>p.name==='김아름').pid`)}']; if(r.insuredMap) delete r.insuredMap`);
+D6.ctx.__f = { source: 'bomapp-planner', version: 1, exportedAt: '2026-11-19T00:00:00.000Z', customers: [{ plannerMemberId: 7, memberId: 7, name: '김아름', policies: [pol(1, '김아름', '김아름', true), pol(5, '조*인', '김*름'), pol(6, '조*인', '김*름'), pol(7, '조*인', '김*름')] }] };
+D6.get('importBomappData(__f)');
+ok(!D6.get(`peopleList().some(p=>p.name==='조*인')`) && D6.get(`COVERAGES['pid_hi'].externalPolicies.length`) === 3, '직접 옮겨 둔 조해인 쪽을 보고 새 보험(7)도 조해인 님에게 (조*인 안 생김)');
+// 잘못 들어간 경우: 조종연 같은 다른 사람 쪽에 조*인 보험이 있으면 ⭐ 조해인 후보와 함께 알려줌
+D6.run(`COVERAGES['${D6.get(`peopleList().find(p=>p.name==='김아름').pid`)}'].externalPolicies.push({id:-950, co:'가나화재', n:'엉뚱한자리', pr:1, items:[], bm:{id:950, insured:'조*인', issue:'2020.01.01', status:'정상', extra:[]}}); renderGroups()`);
+ph6 = D6.el('pane-그룹별').innerHTML;
+ok(/피보험자가 <b>조\*인<\/b> 인 보험 1건/.test(ph6) && /⭐ 조해인 님으로 옮기기/.test(ph6), '엉뚱한 사람 쪽에 들어간 조*인 보험은 ⭐ 조해인 후보와 함께 알려줌');
+
 console.log(`\n가입자 기준 화면 테스트: ${pass}건 통과, ${fail}건 실패`);
 process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });
