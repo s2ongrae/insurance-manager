@@ -605,6 +605,10 @@ if(_viewHash.startsWith('#view=')) {
         <button class="btn btn-secondary" onclick="pullFromServer()" title="서버에 저장된 데이터를 합치지 않고 그대로 이 기기로 받아요 (이 기기 데이터가 이상할 때)">☁️ 서버 데이터로 되돌리기</button>
         <button class="btn btn-secondary" onclick="openCovTidy()" title="담보 이름 다듬기·남은 기록 정리·중복 의심 보험 찾기">🧹 보장분석 자료 정리</button>
         <button class="btn btn-secondary" onclick="openGroupManager()" title="그룹 만들기·이름/색 수정·삭제">🗂️ 그룹 관리</button>
+        <label class="btn btn-secondary" title="카톡에서 뽑은 증권번호 파일(JSON)로 계약의 빈 증권번호 칸을 채워요 (일회용)" style="cursor:pointer">
+          🔢 증권번호 가져오기
+          <input type="file" accept=".json,application/json" onchange="importPolicyNumbersFile(event)" style="display:none">
+        </label>
         <button class="btn btn-secondary" onclick="openHealthCheck()" title="서버·백업·동기화·보장분석 상태를 확인만 해요 (데이터는 안 바뀜)">🩺 상태 점검</button>
         <button class="btn btn-secondary" onclick="openBomappModal()" title="보맵 플래너 고객의 보험·특약·납입·약관·분석리포트 가져오기">📥 보맵 가져오기</button>
         <button class="btn btn-secondary" onclick="exportData()" title="데이터 백업">💾 백업 파일 받기</button>
@@ -2383,6 +2387,46 @@ function normPhone(s){
   if(dg.length === 9 && dg.startsWith('02')) return `02-${dg.slice(2, 5)}-${dg.slice(5)}`;
   if(dg.length === 8) return `${dg.slice(0, 4)}-${dg.slice(4)}`;
   return null;
+}
+// 증권번호 가져오기 (일회용, 사용자 요청 2026-11-19): 카톡 전자청약 양식의 증권번호를 계약 리스트의 같은 계약에 채운다.
+// 파일 = [{holder, co, prod, sd:'YYYY-MM-DD', prem, pn}]. 계약자(있으면)·가입일이 같고 후보가 하나로 좁혀질 때만 맞춘다.
+// 이미 증권번호가 있는 계약은 건드리지 않는다(다른 번호면 건너뜀으로 센다).
+function importPolicyNumbers(list){
+  const res = {total: 0, set: 0, same: 0, kept: 0, ambiguous: 0, unmatched: 0};
+  const live = CONTRACTS.map(c => Object.assign({}, c)), changed = new Set();
+  (Array.isArray(list) ? list : []).forEach(it => {
+    if(!isPlain(it)) return;
+    const pn = String(it.pn || '').trim().slice(0, 40), m = String(it.sd || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(!pn || !m) return;
+    res.total++;
+    const d = `${m[1].slice(2)}.${m[2]}.${m[3]}`, h = String(it.holder || '').trim(), prem = Number(it.prem) || 0;
+    let cand = live.filter(c => c.d === d && (!h || String(c.c || '').trim() === h));
+    if(cand.length > 1 && prem) cand = cand.filter(c => Number(c.pr) === prem);
+    if(cand.length > 1 && it.prod){ const t = String(it.prod).replace(/[^가-힣A-Za-z0-9]/g, ''); const c2 = cand.filter(c => { const n = String(c.n || '').replace(/[^가-힣A-Za-z0-9]/g, ''); return n && (t.includes(n.slice(0, 6)) || n.includes(t.slice(0, 6))); }); if(c2.length) cand = c2; }
+    if(!cand.length){ res.unmatched++; return; }
+    if(cand.length > 1){ res.ambiguous++; return; }
+    const c = cand[0];
+    if(String(c.pn || '').trim() === pn){ res.same++; return; }
+    if(String(c.pn || '').trim()){ res.kept++; return; }
+    c.pn = pn; changed.add(c.id); res.set++;
+  });
+  if(changed.size){ CONTRACTS = live; save('ins_contracts', CONTRACTS); scheduleSave(); }
+  return res;
+}
+function importPolicyNumbersFile(event){
+  const f = event.target.files && event.target.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    let data = null; try { data = JSON.parse(rd.result); } catch(e){}
+    event.target.value = '';
+    if(!Array.isArray(data)){ alert('증권번호 파일 모양이 아니에요 (JSON 목록이어야 해요)'); return; }
+    if(!confirm(`증권번호 ${data.length}건을 가져와서, 같은 계약(계약자·가입일 일치)의 빈 증권번호 칸을 채울까요?\n(이미 번호가 있는 계약은 안 건드려요)`)) return;
+    saveCheckpoint('증권번호 가져오기 전');
+    const r = importPolicyNumbers(data);
+    try { renderAll(); } catch(e){}
+    alert(`증권번호 가져오기 끝\n· 새로 채운 계약 ${r.set}건\n· 이미 같은 번호 ${r.same}건 · 다른 번호가 있어 건너뜀 ${r.kept}건\n· 계약을 하나로 못 정함 ${r.ambiguous}건 · 맞는 계약 없음 ${r.unmatched}건`);
+  };
+  rd.readAsText(f);
 }
 function saveCustomerProfile(name){
   const v = id => String((document.getElementById(id) || {}).value || '');
