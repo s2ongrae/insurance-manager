@@ -58,6 +58,8 @@ summary.cv-sec small{order:3;flex-basis:100%;white-space:normal;font-size:12px;f
 .shrink-banner{margin:0 0 12px;padding:14px 16px;background:#FEF2F2;border:2px solid #F87171;border-radius:12px;color:#7F1D1D;font-size:13px;line-height:1.7}
 .shrink-banner b{font-size:15px;color:#991B1B}.shrink-banner .btn{margin-top:8px}
 .cov-prospect{display:inline-block;font-size:10.5px;font-weight:700;color:#047857;background:#D1FAE5;border-radius:999px;padding:1px 7px;margin-left:4px;white-space:nowrap}
+.g-ico{border:0;background:none;cursor:pointer;font-size:15px;line-height:1;padding:2px 4px;color:#F59E0B;border-radius:6px}
+.g-ico:hover{background:rgba(0,0,0,.06)}
 .g-search{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px}
 .g-search input{flex:1;min-width:220px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--surface);color:var(--text)}
 .cl-panel{margin:0 0 12px;border:1px solid #FCD34D;background:#FFFBEB;border-radius:10px;padding:8px 12px;font-size:13px;color:#92400E}
@@ -2398,7 +2400,10 @@ function renderGroups() { try {
   const kindSel = window._custKind || 'all';                 // 구분 필터: 전체 / 가입자 / 예비 고객
   const showMembers = kindSel !== 'prospect', showPros = kindSel !== 'member';
   window._gOpen = window._gOpen || {};
-  const gs = Object.entries(gm).map(([g,v])=>({g,...v,nc:v.nc.size})).sort((a,b)=>b.amt-a.amt);
+  // 순서: 즐겨찾기(★) 그룹 먼저, 그다음 이름순(가나다). "그룹 없음"과 예비 고객 미지정 카드는 맨 아래 (사용자 요청 2026-11-19)
+  window._fav = {groups: favSet('groups'), people: favSet('people')};
+  const favOnly = !!window._gFavOnly;
+  const gs = Object.entries(gm).map(([g,v])=>({g,...v,nc:v.nc.size})).sort((a,b)=>((a.g==='')-(b.g===''))||((window._fav.groups.has(b.g)?1:0)-(window._fav.groups.has(a.g)?1:0))||String(a.g).localeCompare(String(b.g),'ko'));
   if(prosFree.length) gs.push({g:'', free:true, k:0, amt:0, cancel:0, pending:0, nc:0});
   const th = ['#', '가입자', '계약자', '구분', '건수', '월보험료', '연보험료', '보험 목록'].map(h => `<th>${h}</th>`).join('');
   // 🔍 검색 (사용자 요청 2026-11-19): 공백으로 나눈 낱말이 모두 들어 있는 고객만. 이름·계약자·그룹·연락처·주소·메모·보험사·보험명·증권번호·피보험자를 훑는다
@@ -2414,10 +2419,12 @@ function renderGroups() { try {
   const _keep = !!(_act && _act.id === 'grp-search'), _pos = _keep ? _act.selectionStart : 0;      // 한 글자 칠 때마다 다시 그려도 글자 입력 위치를 유지
   const _html = `${cleanupPanelHtml()}${kindChipsHtml(mem.length, pros.length, kindSel)}` + gs.map((g,gi)=>{
     const id='g'+gi, key = g.free ? '__free' : g.g;       // 그룹 이름에 따옴표가 있어도 onclick 이 깨지지 않게 순번으로
-    const ms = (showMembers && !g.free ? (memBy[g.g] || []).slice().sort((a, b) => b.amt - a.amt) : []).filter(v => hit(v.p, v.rows, v.ext, g.g));
-    const ps = (showPros ? (g.free ? prosFree : (prosBy[g.g] || [])) : []).filter(p => hit(p, [], personExtPolicies(p.pid), g.g));
+    const byName = (x, y) => ((window._fav.people.has(y.pid) ? 1 : 0) - (window._fav.people.has(x.pid) ? 1 : 0)) || String(x.name).localeCompare(String(y.name), 'ko');   // 즐겨찾기 고객 먼저, 그다음 이름순
+    const favOk = pid => !favOnly || window._fav.groups.has(g.g) || window._fav.people.has(pid);
+    const ms = (showMembers && !g.free ? (memBy[g.g] || []).slice().sort((a, b) => byName(a.p, b.p)) : []).filter(v => favOk(v.p.pid) && hit(v.p, v.rows, v.ext, g.g));
+    const ps = (showPros ? (g.free ? prosFree : (prosBy[g.g] || [])).slice().sort(byName) : []).filter(p => favOk(p.pid) && hit(p, [], personExtPolicies(p.pid), g.g));
     foundN += ms.length + ps.length;
-    if((kindSel !== 'all' || qs.length) && !ms.length && !ps.length) return '';
+    if((kindSel !== 'all' || qs.length || favOnly) && !ms.length && !ps.length) return '';
     const hasExp = ms.some(v => v.p.pid === expandedCustomer) || ps.some(p => 'p:' + p.pid === expandedCustomer);
     const open = !!window._gOpen[key] || hasExp || qs.length > 0;      // 검색 중이면 결과가 있는 그룹 카드는 열어서 보여줌
     const meta=[g.free?'':`${g.nc}명`,g.free?'':`${g.k}건 완료`,g.cancel?`${g.cancel}건 해지`:'',g.pending?`${g.pending}건 예정`:'',ps.length?`🌱 예비 ${ps.length}명`:''].filter(Boolean).join(' · ');
@@ -2425,6 +2432,7 @@ function renderGroups() { try {
       <div class="gheader" data-k="${esc(key)}" onclick="toggleG('${id}', this.dataset.k)">
         <div class="gdot" style="background:${gc(g.g)}"></div>
         <span class="gname">${g.free ? '🌱 예비 고객 (그룹 미지정)' : esc(g.g||'그룹 없음')}</span>
+        ${(g.free || !g.g) ? '' : `<button type="button" class="g-ico" data-k="${esc(g.g)}" title="즐겨찾기 (맨 위로)" onclick="event.stopPropagation();toggleFav('groups',this.dataset.k)">${window._fav.groups.has(g.g) ? '★' : '☆'}</button><button type="button" class="g-ico" data-k="${esc(g.g)}" title="그룹 이름 바꾸기" onclick="event.stopPropagation();renameGroupPrompt(this.dataset.k)">✏️</button>`}
         <span class="gmeta">${meta}</span>
         <span class="gamt" style="color:${gc(g.g)}">${g.free ? '' : wonN(g.amt)+'원/월'}</span>
         <span class="garr" id="arr-${id}">${open ? '▲' : '▼'}</span>
@@ -2724,7 +2732,28 @@ function cleanupPanelHtml(){
 }
 function kindChipsHtml(nMember, nPros, sel){
   const chip = (k, label, n) => `<button type="button" class="kind-chip${sel === k ? ' on' : ''}" onclick="setCustKind('${k}')">${label} <b>${n}</b></button>`;
-  return `<div class="kind-filter">${chip('all', '전체', nMember + nPros)}${chip('member', '✓ 가입자', nMember)}${chip('prospect', '🌱 예비 고객', nPros)}<button type="button" class="kind-chip kind-mgr" onclick="openGroupManager()">🗂️ 그룹 관리</button></div>`;
+  return `<div class="kind-filter">${chip('all', '전체', nMember + nPros)}${chip('member', '✓ 가입자', nMember)}${chip('prospect', '🌱 예비 고객', nPros)}<button type="button" class="kind-chip${window._gFavOnly ? ' on' : ''}" onclick="setGroupFavOnly()" title="★ 표시한 그룹·고객만 보기">★ 즐겨찾기만</button><button type="button" class="kind-chip kind-mgr" onclick="openGroupManager()">🗂️ 그룹 관리</button></div>`;
+}
+// ★ 즐겨찾기: 그룹(이름)과 고객(pid)을 SETTINGS.favorites 에 저장 → 동기화·백업에 들어가고 고객 링크로는 안 나감 (서버가 settings 중 담보 그룹만 보냄)
+function favSet(kind){ const f = isPlain(SETTINGS.favorites) ? SETTINGS.favorites : {}; return new Set(Array.isArray(f[kind]) ? f[kind].map(String) : []); }
+function toggleFav(kind, key){
+  if(kind !== 'groups' && kind !== 'people') return;
+  const s = favSet(kind), k = String(key || ''); if(!k) return;
+  if(s.has(k)) s.delete(k); else s.add(k);
+  SETTINGS.favorites = Object.assign({}, isPlain(SETTINGS.favorites) ? SETTINGS.favorites : {}, {[kind]: [...s].slice(0, 300)});
+  save('ins_settings', SETTINGS); scheduleSave(); renderGroups();
+}
+function setGroupFavOnly(){ window._gFavOnly = !window._gFavOnly; renderGroups(); }
+function favBtn(pid){ return `<button type="button" class="g-ico" data-k="${esc(pid)}" title="즐겨찾기 (그룹 안에서 맨 위로)" onclick="event.stopPropagation();toggleFav('people',this.dataset.k)">${window._fav && window._fav.people.has(pid) ? '★' : '☆'}</button>`; }
+// 그룹 이름을 그 줄에서 바로 바꿈 (계약·예비 고객·계약 리스트 필터·즐겨찾기가 함께 따라감)
+function renameGroupPrompt(old){
+  if(!hasOwn(GROUPS, old)) return;
+  const nn = prompt(`'${old}' 그룹의 새 이름을 입력해주세요`, old); if(nn === null || String(nn).trim() === old) return;
+  const r = renameGroup(old, nn); if(!r.ok){ showToast('⚠️ ' + r.error); return; }
+  const fg = favSet('groups'); if(fg.has(old)){ fg.delete(old); fg.add(r.name); SETTINGS.favorites = Object.assign({}, isPlain(SETTINGS.favorites) ? SETTINGS.favorites : {}, {groups: [...fg]}); save('ins_settings', SETTINGS); scheduleSave(); }
+  if(window._gOpen && hasOwn(window._gOpen, old)){ window._gOpen[r.name] = window._gOpen[old]; delete window._gOpen[old]; }
+  showToast(`✅ '${old}' → '${r.name}' 그룹 이름을 바꿨어요`);
+  renderAll();
 }
 // 그룹 카드 안의 고객 한 줄 (가입자 = 피보험자. 계약자는 뒤 칸). 누르면 고객 정보 + 보험 목록이 펼쳐진다.
 function memberRowHtml(c, no, people){
@@ -2733,7 +2762,7 @@ function memberRowHtml(c, no, people){
   const names = [...c.rows.filter(r => r.s === '계약완료').map(r => r.n), ...c.ext.map(o => o.n)].filter(Boolean);
   const summaryRow = `<tr data-pid="${esc(p.pid)}" onclick="toggleCustomerDetail(this.dataset.pid)" style="cursor:pointer;background:${exp ? 'var(--blue-l)' : ''};transition:background .15s">
     <td style="color:var(--hint);font-size:12px">${no}</td>
-    <td style="font-weight:600">${esc(p.label)} <span style="font-size:11px;color:${exp ? 'var(--blue)' : 'var(--hint)'}">${exp ? '▲' : '▼'}</span>${profileHintHtml(p.name)}</td>
+    <td style="font-weight:600">${favBtn(p.pid)}${esc(p.label)} <span style="font-size:11px;color:${exp ? 'var(--blue)' : 'var(--hint)'}">${exp ? '▲' : '▼'}</span>${profileHintHtml(p.name)}</td>
     <td style="color:var(--muted)">${c.holders.length ? esc(c.holders.map(h => h === p.name ? '본인' : h).join(', ')) : '<span style="color:var(--hint)">-</span>'}</td>
     <td><span class="kind-badge kind-member">✓ 가입자</span>${groupSelectHtml(c.g, p.name, false, p.pid)}</td>
     <td style="text-align:center">
@@ -2759,7 +2788,7 @@ function prospectRowHtml(p, no, people){
   const exp = expandedCustomer === 'p:' + p.pid, pg = prospectGroupOf(p.name);
   const row = `<tr class="pros-tr" data-pid="${esc(p.pid)}" onclick="toggleProspectDetail(this.dataset.pid)" style="cursor:pointer;background:${exp ? '#ECFDF5' : ''}">
     <td style="color:var(--hint);font-size:12px">${no}</td>
-    <td style="font-weight:600">${esc(p.label)} <span style="font-size:11px;color:${exp ? 'var(--green)' : 'var(--hint)'}">${exp ? '▲' : '▼'}</span>${profileHintHtml(p.name)}</td>
+    <td style="font-weight:600">${favBtn(p.pid)}${esc(p.label)} <span style="font-size:11px;color:${exp ? 'var(--green)' : 'var(--hint)'}">${exp ? '▲' : '▼'}</span>${profileHintHtml(p.name)}</td>
     <td style="color:var(--muted)">${holders.length ? esc(holders.map(h => h === p.name ? '본인' : h).join(', ')) : '<span style="color:var(--hint)">-</span>'}</td>
     <td><span class="kind-badge kind-prospect">🌱 예비 고객</span>${groupSelectHtml(pg, p.name, true)}</td>
     <td style="text-align:center;color:var(--muted)">보험 ${covPolicyCount(p.pid)}건</td>
