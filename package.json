@@ -5,7 +5,8 @@
   "scripts": {
     "test": "node tools/check.js && node tests/run-all.js",
     "check": "node tools/check.js",
-    "test:only": "node tests/run-all.js"
+    "test:only": "node tests/run-all.js",
+    "wrap-scan": "node tools/wrap-scan.js"
   },
   "engines": { "node": ">=18" },
   "devDependencies": {

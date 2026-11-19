@@ -296,7 +296,7 @@ input[type=text]:focus,input[type=number]:focus,select.form-sel:focus,textarea:f
 .cov-right{flex:1}
 .cov-policy{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
 .cov-policy-hdr{padding:12px 14px;background:var(--surface2);display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)}
-.cov-item-row{display:grid;grid-template-columns:minmax(0,1fr) 90px 64px 90px 28px;gap:6px;padding:6px 14px;border-bottom:1px dashed var(--border);align-items:center;font-size:13px}
+.cov-item-row{display:grid;grid-template-columns:minmax(0,1fr) 90px 64px 90px 64px;gap:6px;padding:6px 14px;border-bottom:1px dashed var(--border);align-items:center;font-size:13px}
 .cov-item-row:last-child{border:none}
 .cov-input{width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);outline:none}
 .cov-input:focus{border-color:var(--blue)}
@@ -356,7 +356,7 @@ thead th,.kpi-label,.kpi-sub,.cov-cust-cnt,.garr,.b-done,.b-cancel,.b-pending,.g
 .rem-item.ms{border-color:#BFDBFE;background:var(--blue-l)}
 .rem-when{flex:0 0 74px;font-size:13px;font-weight:700;line-height:1.3}
 .rem-when small{display:block;font-size:12px;font-weight:600}
-.rem-body{flex:1;min-width:0;font-size:13px;line-height:1.5;word-break:break-word;white-space:pre-wrap}
+.rem-body{flex:1;min-width:0;font-size:13px;line-height:1.5;white-space:pre-wrap}   /* word-break:break-word 는 한글을 어절 중간에서 꺾어서 뺌 (전체 keep-all 규칙을 따름) */
 .rem-body .sub{display:block;font-size:12px;color:var(--muted);white-space:normal}
 .rem-act{display:flex;gap:4px;flex-shrink:0}
 .rem-empty{text-align:center;color:var(--hint);font-size:13px;padding:16px}
@@ -368,8 +368,8 @@ thead th,.kpi-label,.kpi-sub,.cov-cust-cnt,.garr,.b-done,.b-cancel,.b-pending,.g
 .cov-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px}
 .cov-sum>div{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;border-top:3px solid var(--blue);min-width:0}
 .cov-sum .l{font-size:12px;color:var(--muted);margin-bottom:4px;white-space:nowrap}
-.cov-sum .v{font-size:20px;font-weight:800;letter-spacing:-.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cov-sum .s{font-size:12px;color:var(--hint);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cov-sum .v{font-size:20px;font-weight:800;letter-spacing:-.5px;white-space:nowrap}
+.cov-sum .s{font-size:12px;color:var(--hint);margin-top:2px;line-height:1.4}
 
 /* 리모델링 비교 (기존 → 변경) */
 .rm-chips{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;white-space:nowrap}
@@ -406,7 +406,7 @@ thead th,.kpi-label,.kpi-sub,.cov-cust-cnt,.garr,.b-done,.b-cancel,.b-pending,.g
 .mtx-scroll thead th{position:sticky;top:0;z-index:3;background:#1E3A8A}
 .mtx-scroll thead th:first-child{left:0;z-index:4}
 .cv-mtx-scroll tbody tr td:first-child:not([colspan]){position:sticky;left:0;background:#fff;z-index:1;box-shadow:1px 0 0 #E5E7EB}
-.mtx-coln{font-size:12px;white-space:normal;word-break:keep-all;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mtx-coln{font-size:12px;white-space:normal;word-break:keep-all;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .mtx-sum{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px;padding:0 10px 12px;align-items:start}
 .mtx-sum-g{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface)}
 .mtx-sum-h{padding:8px 12px;font-weight:700;font-size:13px}
@@ -446,8 +446,51 @@ thead th,.kpi-label,.kpi-sub,.cov-cust-cnt,.garr,.b-done,.b-cancel,.b-pending,.g
 .rm-workspace{border:1px solid #D5DFF2;background:#F8FAFF;border-radius:14px;padding:20px;margin:18px 0 24px}.rm-workspace-head h3{font-size:19px;color:#1E3A8A;margin:0 0 7px}.rm-workspace-head p,.rm-help{font-size:13px;line-height:1.7}.rm-help{background:#EAF0FF;padding:12px;border-radius:9px;margin:14px 0}.rm-step-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:20px 0 8px;flex-wrap:wrap}.rm-step-heading h4{font-size:15px}.rm-fine{font-size:12px;color:#64748B;line-height:1.7}.rm-progress{font-size:12px;background:white;padding:9px 12px;border:1px solid #DFE5F1;border-radius:8px;margin:10px 0}.rm-policy-card{border:1px solid #DFE5F1;border-radius:12px;background:white;padding:14px;margin:10px 0}.rm-policy-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.rm-policy-top strong{font-size:14px}.rm-policy-meta{font-size:12px;color:#64748B;margin:6px 0;line-height:1.6}.rm-state{font-size:11px;font-weight:700;padding:6px 8px;border-radius:20px;background:#EFF3F9;white-space:nowrap}.rm-state-unassigned{color:#B45309;background:#FFF3D6}.rm-state-both{color:#047857;background:#DFF8EB}.rm-state-before{color:#B91C1C;background:#FEE2E2}.rm-state-after{color:#1D4ED8;background:#E1ECFF}.rm-state-endorse{color:#6D28D9;background:#EDE9FE}.rm-action-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:10px 0}.rm-action{border:1px solid #D6DDEB;background:white;padding:10px 6px;border-radius:8px;text-align:center;color:#475569;cursor:pointer;min-height:63px}.rm-action b{display:block;font-size:12px;line-height:1.5}.rm-action small{display:block;font-size:10px;margin-top:4px;line-height:1.5}.rm-action.chosen{border:2px solid #3B5BDB;background:#EDF2FF;color:#1D3FAA}.rm-policy-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px;color:#64748B;line-height:1.6}.rm-text-btn{background:none;border:0;color:#64748B;text-decoration:underline;font-size:11px;cursor:pointer;padding:4px}.rm-endorse{background:#F5F2FF;padding:14px;border-radius:8px;margin-top:12px;border:1px solid #DDD6FE}.rm-endorse>b{font-size:13px;color:#5B21B6}.rm-endorse p{font-size:12px;color:#64748B;line-height:1.6;margin:6px 0}.rm-riders{margin:10px 0;max-height:300px;overflow:auto;background:white;border-radius:8px}.rm-rider{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:8px;align-items:center;padding:9px;border-bottom:1px solid #E8E4F2;font-size:12px;cursor:pointer}.rm-rider small{grid-column:2/4;color:#047857;font-size:10px}.rm-rider.removed{background:#FFF1F2}.rm-rider.removed span{text-decoration:line-through;color:#9F1239}.rm-rider.removed small{color:#B91C1C}.rm-rider input{width:16px;height:16px;accent-color:#7C3AED}.rm-premium{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;margin-top:12px;font-weight:700}.rm-premium input{width:150px;background:white;border:1px solid #CBD5E1;border-radius:6px;padding:8px}.rm-alert{background:#FFF5DB;color:#92400E!important;border:1px solid #F5D891;padding:10px 12px;border-radius:8px;font-size:12px;line-height:1.7;margin:10px 0}.rm-summary .v{font-size:18px;white-space:normal}.rm-change-table{width:100%;border-collapse:collapse;font-size:12px;background:white}.rm-change-table th,.rm-change-table td{padding:10px;border-bottom:1px solid #E2E8F0;text-align:left}.rm-change-table thead{background:#1E3A8A;color:white}.rm-change-table th:nth-child(2),.rm-change-table th:nth-child(3),.rm-change-table td:nth-child(2),.rm-change-table td:nth-child(3){text-align:right;white-space:nowrap}@media(max-width:700px){.rm-workspace{padding:12px}.rm-action-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.rm-policy-top{flex-wrap:wrap}.rm-summary{grid-template-columns:1fr}.rm-policy-footer{align-items:flex-start}.rm-rider{grid-template-columns:20px minmax(0,1fr)}.rm-rider b{grid-column:2}.rm-rider small{grid-column:2}}
 
 /* 보험 단위 입력/설정 */
-.policy-first-intro{font-size:13px;color:#475569;background:#EEF3FF;border:1px solid #DCE5F8;padding:12px 14px;border-radius:9px;line-height:1.7;margin-bottom:16px}.policy-first-card{border:1px solid #D6DFEE!important;border-radius:12px!important;margin:14px 0!important;overflow:hidden}.policy-first-card .cov-policy-hdr{flex-wrap:wrap;background:#F0F4FC}.policy-plan{padding:14px;background:#FAFBFE;border-bottom:1px solid #E2E8F0}.policy-plan-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px}.policy-plan-result{display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:#334155;font-size:12px;margin:10px 0}.policy-endorse-note{border:1px solid #DDD6FE;background:#F3EEFF;padding:12px;border-radius:8px;margin:12px 0;color:#5B21B6;font-size:12px}.policy-endorse-note p{font-size:12px;line-height:1.6;color:#64748B;margin:6px 0}.policy-riders-heading{padding:12px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}.policy-riders-heading span{font-size:11px;color:#64748B}.policy-rider-block{border-bottom:1px solid #E5EAF2}.policy-rider-removed{background:#FFF1F2}.policy-rider-action{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:7px 14px 10px;font-size:11px;color:#64748B;background:#F9FAFC}.policy-rider-action label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:600;color:#5B21B6}.policy-rider-action input{width:17px;height:17px;accent-color:#7C3AED}.policy-rider-action.excluded{background:#FFF0F2;color:#BE123C}.policy-rider-action b{color:#047857}.policy-rider-action.excluded b{color:#BE123C}.policy-source-delete{border:none;background:none;color:#9F1239;font-size:10px;line-height:1.4;padding:3px;cursor:pointer}.policy-first-card .cov-item-row{grid-template-columns:minmax(0,1fr) 90px 64px 90px 48px}.policy-secondary{margin:16px 0;border:1px solid #DCE4F0;border-radius:10px;background:#fff;overflow:hidden}.policy-secondary>summary{cursor:pointer;font-size:13px;font-weight:600;padding:14px;color:#475569;background:#F7F9FD}.policy-secondary>.rm-workspace{margin:0;border:none;border-radius:0}.policy-secondary>.cov-sum{padding:12px}.policy-secondary .ntbl{margin-top:8px}@media(max-width:700px){.policy-first-card .cov-item-row{grid-template-columns:minmax(90px,1fr) 65px 42px 70px 42px;padding:6px 8px;gap:4px;font-size:11px}.policy-plan{padding:12px}.policy-rider-action{padding:8px;font-size:10px}.policy-rider-action span{flex-basis:100%}}
+.policy-first-intro{font-size:13px;color:#475569;background:#EEF3FF;border:1px solid #DCE5F8;padding:12px 14px;border-radius:9px;line-height:1.7;margin-bottom:16px}.policy-first-card{border:1px solid #D6DFEE!important;border-radius:12px!important;margin:14px 0!important;overflow:hidden}.policy-first-card .cov-policy-hdr{flex-wrap:wrap;background:#F0F4FC}.policy-plan{padding:14px;background:#FAFBFE;border-bottom:1px solid #E2E8F0}.policy-plan-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px}.policy-plan-result{display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:#334155;font-size:12px;margin:10px 0}.policy-endorse-note{border:1px solid #DDD6FE;background:#F3EEFF;padding:12px;border-radius:8px;margin:12px 0;color:#5B21B6;font-size:12px}.policy-endorse-note p{font-size:12px;line-height:1.6;color:#64748B;margin:6px 0}.policy-riders-heading{padding:12px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}.policy-riders-heading span{font-size:11px;color:#64748B}.policy-rider-block{border-bottom:1px solid #E5EAF2}.policy-rider-removed{background:#FFF1F2}.policy-rider-action{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:7px 14px 10px;font-size:11px;color:#64748B;background:#F9FAFC}.policy-rider-action label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:600;color:#5B21B6}.policy-rider-action input{width:17px;height:17px;accent-color:#7C3AED}.policy-rider-action.excluded{background:#FFF0F2;color:#BE123C}.policy-rider-action b{color:#047857}.policy-rider-action.excluded b{color:#BE123C}.policy-source-delete{border:none;background:none;color:#9F1239;font-size:10px;line-height:1.4;padding:3px;cursor:pointer}.policy-first-card .cov-item-row{grid-template-columns:minmax(0,1fr) 90px 64px 90px 64px}.policy-secondary{margin:16px 0;border:1px solid #DCE4F0;border-radius:10px;background:#fff;overflow:hidden}.policy-secondary>summary{cursor:pointer;font-size:13px;font-weight:600;padding:14px;color:#475569;background:#F7F9FD}.policy-secondary>.rm-workspace{margin:0;border:none;border-radius:0}.policy-secondary>.cov-sum{padding:12px}.policy-secondary .ntbl{margin-top:8px}@media(max-width:700px){.policy-first-card .cov-item-row{grid-template-columns:repeat(3,minmax(0,1fr)) 56px;padding:6px 8px;gap:6px;font-size:13px}.policy-first-card .cov-item-row>:first-child{grid-column:1/-1}.policy-plan{padding:12px}.policy-rider-action{padding:8px;font-size:12px}.policy-rider-action span{flex-basis:100%}}
 
+/* ═══ 줄바뀜 정리 (2026-11-19) — 한글이 어색하게 꺾이던 곳을 한꺼번에 ═══
+   · 한글은 띄어쓰기에서만 줄을 바꾸고(어절 중간에서 안 꺾임), 띄어쓰기 없이 너무 긴 글자만 칸 끝에서 강제로 꺾음
+   · 문장 끝에 한두 글자만 덩그러니 남는 것(text-wrap:pretty)과 제목·카드 이름의 들쭉날쭉(text-wrap:balance)을 줄임
+   · 짧은 이름표·버튼·표 머리는 줄바꿈하지 않음 */
+html{word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty}
+input,textarea,select,code,pre{word-break:normal}
+/* 글자는 12px 미만으로 쓰지 않음 — 뱃지·힌트·출처 같은 보조 글자도 (CSS 클래스에 쓴 9~11px 를 한꺼번에 올림) */
+.pol-dup,.cov-prospect,.kind-badge,.cp-hint,.mtx-orig,.cg-src,.pol-busy,.cmp-d,.cmp-role,.cs-blocks small,.cv-policy-hint,.kpi-label,.kpi-sub,
+.b-done,.b-cancel,.b-pending,.gbadge,.garr,.stat-l,.cov-cust-cnt,.total-card .tc-label,.total-card .tc-sub,.mtx-sum-s span,.bm-info .bm-badge,
+.rm-state,.rm-action small,.rm-text-btn,.rm-rider small,.policy-riders-heading span,.policy-rider-action,.policy-source-delete{font-size:12px}
+.nw,.hdr-logo,.rm-fine b{white-space:nowrap}            /* .nw = 이 덩어리는 쪼개지 않음 ("월 8만 5,000원", "보험료(원)") */
+.hdr-logo{flex-shrink:0}
+.rm-summary .v{white-space:normal;text-wrap:balance;line-height:1.35}
+h1,h2,h3,h4,.modal-title,.cov-sec,.cv-sec,.rem-sec,.cv-grp-h,.cov-sum .l,.cv-row-name,.pol-title{text-wrap:balance}
+.policy-source-delete,.rm-action,.pol-chip,.gbadge,.cov-prospect,th,.tab,.mtx-n{white-space:nowrap}
+.rm-action small{white-space:normal}
+/* 태블릿 폭(~1000px): 헤더가 한 줄에 다 안 들어가면 두 줄로 (keep-all 이라 상태 문구가 예전처럼 중간에서 줄바꿈되지 못해 4px 넘쳤어요) */
+@media(max-width:1000px){
+  .hdr{height:auto;min-height:54px;flex-wrap:wrap;row-gap:6px;padding-top:8px;padding-bottom:8px}
+  .hdr-left,.hdr-right{flex-wrap:wrap;min-width:0}
+}
+/* 폰: 담보 입력줄 — 다섯 칸을 한 줄에 넣으니 금액 칸이 좁아 "5000"이 "500("로 잘려 보였어요 → 담보 이름은 윗줄 전체, 금액·단위·보험료·삭제는 아랫줄 */
+@media(max-width:700px){
+  .cov-item-row{grid-template-columns:repeat(3,minmax(0,1fr)) 56px;row-gap:6px}
+  .cov-item-row>:first-child{grid-column:1/-1}
+  .cov-input{min-width:0;font-size:14px;padding:6px 8px}
+  .cov-head{flex-wrap:wrap;gap:8px}                       /* 제목이 버튼 옆에 끼어 "홍길동 님의 / 보장 분석"으로 좁게 접히던 것 → 제목은 윗줄 전체 */
+  .cov-head>div:first-child{flex:1 1 100%}
+}
+/* 폰: 알림 항목 — 날짜 칸(74px)이 본문을 100px 안팎으로 좁혀서 긴 보험명이 한 줄에 몇 글자씩만 들어갔어요 → 날짜는 위 줄, 본문은 아래 줄 전체 폭 */
+@media(max-width:560px){
+  .rem-item{flex-wrap:wrap;row-gap:4px}
+  .rem-when{flex:1 1 calc(100% - 80px);display:flex;gap:8px;align-items:baseline}
+  .rem-when small{display:inline}
+  .rem-act{order:2;margin-left:auto}
+  .rem-body{order:3;flex:1 1 100%}
+}
+/* 폰: 요약 카드 숫자가 말줄임(…)으로 잘리던 것 → 첫 카드(월 보험료)는 한 줄 전체, 나머지는 반반 */
+@media(max-width:560px){
+  .cov-sum{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cov-sum>div:first-child{grid-column:1/-1}
+  .cov-sum .v{font-size:18px}
+}
 .pdf-analysis-state{margin:12px 14px;padding:12px;border-radius:8px;border:1px solid #BFDBFE;background:#EFF6FF;color:#1D4ED8;font-size:12px;line-height:1.7;white-space:pre-wrap}.pdf-analysis-state[hidden]{display:none}.pdf-analysis-success{border-color:#A7F3D0;background:#ECFDF5;color:#047857}.pdf-analysis-error{border-color:#FECACA;background:#FEF2F2;color:#B91C1C}
 </style>
 
@@ -2089,7 +2132,7 @@ function korWon(n){
   if(eok) parts.push(eok.toLocaleString('ko-KR')+'억');
   if(man) parts.push(korMan(man)+'만');
   if(rest) parts.push(rest.toLocaleString('ko-KR'));
-  return (neg?'-':'')+parts.join(' ')+'원';
+  return (neg?'-':'')+parts.join(' ')+'원';           // 가운데 공백은 줄바꿈 안 되는 공백 ("8만 5,000원"이 "8 / 만 5,000원"으로 쪼개지던 문제)
 }
 const manWon = v => korWon((parseFloat(v)||0)*10000);          // 만원 단위 값 → 읽기 쉬운 금액
 
@@ -2441,7 +2484,7 @@ function renderGroups() { try {
   if(prosFree.length) gs.push({g:'', free:true, k:0, amt:0, cancel:0, pending:0, nc:0});
   // 칸 폭을 고정하고 숫자 칸은 머리글도 같은 쪽으로 정렬 (그룹 카드마다 칸이 들쭉날쭉하고 월보험료 머리글이 숫자와 안 맞던 것, 2026-11-19)
   const th = [['#', 'c-no'], ['가입자', ''], ['계약자', ''], ['구분', 'c-kind'], ['건수', 'ctr'], ['월보험료', 'num'], ['연보험료', 'num c-yr'], ['보험 목록', 'c-list']].map(([h, c]) => `<th${c ? ` class="${c}"` : ''}>${h}</th>`).join('');
-  const cols = '<colgroup><col class="c-no" style="width:44px"><col style="width:21%"><col style="width:12%"><col class="c-kind" style="width:236px"><col style="width:96px"><col style="width:104px"><col class="c-yr" style="width:104px"><col class="c-list"></colgroup>';
+  const cols = '<colgroup><col class="c-no" style="width:44px"><col style="width:21%"><col style="width:12%"><col class="c-kind" style="width:236px"><col style="width:132px"><col style="width:104px"><col class="c-yr" style="width:104px"><col class="c-list"></colgroup>';
   // 🔍 검색 (사용자 요청 2026-11-19): 공백으로 나눈 낱말이 모두 들어 있는 고객만. 이름·계약자·그룹·연락처·주소·메모·보험사·보험명·증권번호·피보험자를 훑는다
   const q = String(window._gSearch || '').trim().toLowerCase(), qs = q ? q.split(/\s+/) : [];
   const hayOf = (p, rows, ext, g) => {
@@ -5583,7 +5626,7 @@ function renderCovDetail(name){                          // name 은 가입자 �
       <summary>
         <div style="flex:1;min-width:0">
           <div class="pol-title">${esc(contract.co)} · ${esc(contract.n)}</div>
-          <div class="pol-meta">월 ${korWon(contract.pr)} · 특약 ${items.length}개${contract._isOther?(pol.bm?' · 보맵 연동':' · 외부 보험'):' · '+esc(contract.d)}${contract.s&&contract.s!=='계약완료'?' · '+esc(contract.s):''}${pUrl?' · 📄 제안서 있음':''}</div>
+          <div class="pol-meta">${[`월 ${korWon(contract.pr)}`, `특약 ${items.length}개`, contract._isOther ? (pol.bm ? '보맵 연동' : '외부 보험') : esc(contract.d), (contract.s && contract.s !== '계약완료') ? esc(contract.s) : '', pUrl ? '📄 제안서 있음' : ''].filter(Boolean).map(x => `<span class="nw">${x}</span>`).join(' · ')}</div>
         </div>
         ${dupN > 1 ? `<span class="pol-dup" title="같은 보험(보험사+상품명 또는 같은 보맵 보험)이 ${dupN}건 있어요. 중복이면 하나를 삭제하세요">⚠️ 중복 의심 ${dupN}건</span>` : ''}
         ${termsLinkHtml(pol, 'pol-terms')}
@@ -5605,7 +5648,7 @@ function renderCovDetail(name){                          // name 은 가입자 �
       ${remodelPolicySettingsHtml(name,policyPlan)}
       <div class="policy-riders-heading"><b>이 보험의 특약 / 보장</b><span>제안서에서 추출하거나 아래에서 직접 입력하세요.</span></div>
       <div id="cov-items-${polId}">
-        <div class="cov-item-row" style="background:var(--surface2);font-weight:600;font-size:12px;color:var(--muted)"><span>담보명</span><span>금액(만원)</span><span>단위</span><span>보험료(원)</span><span style="font-size:10px">원본 삭제</span></div>
+        <div class="cov-item-row" style="background:var(--surface2);font-weight:600;font-size:12px;color:var(--muted)"><span>담보명</span><span class="nw">금액(만원)</span><span class="nw">단위</span><span class="nw">보험료(원)</span><span class="nw">삭제</span></div>
         ${items.map((item,idx)=>`
           <div class="policy-rider-block${policyPlan?.role==='endorse'&&policyPlan.endorsement.excluded?.[policyPlan.riders[idx]?.key]?' policy-rider-removed':''}">
             <div class="cov-item-row">
@@ -5613,7 +5656,7 @@ function renderCovDetail(name){                          // name 은 가입자 �
               <input class="cov-input" type="number" value="${esc(item.amount||'')}" onchange="updateCovItem('${name}',${jsId(polId)},${idx},'amount',this.value)" placeholder="0">
               <input class="cov-input" value="${esc(item.unit||'만원')}" onchange="updateCovItem('${name}',${jsId(polId)},${idx},'unit',this.value)">
               <input class="cov-input" type="number" value="${esc(item.price||'')}" onchange="updateCovItem('${name}',${jsId(polId)},${idx},'price',this.value)" placeholder="0">
-              <button class="policy-source-delete" title="원본 특약을 완전히 삭제합니다. 배서 비교는 아래 체크를 사용하세요." onclick="removeCovItem('${name}',${jsId(polId)},${idx})">원본 삭제</button>
+              <button class="policy-source-delete" title="원본 특약을 완전히 삭제합니다. 배서 비교는 아래 체크를 사용하세요." onclick="removeCovItem('${name}',${jsId(polId)},${idx})">삭제</button>
             </div>
             ${remodelRiderActionHtml(name,policyPlan,idx)}
           </div>`).join('')}
@@ -5638,7 +5681,7 @@ function renderCovDetail(name){                          // name 은 가입자 �
 
   document.getElementById('cov-detail').innerHTML = `
     ${maskNoticeHtml(name, personName(name))}
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div class="cov-head" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div style="font-size:16px;font-weight:700">${esc(personLabel(name))} 님의 보장 분석${isProspectPerson(peopleList().find(x => x.pid === name)) ? ' <span class="cov-prospect" title="계약 리스트에 이 사람의 계약이 아직 없어요. 계약을 등록하면 일반 고객이 돼요">🌱 예비 고객 · 계약 전</span>' : ''}</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-secondary btn-sm" onclick="openAddOtherPolicy('${name}')">➕ 기존 보험 추가</button>
@@ -6379,7 +6422,7 @@ function showCustomerView(name, displayName){             // name 은 서버가 
         <div style="font-size:20px">${contract.co.includes('삼성')?'🟠':contract.co.includes('메리츠')?'🔵':contract.co.includes('현대')?'🟢':'🏦'}</div>
         <div style="min-width:0">
           <div style="font-weight:700;font-size:15px">${esc(contract.co)}</div>
-          <div style="font-size:13px;color:#475569">${esc(contract.n)} · 월 <b style="color:#059669">${korWon(contract.pr)}</b></div>
+          <div style="font-size:13px;color:#475569">${esc(contract.n)} <span class="nw">· 월 <b style="color:#059669">${korWon(contract.pr)}</b></span></div>
           ${meta.length?`<div class="cv-meta">${meta.map(m=>`<span>${esc(m)}</span>`).join('')}</div>`:''}
           ${bmPolicyInfoHtml(pol, true)}
           ${(pUrlOf(contract) || termsUrlOf(pol)) ? `<div style="margin-top:6px;display:flex;gap:14px;flex-wrap:wrap">${pUrlOf(contract) ? `<a href="${esc(pUrlOf(contract))}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;color:#2563EB;text-decoration:none">📄 제안서 보기</a>` : ''}${termsLinkHtml(pol, 'cv-terms')}</div>` : ''}
