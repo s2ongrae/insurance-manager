@@ -2303,17 +2303,24 @@ function renderGroups() {
   }).join('');
 }
 // 그룹별 탭의 🌱 예비 고객 행: 계약이 없어서 보험 건수만, 오른쪽에서 바로 그룹을 골라 옮김
+// 가져온(보맵·직접 넣은) 보험 하나하나를 계약 행처럼 한 줄씩 보여줌 (사용자 요청 2026-11-19). 그룹 선택칸은 사람당 첫 줄에만.
+// 그룹 카드 머리줄의 월 합계에는 안 더한다 — 계약 전이라 실적이 아님
 function prospectGroupRowHtml(p){
   const r = COVERAGES[p.pid] || {};
-  const names = [...(r.policies || []), ...(r.externalPolicies || []), ...(r.otherPolicies || [])].filter(isPlain).map(x => x.n || x.name || '').filter(Boolean);
-  return `<tr class="pros-tr">
-    <td style="font-weight:600">${esc(p.label)} <span class="cov-prospect">예비</span>${profileHintHtml(p.name)}</td>
-    <td style="color:var(--muted)">${esc(p.name)}</td>
-    <td style="color:var(--hint)">-</td><td style="color:var(--hint)">-</td>
-    <td colspan="2" style="color:var(--muted);font-size:12px">보맵 보험 ${covPolicyCount(p.pid)}건${names.length ? ' · ' + esc(names.slice(0, 3).join(' · ')) : ''}</td>
-    <td style="text-align:right;color:var(--hint)">-</td>
-    <td><span class="kind-badge kind-prospect">🌱 계약 전</span></td>
-    <td class="td-act">${groupSelectHtml(prospectGroupOf(p.name), p.name)}<button type="button" class="btn btn-secondary btn-sm" data-pid="${esc(p.pid)}" onclick="openCovCustomer(this.dataset.pid)" title="보장분석 보기">📋</button></td></tr>`;
+  const pols = [...(r.externalPolicies || []).map(x => ({co: x.co, n: x.n, pr: x.pr, d: isPlain(x.bm) ? x.bm.issue : '', pu: x.proposalUrl, x})),
+    ...(r.otherPolicies || []).map(x => ({co: x.co, n: x.name, pr: x.price, d: '', pu: x.proposalUrl, x}))].filter(o => isPlain(o.x))
+    .sort((a, b) => String(a.d || '').localeCompare(String(b.d || '')));
+  const who = `<td style="font-weight:600">${esc(p.label)} <span class="cov-prospect">예비</span>${profileHintHtml(p.name)}</td><td style="color:var(--muted)">${esc(p.name)}</td>`;
+  const badge = '<td><span class="kind-badge kind-prospect">🌱 계약 전</span></td>';
+  const go = `<button type="button" class="btn btn-secondary btn-sm" data-pid="${esc(p.pid)}" onclick="openCovCustomer(this.dataset.pid)" title="보장분석 보기">📋</button>`;
+  const sel = groupSelectHtml(prospectGroupOf(p.name), p.name);
+  if(!pols.length) return `<tr class="pros-tr">${who}<td style="color:var(--hint)">-</td><td style="color:var(--hint)">-</td>
+    <td colspan="2" style="color:var(--muted);font-size:12px">가져온 보험 없음</td><td style="text-align:right;color:var(--hint)">-</td>${badge}<td class="td-act">${sel}${go}</td></tr>`;
+  return pols.map((o, i) => `<tr class="pros-tr">${who}
+    <td style="color:var(--muted);font-size:12px">${esc(o.d || '')}</td><td style="color:var(--hint)">-</td>
+    <td>${esc(o.co || '')}</td><td>${esc(o.n || '')}</td>
+    <td style="text-align:right">${o.pr ? wonN(o.pr) : '-'}</td>${badge}
+    <td class="td-act">${proposalLinkHtml(o.pu)}${i === 0 ? sel : ''}${go}</td></tr>`).join('');
 }
 function toggleG(id){
   const t=document.getElementById('gt-'+id),a=document.getElementById('arr-'+id);
