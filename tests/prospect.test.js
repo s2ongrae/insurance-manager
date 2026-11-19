@@ -55,8 +55,8 @@ ok(count(h, 'kind-badge kind-member') === 2 && count(h, 'kind-badge kind-prospec
 D.run(`setCustKind('all')`);
 D.run(`openCovCustomer('${pros}')`);
 ok(D.get(`selectedCovCustomer`) === pros && D.get(`window._covSubTab`) === '보장분석', '예비 고객 행을 누르면 그 사람의 보장분석으로');
-D.run(`expandedCustomer='김가입'; renderCustomers()`); h = D.el('pane-고객별').innerHTML;
-ok(/colspan="8"/.test(h), '가입자 상세 행도 열 수에 맞음 (colspan 8)');
+D.run(`expandedCustomer='pid_member1'; renderCustomers()`); h = D.el('pane-고객별').innerHTML;
+ok(/colspan="9"/.test(h), '가입자 상세 행도 열 수에 맞음 (colspan 9)');
 D.run(`expandedCustomer=null`);
 D.run(`toggleProspectDetail('${pros}')`); h = D.el('pane-고객별').innerHTML;
 ok(/📋 박예비님이 가진 보험 \(1건\)/.test(h) && /가나화재/.test(h) && /보험1/.test(h) && /월 합계 보험료/.test(h) && /1,000원/.test(h), '예비 고객을 펼치면 가져온 보험 목록(보험사·보험명·월보험료·합계)이 표로 나옴');

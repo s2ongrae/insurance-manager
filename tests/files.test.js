@@ -50,7 +50,7 @@ D.run('openEditModal(2)'); await sleep(160); ok(D.el('proposal-info').textConten
 const has=(html,u)=>html.includes(u.replace(/&/g,'&amp;'));
 D.run("renderTab('리스트')"); ok(has(D.el('list-results').innerHTML,url1),'계약 리스트에 📄');
 D.run("currentTab='그룹별'; renderTab('그룹별')"); ok(has(D.el('pane-그룹별').innerHTML,url1),'그룹별 탭에 📄');
-D.run("expandedCustomer='김철수'; renderTab('고객별')"); ok(has(D.el('pane-고객별').innerHTML,url1),'고객별 탭에 📄');
+D.run("expandedCustomer=peopleList().find(p=>p.cs.some(r=>r.c==='김철수')).pid; renderTab('고객별')"); ok(has(D.el('pane-고객별').innerHTML,url1),'고객별 탭에 📄');
 D.run("expandedMonth='26.05'; renderTab('월별')"); ok(has(D.el('pane-월별').innerHTML,url1),'월별 탭에 📄');
 const noLinkForTwo=!D.el('list-results').innerHTML.split('종합2')[1]?.split('</tr>')[0].includes('drive.google'); ok(noLinkForTwo,'파일 없는 2번 계약 행에는 📄가 없음');
 

@@ -2351,17 +2351,26 @@ function srt(k){sortK===k?sortD*=-1:(sortK=k,sortD=-1);renderList();}
 // TAB: 그룹별
 // ════════════════════════════════════════════════════════════
 function renderGroups() {
+  const people = peopleList();
   const gm = {};
   CONTRACTS.forEach(r=>{
     if(!gm[r.g])gm[r.g]={k:0,amt:0,cancel:0,pending:0,nc:new Set()};
     if(r.s==='계약완료'){gm[r.g].k++;gm[r.g].amt+=r.pr;}
     else if(r.s==='계약해지')gm[r.g].cancel++;
     else gm[r.g].pending++;
-    gm[r.g].nc.add(r.c);
+    gm[r.g].nc.add(cpid(r));                              // 명 = 가입자(피보험자) 수 (예전엔 계약자 이름 수)
+  });
+  // 가입자가 가져온 보맵·외부·기존 보험도 그 사람 계약이 많은 그룹 카드에 같이 보인다 (사용자 요청 2026-11-19)
+  const extBy = {};
+  people.filter(p => p.cs.length).forEach(p => {
+    const ex = personExtPolicies(p.pid); if(!ex.length) return;
+    const cnt = {}; p.cs.forEach(r => { const k = r.g || ''; cnt[k] = (cnt[k] || 0) + 1; });
+    const pg = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0];
+    (extBy[pg] = extBy[pg] || []).push({p, ex});
   });
   // 🌱 예비 고객도 고객 정보에서 고른 그룹 카드에 보인다 (그룹 미지정이면 맨 아래 별도 카드, 거기서 바로 그룹을 골라 옮길 수 있음)
   const prosBy = {}, prosFree = [];
-  peopleList().filter(isProspectPerson).forEach(p => {
+  people.filter(isProspectPerson).forEach(p => {
     const pg = prospectGroupOf(p.name);
     if(pg){ (prosBy[pg] = prosBy[pg] || []).push(p); if(!gm[pg]) gm[pg] = {k:0,amt:0,cancel:0,pending:0,nc:new Set()}; }
     else prosFree.push(p);
@@ -2370,9 +2379,22 @@ function renderGroups() {
   if(prosFree.length) gs.push({g:'', free:true, k:0, amt:0, cancel:0, pending:0, nc:0});
   document.getElementById('pane-그룹별').innerHTML = `<div class="gtoolbar"><button class="btn btn-secondary btn-sm" onclick="openGroupManager()">🗂️ 그룹 관리 (만들기·이름·색 수정·삭제)</button></div>` + gs.map((g,gi)=>{
     const id='g'+gi;                                     // 그룹 이름에 따옴표가 있어도 onclick 이 깨지지 않게 순번으로
-    const rows=g.free ? [] : CONTRACTS.filter(r=>r.g===g.g).sort((a,b)=>a.c.localeCompare(b.c));
+    const rows=g.free ? [] : CONTRACTS.filter(r=>r.g===g.g).sort((a,b)=>String(a.p||'').localeCompare(String(b.p||'')) || String(a.d||'').localeCompare(String(b.d||'')));
+    const xrows=g.free ? [] : (extBy[g.g] || []).sort((a,b)=>a.p.name.localeCompare(b.p.name));
     const prows=g.free ? prosFree : (prosBy[g.g] || []);
     const meta=[g.free?'':`${g.nc}명`,g.free?'':`${g.k}건 완료`,g.cancel?`${g.cancel}건 해지`:'',g.pending?`${g.pending}건 예정`:'',prows.length?`🌱 예비 ${prows.length}명`:''].filter(Boolean).join(' · ');
+    const extRows=xrows.map(({p, ex}) => ex.slice().sort((a,b)=>String(a.d||'').localeCompare(String(b.d||''))).map(o=>{
+      const h=resolveHolder(o.holder, p.pid, people);
+      return `<tr class="pol-row" title="눌러서 보험 정보·보장 내역 보기" onclick="openPolicyPopup('${esc(p.pid)}',${jsId(o.id)})" style="cursor:pointer">
+            <td style="font-weight:600">${esc(p.label)}</td>
+            <td style="color:var(--muted)">${h?esc(h===p.name?'본인':h):'-'}</td>
+            <td style="color:var(--muted);font-size:12px">${esc(o.d||'')}</td>
+            <td style="color:var(--muted);font-size:12px">-</td>
+            <td>${esc(o.co||'')}</td><td>${esc(o.n||'')}</td>
+            <td style="text-align:right">${o.pr?wonN(o.pr):'-'}</td>
+            <td><span class="kind-badge" style="background:#EEF2FF;color:#4338CA">보맵·외부</span></td>
+            <td class="td-act">${proposalLinkHtml(o.pu, true)}</td>
+          </tr>`;}).join('')).join('');
     return `<div class="gcard">
       <div class="gheader" onclick="toggleG('${id}')">
         <div class="gdot" style="background:${gc(g.g)}"></div>
@@ -2383,41 +2405,38 @@ function renderGroups() {
       </div>
       <div class="gtbl" id="gt-${id}">
         <table>
-          <thead><tr>${['계약자','가입자','가입일','2년 1개월','보험회사','보험명','월보험료','상태',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+          <thead><tr>${['가입자','계약자','가입일','2년 1개월','보험회사','보험명','월보험료','상태',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
           <tbody>${rows.map(r=>`<tr>
-            <td style="font-weight:600">${esc(r.c)}</td>
-            <td style="color:var(--muted)">${esc(r.p)}</td>
+            <td style="font-weight:600">${esc(r.p)}</td>
+            <td style="color:var(--muted)">${esc(r.c===r.p?'본인':r.c)}</td>
             <td style="color:var(--muted);font-size:12px">${esc(r.d)}</td>
             <td style="color:var(--muted);font-size:12px">${milestoneCell(r)}</td>
             <td>${esc(r.co)}</td><td>${esc(r.n)}</td>
             <td style="text-align:right">${wonN(r.pr)}</td>
             <td>${sbadge(r.s)}</td>
             <td class="td-act">${proposalLinkHtml(r.proposalUrl)}<button class="btn btn-secondary btn-sm" onclick="openEditModal(${jsId(r.id)})">✏️</button></td>
-          </tr>`).join('')}${prows.map(prospectGroupRowHtml).join('')}</tbody>
+          </tr>`).join('')}${extRows}${prows.map(p=>prospectGroupRowHtml(p, people)).join('')}</tbody>
         </table>
       </div>
     </div>`;
   }).join('');
 }
-// 그룹별 탭의 🌱 예비 고객 행: 계약이 없어서 보험 건수만, 오른쪽에서 바로 그룹을 골라 옮김
-// 가져온(보맵·직접 넣은) 보험 하나하나를 계약 행처럼 한 줄씩 보여줌 (사용자 요청 2026-11-19). 그룹 선택칸은 사람당 첫 줄에만.
+// 그룹별 탭의 🌱 예비 고객 행: 가입자(이 사람)가 앞, 계약자는 그 뒤. 가져온(보맵·직접 넣은) 보험 하나하나를 계약 행처럼 한 줄씩 (사용자 요청 2026-11-19). 그룹 선택칸은 사람당 첫 줄에만.
 // 그룹 카드 머리줄의 월 합계에는 안 더한다 — 계약 전이라 실적이 아님
-function prospectGroupRowHtml(p){
-  const r = COVERAGES[p.pid] || {};
-  const pols = [...(r.externalPolicies || []).map(x => ({co: x.co, n: x.n, pr: x.pr, d: isPlain(x.bm) ? x.bm.issue : '', pu: x.proposalUrl, x})),
-    ...(r.otherPolicies || []).map(x => ({co: x.co, n: x.name, pr: x.price, d: '', pu: x.proposalUrl, x}))].filter(o => isPlain(o.x))
-    .sort((a, b) => String(a.d || '').localeCompare(String(b.d || '')));
-  const who = `<td style="font-weight:600">${esc(p.label)} <span class="cov-prospect">예비</span>${profileHintHtml(p.name)}</td><td style="color:var(--muted)">${esc(p.name)}</td>`;
+function prospectGroupRowHtml(p, people){
+  const pols = personExtPolicies(p.pid).sort((a, b) => String(a.d || '').localeCompare(String(b.d || '')));
+  const who = `<td style="font-weight:600">${esc(p.label)} <span class="cov-prospect">예비</span>${profileHintHtml(p.name)}</td>`;
   const badge = '<td><span class="kind-badge kind-prospect">🌱 계약 전</span></td>';
   const go = `<button type="button" class="btn btn-secondary btn-sm" data-pid="${esc(p.pid)}" onclick="openCovCustomer(this.dataset.pid)" title="보장분석 보기">📋</button>`;
   const sel = groupSelectHtml(prospectGroupOf(p.name), p.name, true);
-  if(!pols.length) return `<tr class="pros-tr">${who}<td style="color:var(--hint)">-</td><td style="color:var(--hint)">-</td>
+  if(!pols.length) return `<tr class="pros-tr">${who}<td style="color:var(--hint)">-</td><td style="color:var(--hint)">-</td><td style="color:var(--hint)">-</td>
     <td colspan="2" style="color:var(--muted);font-size:12px">가져온 보험 없음</td><td style="text-align:right;color:var(--hint)">-</td>${badge}<td class="td-act">${sel}${go}${personActionsHtml(p.pid, true)}</td></tr>`;
-  return pols.map((o, i) => `<tr class="pros-tr">${who}
+  return pols.map((o, i) => { const h = resolveHolder(o.holder, p.pid, people); return `<tr class="pros-tr pol-row" title="눌러서 보험 정보·보장 내역 보기" onclick="openPolicyPopup('${esc(p.pid)}',${jsId(o.id)})" style="cursor:pointer">${who}
+    <td style="color:var(--muted)">${h ? esc(h === p.name ? '본인' : h) : '-'}</td>
     <td style="color:var(--muted);font-size:12px">${esc(o.d || '')}</td><td style="color:var(--hint)">-</td>
     <td>${esc(o.co || '')}</td><td>${esc(o.n || '')}</td>
     <td style="text-align:right">${o.pr ? wonN(o.pr) : '-'}</td>${badge}
-    <td class="td-act">${proposalLinkHtml(o.pu)}${i === 0 ? sel : ''}${go}${i === 0 ? personActionsHtml(p.pid, true) : ''}</td></tr>`).join('');
+    <td class="td-act" onclick="event.stopPropagation()">${proposalLinkHtml(o.pu)}${i === 0 ? sel : ''}${go}${i === 0 ? personActionsHtml(p.pid, true) : ''}</td></tr>`; }).join('');
 }
 // 예비 고객(사람) 관리 버튼: 이름 변경(이미 있는 이름이면 그 사람과 합치기 선택) · 다른 사람과 합치기 · 삭제 (사용자 요청 2026-11-19)
 function personActionsHtml(pid, compact){
@@ -2572,22 +2591,24 @@ function prospectGroupOf(name){ const g = getProfile(name).group; return g && ha
 function personGroupList(p){ return p.cs.length ? [...new Set(p.cs.map(c => c.g).filter(Boolean))] : [prospectGroupOf(p.name)].filter(Boolean); }
 // 고객(계약자 이름)을 다른 그룹으로: 계약이 있으면 그 계약자의 모든 계약의 그룹을, 없으면(예비 고객) 고객 정보의 그룹을 바꾼다. val: 그룹명 / '' (그룹 없음) / '__new__' (새로 만들기)
 // pros=true: 예비 고객 행에서 옮길 때. 이 사람이 다른 사람(가입자) 계약의 계약자이기도 하면, 예전엔 그 계약들의 그룹만 바뀌고 예비 고객 자신의 그룹은 안 바뀌었다(2026-11-19 수정)
-function moveCustomerGroup(name, val, pros){
+// memberPid: 고객별 탭의 가입자 줄에서 옮길 때 — 그 가입자(피보험자)의 모든 계약의 그룹을 바꾼다 (계약자 이름이 아니라 가입자 기준, 2026-11-19)
+function moveCustomerGroup(name, val, pros, memberPid){
   let g = String(val || '');
   if(g === '__new__'){
     const nn = prompt('새 그룹 이름을 입력해 주세요'); if(nn === null) return false;
     const r = createGroup(nn); if(!r.ok){ showToast('⚠️ ' + r.error); return false; }
     g = r.name;
   } else if(g && !hasOwn(GROUPS, g)){ showToast('⚠️ 없는 그룹이에요'); return false; }
-  if(!pros && CONTRACTS.some(r => r.c === name)) CONTRACTS = CONTRACTS.map(r => r.c === name ? Object.assign({}, r, {g}) : r);
+  if(!pros && memberPid) CONTRACTS = CONTRACTS.map(r => cpid(r) === memberPid ? Object.assign({}, r, {g}) : r);
+  else if(!pros && CONTRACTS.some(r => r.c === name)) CONTRACTS = CONTRACTS.map(r => r.c === name ? Object.assign({}, r, {g}) : r);
   else setProfile(name, {group: g});
   persistLocal(); scheduleSave(); renderAll();
   showToast(g ? `✅ '${name}' 님을 '${g}' 그룹으로 옮겼어요` : `✅ '${name}' 님의 그룹을 비웠어요`);
   return true;
 }
-function groupSelectHtml(cur, name, pros){
+function groupSelectHtml(cur, name, pros, memberPid){
   const opts = ['<option value="">(그룹 없음)</option>', ...Object.keys(GROUPS).map(g => `<option value="${esc(g)}"${g === cur ? ' selected' : ''}>${esc(g)}</option>`), '<option value="__new__">＋ 새 그룹 만들기…</option>'];
-  return `<select class="grp-move" data-name="${esc(name)}"${pros ? ' data-pros="1"' : ''} onclick="event.stopPropagation()" onchange="if(!moveCustomerGroup(this.dataset.name,this.value,this.dataset.pros==='1'))renderAll()">${opts.join('')}</select>`;
+  return `<select class="grp-move" data-name="${esc(name)}"${pros ? ' data-pros="1"' : ''}${memberPid ? ` data-pid="${esc(memberPid)}"` : ''} onclick="event.stopPropagation()" onchange="if(!moveCustomerGroup(this.dataset.name,this.value,this.dataset.pros==='1',this.dataset.pid||''))renderAll()">${opts.join('')}</select>`;
 }
 function profileHintHtml(name){
   const pr = getProfile(name);
@@ -2599,11 +2620,11 @@ function custGroupCell(rows){
   return gs.length ? gs.map(g => gbadge(g)).join(' ') : '<span style="color:var(--hint)">-</span>';
 }
 // 고객별 탭에서 사람을 누르면 펼쳐지는 "고객 정보" 칸 (가입자는 pid=null, 예비 고객은 pid)
-function customerPanelHtml(name, pid){
+function customerPanelHtml(name, pid, memberPid){
   const pr = getProfile(name), isPros = !!pid;
-  const cur = isPros ? [prospectGroupOf(name)].filter(Boolean) : [...new Set(CONTRACTS.filter(r => r.c === name).map(r => r.g).filter(Boolean))];
+  const cur = isPros ? [prospectGroupOf(name)].filter(Boolean) : [...new Set(CONTRACTS.filter(r => memberPid ? cpid(r) === memberPid : r.c === name).map(r => r.g).filter(Boolean))];
   const f = (id, label, val, ph, cls) => `<label class="cp-f ${cls || ''}"><span>${label}</span><input id="${id}" value="${esc(val || '')}" placeholder="${esc(ph || '')}" autocomplete="off"></label>`;
-  const target = isPros ? pid : ((peopleList().find(p => p.name === name) || {}).pid || '');
+  const target = isPros ? pid : (memberPid || (peopleList().find(p => p.name === name) || {}).pid || '');
   return `<div class="cp-panel">
     <div class="cp-head"><b>👤 ${esc(name)} 님 정보</b> ${isPros ? '<span class="kind-badge kind-prospect">🌱 예비 고객</span>' : '<span class="kind-badge kind-member">✓ 가입자</span>'}
       <span class="rm-fine">이 기기와 서버(Drive)에만 저장돼요 · 고객 링크에는 나가지 않아요</span></div>
@@ -2612,7 +2633,7 @@ function customerPanelHtml(name, pid){
       ${f('cp-region', '사는 곳', pr.region, '예) 대전 서구')}${f('cp-addr', '주소', pr.addr, '상세 주소', 'cp-wide')}
     </div>
     <label class="cp-f cp-wide" style="margin-top:8px"><span>메모</span><textarea id="cp-memo" rows="3" maxlength="2000" placeholder="상담 내용·특이사항 등">${esc(pr.memo || '')}</textarea></label>
-    <div class="cp-row"><label class="cp-grp"><span>그룹</span>${groupSelectHtml(cur[0] || '', name, isPros)}</label>
+    <div class="cp-row"><label class="cp-grp"><span>그룹</span>${groupSelectHtml(cur[0] || '', name, isPros, isPros ? '' : memberPid)}</label>
       ${cur.length > 1 ? `<span class="rm-fine">계약이 ${cur.length}개 그룹에 걸쳐 있어요 — 옮기면 모두 한 그룹으로 모여요</span>` : ''}
       <span style="flex:1"></span>
       ${target ? `<button type="button" class="btn btn-secondary btn-sm" data-pid="${esc(target)}" onclick="openCovCustomer(this.dataset.pid)">📋 보장분석 보기</button>` : ''}
@@ -2696,49 +2717,81 @@ function kindChipsHtml(nMember, nPros, sel){
   const chip = (k, label, n) => `<button type="button" class="kind-chip${sel === k ? ' on' : ''}" onclick="setCustKind('${k}')">${label} <b>${n}</b></button>`;
   return `<div class="kind-filter">${chip('all', '전체', nMember + nPros)}${chip('member', '✓ 가입자', nMember)}${chip('prospect', '🌱 예비 고객', nPros)}<button type="button" class="kind-chip kind-mgr" onclick="openGroupManager()">🗂️ 그룹 관리</button></div>`;
 }
-function prospectRowHtml(p, no){
+function prospectRowHtml(p, no, people){
   const r = COVERAGES[p.pid] || {};
-  const names = [...(r.policies || []), ...(r.externalPolicies || []), ...(r.otherPolicies || [])].filter(isPlain).map(x => x.n || x.name || '').filter(Boolean);
+  const pols = personExtPolicies(p.pid);
+  const names = pols.map(o => o.n).filter(Boolean);
+  const holders = [...new Set(pols.map(o => resolveHolder(o.holder, p.pid, people)).filter(Boolean))];
   const exp = expandedCustomer === 'p:' + p.pid, pg = prospectGroupOf(p.name);
   const row = `<tr class="pros-tr" data-pid="${esc(p.pid)}" onclick="toggleProspectDetail(this.dataset.pid)" style="cursor:pointer;background:${exp ? '#ECFDF5' : ''}">
     <td style="color:var(--hint);font-size:12px">${no}</td>
     <td style="font-weight:600">${esc(p.label)} <span style="font-size:11px;color:${exp ? 'var(--green)' : 'var(--hint)'}">${exp ? '▲' : '▼'}</span>${profileHintHtml(p.name)}</td>
+    <td style="color:var(--muted)">${holders.length ? esc(holders.map(h => h === p.name ? '본인' : h).join(', ')) : '<span style="color:var(--hint)">-</span>'}</td>
     <td><span class="kind-badge kind-prospect">🌱 예비 고객</span></td>
     <td>${pg ? gbadge(pg) : '<span style="color:var(--hint)">-</span>'}</td>
     <td style="text-align:center;color:var(--muted)">보험 ${covPolicyCount(p.pid)}건</td>
     <td style="text-align:right;color:var(--hint)">-</td><td style="text-align:right;color:var(--hint)">-</td>
     <td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(names.slice(0, 4).join(' · '))}${names.length > 4 ? ' …' : ''}</td></tr>`;
-  const detail = exp ? `<tr style="background:#F0FDF4"><td colspan="8" style="padding:0"><div style="padding:12px 16px 16px;border-top:1px dashed var(--border)">
+  const detail = exp ? `<tr style="background:#F0FDF4"><td colspan="9" style="padding:0"><div style="padding:12px 16px 16px;border-top:1px dashed var(--border)">
     ${maskNoticeHtml(p.pid, p.name)}${customerPanelHtml(p.name, p.pid)}${personActionsHtml(p.pid)}
-    ${prospectPolicyTableHtml(p)}</div></td></tr>` : '';
+    ${policyTableHtml(p, people)}</div></td></tr>` : '';
   return row + detail;
 }
-// 예비 고객이 가진(보맵에서 가져온·직접 넣은) 보험 목록 — 가입자 칸의 "전체 계약 현황"과 같은 모양 (사용자 요청 2026-11-19)
-function prospectPolicyTableHtml(p){
-  const r = COVERAGES[p.pid] || {};
-  const rows = [...(r.externalPolicies || []).map(x => ({x, co: x.co, n: x.n, pr: x.pr, d: isPlain(x.bm) ? x.bm.issue : '', st: isPlain(x.bm) ? x.bm.status : (x.status || ''), pu: x.proposalUrl})),
-    ...(r.otherPolicies || []).map(x => ({x, co: x.co, n: x.name, pr: x.price, d: '', st: '', pu: x.proposalUrl}))].filter(o => isPlain(o.x));
-  const head = `<div style="font-size:12px;font-weight:700;color:var(--green);margin:4px 0 8px">📋 ${esc(p.name)}님이 가진 보험 (${rows.length}건)</div>`;
+// 가져온(보맵·외부·기존) 보험 한 사람 몫 — 표 한 줄 데이터. holder = 계약자(보맵이 준 이름, 가려졌으면 resolveHolder 로 풀어 씀)
+function personExtPolicies(pid){
+  const r = COVERAGES[pid] || {};
+  const mk = (x, nm, pr) => ({x, id: x.id, co: x.co, n: nm, pr, d: isPlain(x.bm) ? x.bm.issue : '', st: isPlain(x.bm) ? x.bm.status : (x.status || ''), holder: isPlain(x.bm) ? x.bm.holder : '', pu: x.proposalUrl});
+  return [...(Array.isArray(r.externalPolicies) ? r.externalPolicies : []).filter(isPlain).map(x => mk(x, x.n, x.pr)), ...(Array.isArray(r.otherPolicies) ? r.otherPolicies : []).filter(isPlain).map(x => mk(x, x.name, x.price))];
+}
+// 보맵은 계약자 이름도 '김*름' 처럼 가려서 준다 → 이 보험이 딸린 보맵 고객 본인(또는 글자가 맞는 보맵 고객 한 명)의 실제 이름으로 푼다
+function resolveHolder(h, pid, people){
+  const s = String(h || '').trim(); if(!s || !isMaskedName(s)) return s;
+  const rx = maskPattern(s), main = bmMainPidOf(pid);
+  if(main){ const mn = personName(main); if(rx.test(mn)) return mn; }
+  const hits = (people || peopleList()).filter(x => rx.test(x.name) && isPlain(COVERAGES[x.pid]) && isPlain(COVERAGES[x.pid].bomapp) && COVERAGES[x.pid].bomapp.memberId != null && !COVERAGES[x.pid].bomapp.insured);
+  return hits.length === 1 ? hits[0].name : s;
+}
+// 한 사람(가입자 또는 예비 고객)의 보험 표: 내 계약 + 가져온 보험을 한 표에. 가입자(이 사람)가 앞이고 계약자는 칸으로 따로 (사용자 요청 2026-11-19)
+function policyTableHtml(p, people){
+  const rows = [
+    ...p.cs.map(r => ({kind: 'c', r, id: r.id, d: r.d, st: sbadge(r.s), holder: r.c, co: r.co, n: r.n, pr: r.pr, pu: r.proposalUrl, live: r.s === '계약완료'})),
+    ...personExtPolicies(p.pid).map(o => ({kind: 'x', x: o.x, id: o.id, d: o.d, st: esc(o.st || ''), holder: resolveHolder(o.holder, p.pid, people), co: o.co, n: o.n, pr: o.pr, pu: o.pu, live: true}))];
+  const nC = p.cs.length, nX = rows.length - nC;
+  const isPros = !nC;
+  const head = `<div style="font-size:12px;font-weight:700;color:${isPros ? 'var(--green)' : 'var(--blue)'};margin:4px 0 8px">📋 ${esc(p.name)}님이 가진 보험 (${nC ? `계약 ${nC}건${nX ? ' + 보맵·외부 ' + nX + '건' : ''}` : rows.length + '건'})</div>`;
   if(!rows.length) return head + '<div class="rm-fine">가져온 보험이 아직 없어요 (⚙️ 관리 → 📥 보맵 가져오기). 비어 있는 사람이면 위 🗑 삭제 또는 🔀 합치기를 쓰세요.</div>';
-  rows.sort((a, b) => String(a.d || '').localeCompare(String(b.d || '')));
-  const sum = rows.reduce((s, o) => s + (Number(o.pr) || 0), 0);
-  const dupN = {}; rows.forEach(o => { o.dk = [polDupKey({co: o.co, n: o.n}, o.x), bmCorpKey(o.co) + '|' + bmProdKey(o.n)]; o.dk.forEach(k => { dupN[k] = (dupN[k] || 0) + 1; }); });   // 같은 보맵 번호 또는 같은 보험사+상품명 → ⚠️ 중복 의심
-  // 피보험자가 이 사람이 아닌 보험(다른 사람 보험이 잘못 섞여 들어온 것)은 이름을 달고, 한꺼번에 옮기는 버튼을 위에 띄운다
+  const normD = s => String(s || '').replace(/\D/g, '');
+  rows.sort((a, b) => normD(a.d).slice(-6).localeCompare(normD(b.d).slice(-6)) || String(a.d || '').localeCompare(String(b.d || '')));
+  const xs = rows.filter(o => o.kind === 'x');
+  const dupN = {}; xs.forEach(o => { o.dk = [polDupKey({co: o.co, n: o.n}, o.x), bmCorpKey(o.co) + '|' + bmProdKey(o.n)]; o.dk.forEach(k => { dupN[k] = (dupN[k] || 0) + 1; }); });   // 같은 보맵 번호 또는 같은 보험사+상품명 → ⚠️ 중복 의심
   const foreign = foreignInsureds(p.pid), foreignOf = {}; Object.keys(foreign).forEach(nm => foreign[nm].forEach(id => { foreignOf[String(id)] = nm; }));
   const foreignBar = Object.keys(foreign).map(nm => `<div style="margin:0 0 8px;padding:8px 12px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;font-size:12.5px;color:#92400E;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
     <span>⚠️ 피보험자가 <b>${esc(nm)}</b> 인 보험 ${foreign[nm].length}건이 ${esc(p.name)}님 쪽에 들어 있어요. 다른 사람 보험이면 옮겨 주세요.</span>
     <button type="button" class="btn btn-primary btn-sm" data-pid="${esc(p.pid)}" data-ins="${esc(nm)}" onclick="moveInsuredPolicies(this.dataset.pid,this.dataset.ins)">➡️ 모두 옮기기</button></div>`).join('');
-  return head + foreignBar + `<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr style="background:var(--surface2)">
-    ${['가입일', '상태', '보험회사', '보험명', '월보험료', ''].map(h => `<th style="padding:6px 10px;text-align:left;font-weight:600;color:var(--muted);white-space:nowrap">${h}</th>`).join('')}</tr></thead>
-    <tbody>${rows.map((o, i) => `<tr class="pol-row" title="눌러서 보험 정보·보장 내역 보기" onclick="openPolicyPopup('${esc(p.pid)}',${jsId(o.x.id)})" style="cursor:pointer;border-bottom:1px dashed var(--border);background:${i % 2 ? '#F7FDF9' : '#fff'}">
-      <td style="padding:7px 10px;color:var(--muted);white-space:nowrap">${esc(o.d || '')}</td>
-      <td style="padding:7px 10px;white-space:nowrap">${esc(o.st || '')}</td>
-      <td style="padding:7px 10px;white-space:nowrap">${esc(o.co || '')}</td>
-      <td style="padding:7px 10px;font-weight:500">${esc(o.n || '')}${o.dk.some(k => dupN[k] > 1) ? ' <span class="pol-dup" title="같은 보험이 두 번 들어가 있을 수 있어요. 하나를 지워주세요">⚠️ 중복 의심</span>' : ''}${foreignOf[String(o.x.id)] ? ` <span class="rm-fine" style="white-space:nowrap">피보험자 ${esc(foreignOf[String(o.x.id)])}</span>` : ''}</td>
+  const sumC = p.cs.filter(r => r.s === '계약완료').reduce((s, r) => s + (Number(r.pr) || 0), 0), sumX = xs.reduce((s, o) => s + (Number(o.pr) || 0), 0);
+  const th = ['가입일', '상태', '계약자', '보험회사', '보험명', '월보험료', ''].map(h => `<th style="padding:6px 10px;text-align:left;font-weight:600;color:var(--muted);white-space:nowrap">${h}</th>`).join('');
+  const holderCell = h => h ? esc(h === p.name ? '본인' : h) : '<span style="color:var(--hint)">-</span>';
+  const body = rows.map((o, i) => {
+    const bg = isPros ? (i % 2 ? '#F7FDF9' : '#fff') : (i % 2 ? '#F8FAFF' : '#fff');
+    const open = `class="pol-row" title="눌러서 보험 정보·보장 내역 보기" onclick="openPolicyPopup('${esc(p.pid)}',${jsId(o.id)})" style="cursor:pointer;border-bottom:1px dashed var(--border);background:${bg}"`;
+    if(o.kind === 'c') return `<tr ${open}>
+      <td style="padding:7px 10px;color:var(--muted);white-space:nowrap">${esc(o.d || '')}</td><td style="padding:7px 10px;white-space:nowrap">${o.st}</td>
+      <td style="padding:7px 10px;white-space:nowrap">${holderCell(o.holder)}</td><td style="padding:7px 10px;white-space:nowrap">${esc(o.co || '')}</td>
+      <td style="padding:7px 10px"><div style="font-weight:500">${esc(o.n || '')}</div>${MEMOS[o.id] ? `<div style="font-size:11px;color:#3B82F6;margin-top:3px">${esc(MEMOS[o.id].split('\n')[0])}</div>` : ''}</td>
+      <td style="padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">${wonN(o.pr)}원</td>
+      <td style="padding:7px 10px;text-align:right;white-space:nowrap">${proposalLinkHtml(o.pu, true)}<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openEditModal(${jsId(o.id)})">✏️</button></td></tr>`;
+    return `<tr ${open}>
+      <td style="padding:7px 10px;color:var(--muted);white-space:nowrap">${esc(o.d || '')}</td><td style="padding:7px 10px;white-space:nowrap">${o.st}</td>
+      <td style="padding:7px 10px;white-space:nowrap">${holderCell(o.holder)}</td><td style="padding:7px 10px;white-space:nowrap">${esc(o.co || '')}</td>
+      <td style="padding:7px 10px;font-weight:500">${esc(o.n || '')}${o.dk.some(k => dupN[k] > 1) ? ' <span class="pol-dup" title="같은 보험이 두 번 들어가 있을 수 있어요. 하나를 지워주세요">⚠️ 중복 의심</span>' : ''}${foreignOf[String(o.id)] ? ` <span class="rm-fine" style="white-space:nowrap">피보험자 ${esc(foreignOf[String(o.id)])}</span>` : ''}${nC ? ' <span class="rm-fine" style="white-space:nowrap">보맵·외부</span>' : ''}</td>
       <td style="padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">${o.pr ? wonN(o.pr) + '원' : '-'}</td>
-      <td style="padding:7px 10px;text-align:right;white-space:nowrap">${proposalLinkHtml(o.pu, true)}<button type="button" class="btn btn-secondary btn-sm" title="이 보험을 다른 사람 것으로 옮기기 (목록에 없는 사람은 새로 만들 수 있어요)" onclick="event.stopPropagation();movePolicyTo('${esc(p.pid)}',${jsId(o.x.id)})">➡️ 옮기기</button> <button type="button" class="btn btn-secondary btn-sm" title="이 보험 삭제 (중복 정리)" onclick="event.stopPropagation();deletePolicy('${esc(p.pid)}',${jsId(o.x.id)})">🗑</button></td></tr>`).join('')}</tbody></table>
-    <div style="margin-top:10px;padding:10px 12px;background:#ECFDF5;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-      <span style="font-size:12px;color:var(--green)">월 합계 보험료 (가져온 보험)</span><span style="font-size:14px;font-weight:700;color:var(--green)">${wonN(sum)}원 / 연 ${wonN(sum * 12)}원</span></div>`;
+      <td style="padding:7px 10px;text-align:right;white-space:nowrap">${proposalLinkHtml(o.pu, true)}<button type="button" class="btn btn-secondary btn-sm" title="이 보험을 다른 사람 것으로 옮기기 (목록에 없는 사람은 새로 만들 수 있어요)" onclick="event.stopPropagation();movePolicyTo('${esc(p.pid)}',${jsId(o.id)})">➡️ 옮기기</button> <button type="button" class="btn btn-secondary btn-sm" title="이 보험 삭제 (중복 정리)" onclick="event.stopPropagation();deletePolicy('${esc(p.pid)}',${jsId(o.id)})">🗑</button></td></tr>`;
+  }).join('');
+  const bx = isPros ? 'background:#ECFDF5;color:var(--green)' : 'background:var(--blue-l);color:var(--blue)';
+  const foot = nC
+    ? `<div style="margin-top:10px;padding:10px 12px;${bx};border-radius:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-size:12px">월 합계 보험료 (내 계약)</span><span style="font-size:14px;font-weight:700">${wonN(sumC)}원 / 연 ${wonN(sumC * 12)}원</span></div>${nX ? `<div class="rm-fine" style="margin-top:6px">+ 가져온 보맵·외부 보험 월 ${wonN(sumX)}원 (위 합계에는 안 넣어요)</div>` : ''}`
+    : `<div style="margin-top:10px;padding:10px 12px;${bx};border-radius:8px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px">월 합계 보험료 (가져온 보험)</span><span style="font-size:14px;font-weight:700">${wonN(sumX)}원 / 연 ${wonN(sumX * 12)}원</span></div>`;
+  return head + foreignBar + `<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr style="background:var(--surface2)">${th}</tr></thead><tbody>${body}</tbody></table>${foot}`;
 }
 // 고객별 탭에서 보험 한 줄을 누르면 뜨는 상세 팝업: 보험 정보 + 보장(담보) 내역 (사용자 요청 2026-11-19). 읽기 전용, 내 계약·보맵·외부·기존 보험 모두.
 function policyPopupHtml(pid, polId){
@@ -2787,86 +2840,61 @@ function openPolicyPopup(pid, polId){
   document.body.appendChild(ov);
 }
 function closePolicyPopup(){ const el = document.getElementById('policy-popup'); if(el) el.remove(); }
+// 고객별 탭: 가입자(피보험자) 한 사람이 한 줄. 계약자는 그 뒤 칸에 (예: 조유건 · 계약자 김아름). 사용자 요청 2026-11-19: 우선순위는 가입자가 앞.
 function renderCustomers() { try {
-  const cm={};
-  CONTRACTS.forEach(r=>{
-    if(!cm[r.c])cm[r.c]={k:0,amt:0,cancel:0,pending:0,g:r.g,rows:[]};
-    cm[r.c].rows.push(r);
-    if(r.s==='계약완료'){cm[r.c].k++;cm[r.c].amt+=r.pr;}
-    else if(r.s==='계약해지')cm[r.c].cancel++;
-    else cm[r.c].pending++;
-  });
-  const cs=Object.entries(cm).map(([c,v])=>({c,...v})).sort((a,b)=>b.amt-a.amt);
-  const pros = peopleList().filter(isProspectPerson);       // 🌱 예비 고객: 계약 리스트에 계약이 없는 사람 (보맵에서 가져옴)
+  const people = peopleList();
+  const mem = people.filter(p => p.cs.length).map(p => {
+    const v = {p, rows: p.cs, k: 0, amt: 0, cancel: 0, pending: 0, ext: personExtPolicies(p.pid)};
+    p.cs.forEach(r => { if(r.s === '계약완료'){ v.k++; v.amt += Number(r.pr) || 0; } else if(r.s === '계약해지') v.cancel++; else v.pending++; });
+    v.holders = [...new Set(p.cs.map(r => String(r.c || '').trim()).filter(Boolean))];
+    return v;
+  }).sort((a, b) => b.amt - a.amt);
+  const pros = people.filter(isProspectPerson);             // 🌱 예비 고객: 계약 리스트에 계약이 없는 사람 (보맵에서 가져옴)
   const kindSel = window._custKind || 'all';                 // 구분 필터: 전체 / 가입자 / 예비 고객
   const showMembers = kindSel !== 'prospect', showPros = kindSel !== 'member';
 
   document.getElementById('pane-고객별').innerHTML=`
-    ${cleanupPanelHtml()}${kindChipsHtml(cs.length, pros.length, kindSel)}
+    ${cleanupPanelHtml()}${kindChipsHtml(mem.length, pros.length, kindSel)}
     <div class="tbl-wrap"><table>
     <thead><tr>
-      <th>#</th><th>계약자</th><th>구분</th><th>그룹</th><th>건수</th><th>월보험료</th><th>연보험료</th><th>보험 목록</th>
+      <th>#</th><th>가입자</th><th>계약자</th><th>구분</th><th>그룹</th><th>건수</th><th>월보험료</th><th>연보험료</th><th>보험 목록</th>
     </tr></thead>
-    <tbody>${(showMembers ? cs : []).map((c,i)=>{
-      const exp=expandedCustomer===c.c;
-      // 이름은 data- 속성으로 넘겨요 (onclick 글자 안에 넣으면 따옴표가 든 이름이 코드로 실행될 수 있었어요)
-      const summaryRow=`<tr data-c="${esc(c.c)}" onclick="toggleCustomerDetail(this.dataset.c)" style="cursor:pointer;background:${exp?'var(--blue-l)':''};transition:background .15s">
-        <td style="color:var(--hint);font-size:12px">${i+1}</td>
-        <td style="font-weight:600">${esc(c.c)} <span style="font-size:11px;color:${exp?'var(--blue)':'var(--hint)'}">${exp?'▲':'▼'}</span>${profileHintHtml(c.c)}</td>
+    <tbody>${(showMembers ? mem : []).map((c, i) => {
+      const p = c.p, exp = expandedCustomer === p.pid;
+      // pid 는 data- 속성으로 넘겨요 (onclick 글자 안에 이름을 넣으면 따옴표가 든 이름이 코드로 실행될 수 있었어요)
+      const names = [...c.rows.filter(r => r.s === '계약완료').map(r => r.n), ...c.ext.map(o => o.n)].filter(Boolean);
+      const summaryRow = `<tr data-pid="${esc(p.pid)}" onclick="toggleCustomerDetail(this.dataset.pid)" style="cursor:pointer;background:${exp ? 'var(--blue-l)' : ''};transition:background .15s">
+        <td style="color:var(--hint);font-size:12px">${i + 1}</td>
+        <td style="font-weight:600">${esc(p.label)} <span style="font-size:11px;color:${exp ? 'var(--blue)' : 'var(--hint)'}">${exp ? '▲' : '▼'}</span>${profileHintHtml(p.name)}</td>
+        <td style="color:var(--muted)">${c.holders.length ? esc(c.holders.map(h => h === p.name ? '본인' : h).join(', ')) : '<span style="color:var(--hint)">-</span>'}</td>
         <td><span class="kind-badge kind-member">✓ 가입자</span></td>
         <td>${custGroupCell(c.rows)}</td>
         <td style="text-align:center">
-          ${c.k>0?`<span style="color:var(--green)">${c.k}건</span>`:''}
-          ${c.cancel?`<span style="color:var(--red);font-size:11px"> 해지${c.cancel}</span>`:''}
-          ${c.pending?`<span style="color:var(--amber);font-size:11px"> 예정${c.pending}</span>`:''}
+          ${c.k > 0 ? `<span style="color:var(--green)">${c.k}건</span>` : ''}
+          ${c.cancel ? `<span style="color:var(--red);font-size:11px"> 해지${c.cancel}</span>` : ''}
+          ${c.pending ? `<span style="color:var(--amber);font-size:11px"> 예정${c.pending}</span>` : ''}
+          ${c.ext.length ? `<span style="color:var(--muted);font-size:11px"> +보맵${c.ext.length}</span>` : ''}
         </td>
-        <td style="text-align:right;font-weight:${c.amt>=200000?700:400};color:${c.amt>=200000?'var(--blue)':'inherit'}">${wonN(c.amt)}</td>
-        <td style="text-align:right;color:var(--muted)">${wonN(c.amt*12)}</td>
-        <td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.rows.filter(r=>r.s==='계약완료').map(r=>r.n).slice(0,4).join(' · '))}${c.rows.length>4?' …':''}</td>
+        <td style="text-align:right;font-weight:${c.amt >= 200000 ? 700 : 400};color:${c.amt >= 200000 ? 'var(--blue)' : 'inherit'}">${wonN(c.amt)}</td>
+        <td style="text-align:right;color:var(--muted)">${wonN(c.amt * 12)}</td>
+        <td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(names.slice(0, 4).join(' · '))}${names.length > 4 ? ' …' : ''}</td>
       </tr>`;
-
-      const detailRow=exp?`<tr style="background:#EFF6FF">
-        <td colspan="8" style="padding:0">
+      const detailRow = exp ? `<tr style="background:#EFF6FF">
+        <td colspan="9" style="padding:0">
           <div style="padding:12px 16px 16px;border-top:1px dashed var(--border)">
-            ${customerPanelHtml(c.c, null)}
-            <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">📋 ${esc(c.c)}님의 전체 계약 현황 (${c.rows.length}건)</div>
-            <table style="width:100%;font-size:12px;border-collapse:collapse">
-              <thead><tr style="background:var(--surface2)">
-                ${['가입일','상태','보험회사','보험명','월보험료',''].map(h=>`<th style="padding:6px 10px;text-align:left;font-weight:600;color:var(--muted);white-space:nowrap">${h}</th>`).join('')}
-              </tr></thead>
-              <tbody>${c.rows.sort((a,b)=>String(a.d||'').localeCompare(String(b.d||''))).map((r,ri)=>`
-                <tr class="pol-row" title="눌러서 보험 정보·보장 내역 보기" onclick="openPolicyPopup('${esc(cpid(r))}',${jsId(r.id)})" style="cursor:pointer;border-bottom:1px dashed var(--border);background:${ri%2?'#F8FAFF':'#fff'}">
-                  <td style="padding:7px 10px;color:var(--muted);white-space:nowrap">${esc(r.d||'')}</td>
-                  <td style="padding:7px 10px">${sbadge(r.s)}</td>
-                  <td style="padding:7px 10px;white-space:nowrap">${esc(r.co)}</td>
-                  <td style="padding:7px 10px">
-                    <div style="font-weight:500">${esc(r.n)}</div>
-                    ${MEMOS[r.id]?`<div style="font-size:11px;color:#3B82F6;margin-top:3px">${esc(MEMOS[r.id].split("\n")[0])}</div>`:""}
-                  </td>
-                  <td style="padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">${wonN(r.pr)}원</td>
-                  <td style="padding:7px 10px;text-align:right">
-                    ${proposalLinkHtml(r.proposalUrl, true)}<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openEditModal(${jsId(r.id)})">✏️</button>
-                  </td>
-                </tr>`).join('')}
-              </tbody>
-            </table>
-            <div style="margin-top:10px;padding:10px 12px;background:var(--blue-l);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-              <span style="font-size:12px;color:var(--blue)">월 합계 보험료</span>
-              <span style="font-size:14px;font-weight:700;color:var(--blue)">${wonN(c.amt)}원 / 연 ${wonN(c.amt*12)}원</span>
-            </div>
+            ${maskNoticeHtml(p.pid, p.name)}${customerPanelHtml(p.name, null, p.pid)}
+            ${policyTableHtml(p, people)}
           </div>
         </td>
-      </tr>`:'';
-
-      return summaryRow+detailRow;
-    }).join('')}${showPros ? pros.map((p,i)=>prospectRowHtml(p, (showMembers?cs.length:0)+i+1)).join('') : ''}</tbody>
+      </tr>` : '';
+      return summaryRow + detailRow;
+    }).join('')}${showPros ? pros.map((p, i) => prospectRowHtml(p, (showMembers ? mem.length : 0) + i + 1, people)).join('') : ''}</tbody>
     </table></div>`;
   } catch(e) {
     console.error('renderCustomers:', e);
     document.getElementById('pane-고객별').innerHTML=`<div style="padding:30px;color:var(--red)">⚠️ 오류: ${esc(e.message)}</div>`;
   }
 }
-
 
 // ════════════════════════════════════════════════════════════
 // TAB: 월별 실적

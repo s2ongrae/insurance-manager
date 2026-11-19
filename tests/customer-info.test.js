@@ -59,7 +59,7 @@ ok(/👤 박예비 님 정보/.test(h) && /id="cp-birth"/.test(h) && /id="cp-pho
 ok(/data-pid="[^"]+" onclick="openCovCustomer\(this\.dataset\.pid\)">📋 보장분석 보기/.test(h), '"📋 보장분석 보기" 버튼을 눌러야 이동');
 D.run(`toggleProspectDetail('${pros}')`);
 ok(D.get('expandedCustomer') === null, '한 번 더 누르면 접힘');
-D.run(`toggleCustomerDetail('김가입')`); h = D.el('pane-고객별').innerHTML;
+D.run(`toggleCustomerDetail('pid_kim')`); h = D.el('pane-고객별').innerHTML;
 ok(D.get('selectedCovCustomer') === null && /👤 김가입 님 정보/.test(h) && h.includes('value="' + P1 + '"') && /value="1990.01.02"/.test(h), '가입자 클릭도 펼침 + 저장된 값이 채워져 있음');
 ok(/📋 보장분석 보기/.test(h) && /계약이 2개 그룹에 걸쳐 있어요/.test(h), '가입자: 보장분석 보기 버튼 + 여러 그룹 안내');
 // 입력 → 저장
@@ -77,7 +77,7 @@ E('cp-birth').value = '1991.03.04'; E('cp-phone').value = '123';
 ok(D.run(`saveCustomerProfile('김가입')`) === false, '잘못된 전화번호도 거절');
 E('cp-phone').value = P2; E('cp-email').value = '메일아님';
 ok(D.run(`saveCustomerProfile('김가입')`) === false, '잘못된 이메일도 거절');
-D.run(`toggleCustomerDetail('김가입')`);
+D.run(`toggleCustomerDetail('pid_kim')`);
 
 console.log('D) 그룹 이동: 가입자 · 예비 고객 · 새 그룹');
 ok(D.run(`moveCustomerGroup('김가입', '친구')`) === true && D.get(`CONTRACTS.filter(r=>r.c==='김가입').every(r=>r.g==='친구')`), '가입자: 그 계약자의 모든 계약이 한 그룹으로');
@@ -98,13 +98,13 @@ D.run(`renderGroups()`); let gh = D.el('pane-그룹별').innerHTML;
 const card = name => { const i = gh.indexOf(`<span class="gname">${name}</span>`); return i < 0 ? '' : gh.slice(gh.lastIndexOf('<div class="gcard">', i), gh.indexOf('<div class="gcard">', i) < 0 ? gh.length : gh.indexOf('<div class="gcard">', i)); };
 ok(/박예비/.test(card('친구')) && /cov-prospect/.test(card('친구')) && /🌱 예비 1명/.test(card('친구')), '친구 그룹 카드에 박예비(🌱 예비) 표시');
 ok(!/박예비/.test(card('지인')), '다른 그룹엔 없음');
-const rowsOf = html => html.split('<tr class="pros-tr">').length - 1;
+const rowsOf = html => html.split('<tr class="pros-tr').length - 1;
 ok(rowsOf(card('친구')) === 1 && /가나화재/.test(card('친구')) && /보험1/.test(card('친구')), '가져온 보험이 계약 행처럼 한 줄씩 (보험사·보험명)');
 D.run(`COVERAGES['${pros}'].externalPolicies.push({id:-99, co:'다라생명', n:'추가보험', pr:20000, items:[], bm:{issue:'2024.05.06', status:'정상'}}); renderGroups()`); gh = D.el('pane-그룹별').innerHTML;
 ok(rowsOf(card('친구')) === 2 && /추가보험/.test(card('친구')) && /20,000/.test(card('친구')) && card('친구').split('class="grp-move"').length - 1 === 1, '보험이 2건이면 두 줄, 그룹 선택칸은 사람당 한 번만');
 ok(!/class="gamt"[^>]*>[^<]*20,000/.test(card('친구')), '예비 고객 보험료는 그룹 월 합계에 안 더함');
 const free = card('🌱 예비 고객 (그룹 미지정)');
-ok(/최가족/.test(free) && /class="grp-move"/.test(free) && /data-pros="1"/.test(free) && /moveCustomerGroup\(this\.dataset\.name,this\.value,this\.dataset\.pros==='1'\)/.test(free), '그룹 미지정 예비 고객은 맨 아래 카드에, 거기서 바로 그룹 선택');
+ok(/최가족/.test(free) && /class="grp-move"/.test(free) && /data-pros="1"/.test(free) && /moveCustomerGroup\(this\.dataset\.name,this\.value,this\.dataset\.pros==='1',this\.dataset\.pid\|\|''\)/.test(free), '그룹 미지정 예비 고객은 맨 아래 카드에, 거기서 바로 그룹 선택');
 ok(/class="gtoolbar"/.test(gh) && /openGroupManager/.test(gh), '그룹별 탭 위에 🗂️ 그룹 관리 버튼');
 let list = D.get('covPeopleListHtml()');
 const famBlock = n => { const i = list.indexOf(`data-fam="${n}"`); return i < 0 ? '' : list.slice(i, list.indexOf('</details>', i)); };
