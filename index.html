@@ -605,10 +605,6 @@ if(_viewHash.startsWith('#view=')) {
         <button class="btn btn-secondary" onclick="pullFromServer()" title="서버에 저장된 데이터를 합치지 않고 그대로 이 기기로 받아요 (이 기기 데이터가 이상할 때)">☁️ 서버 데이터로 되돌리기</button>
         <button class="btn btn-secondary" onclick="openCovTidy()" title="담보 이름 다듬기·남은 기록 정리·중복 의심 보험 찾기">🧹 보장분석 자료 정리</button>
         <button class="btn btn-secondary" onclick="openGroupManager()" title="그룹 만들기·이름/색 수정·삭제">🗂️ 그룹 관리</button>
-        <label class="btn btn-secondary" title="카톡 등에서 뽑은 고객 정보 파일(JSON)로 생년월일·핸드폰·주소·직업을 채워요" style="cursor:pointer">
-          👤 고객 정보 가져오기
-          <input type="file" accept=".json,application/json" onchange="importProfilesFile(event)" style="display:none">
-        </label>
         <button class="btn btn-secondary" onclick="openHealthCheck()" title="서버·백업·동기화·보장분석 상태를 확인만 해요 (데이터는 안 바뀜)">🩺 상태 점검</button>
         <button class="btn btn-secondary" onclick="openBomappModal()" title="보맵 플래너 고객의 보험·특약·납입·약관·분석리포트 가져오기">📥 보맵 가져오기</button>
         <button class="btn btn-secondary" onclick="exportData()" title="데이터 백업">💾 백업 파일 받기</button>
@@ -2380,42 +2376,6 @@ function normPhone(s){
   if(dg.length === 9 && dg.startsWith('02')) return `02-${dg.slice(2, 5)}-${dg.slice(5)}`;
   if(dg.length === 8) return `${dg.slice(0, 4)}-${dg.slice(4)}`;
   return null;
-}
-// 고객 정보 파일 가져오기 (사용자 요청 2026-11-19: 카톡 대화에서 뽑은 생년월일·핸드폰·주소·직업을 한 번에).
-// 파일 = [{name, birth, phone, addr, job}] JSON. 이 앱에 이미 있는 사람(계약자·예비 고객 이름)만 채우고, 모르는 이름은 건너뛴다.
-// 파일에 있는 칸만 덮어쓰고(최신 값), 메모·이메일·그룹 등 파일에 없는 칸은 그대로 둔다. 파일에 주민번호는 안 들어간다.
-function importCustomerProfiles(list){
-  const known = new Set(); CONTRACTS.forEach(c => { if(c.c) known.add(String(c.c).trim()); }); peopleList().forEach(p => known.add(String(p.name || '').trim()));
-  const res = {total: 0, matched: 0, changed: 0, unmatched: [], bad: 0};
-  (Array.isArray(list) ? list : []).forEach(it => {
-    if(!isPlain(it) || !String(it.name || '').trim()){ res.bad++; return; }
-    res.total++;
-    const nm = String(it.name).trim();
-    if(!known.has(nm)){ res.unmatched.push(nm); return; }
-    res.matched++;
-    const patch = {};
-    const b = normBirth(it.birth); if(b) patch.birth = b;
-    const p = normPhone(it.phone); if(p) patch.phone = p;
-    if(String(it.addr || '').trim()) patch.addr = it.addr;
-    if(String(it.job || '').trim()) patch.job = it.job;
-    const cur = getProfile(nm);
-    if(Object.keys(patch).some(f => String(patch[f]).trim().slice(0, PROFILE_MAX[f]) !== (cur[f] || ''))){ setProfile(nm, patch); res.changed++; }
-  });
-  return res;
-}
-function importProfilesFile(event){
-  const f = event.target.files && event.target.files[0]; if(!f) return;
-  const rd = new FileReader();
-  rd.onload = () => {
-    let data = null; try { data = JSON.parse(rd.result); } catch(e){}
-    event.target.value = '';
-    if(!Array.isArray(data)){ alert('고객 정보 파일 모양이 아니에요 (JSON 목록이어야 해요)'); return; }
-    if(!confirm(`고객 정보 ${data.length}명분을 가져와서, 이 앱에 있는 고객의 생년월일·핸드폰·주소·직업을 최신 값으로 채울까요?\n(메모·이메일·그룹은 안 건드려요 / 앱에 없는 이름은 건너뛰어요)`)) return;
-    const r = importCustomerProfiles(data);
-    try { renderAll(); } catch(e){}
-    alert(`고객 정보 가져오기 끝\n· 앱에 있는 고객 ${r.matched}명 중 ${r.changed}명 바뀜\n· 앱에 없는 이름 ${r.unmatched.length}명 건너뜀${r.unmatched.length ? '\n  (' + r.unmatched.slice(0, 15).join(', ') + (r.unmatched.length > 15 ? ' …' : '') + ')' : ''}`);
-  };
-  rd.readAsText(f);
 }
 function saveCustomerProfile(name){
   const v = id => String((document.getElementById(id) || {}).value || '');
