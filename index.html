@@ -2623,15 +2623,16 @@ function prospectPolicyTableHtml(p){
   if(!rows.length) return head + '<div class="rm-fine">가져온 보험이 아직 없어요 (⚙️ 관리 → 📥 보맵 가져오기)</div>';
   rows.sort((a, b) => String(a.d || '').localeCompare(String(b.d || '')));
   const sum = rows.reduce((s, o) => s + (Number(o.pr) || 0), 0);
+  const dupN = {}; rows.forEach(o => { o.dk = [polDupKey({co: o.co, n: o.n}, o.x), bmCorpKey(o.co) + '|' + bmProdKey(o.n)]; o.dk.forEach(k => { dupN[k] = (dupN[k] || 0) + 1; }); });   // 같은 보맵 번호 또는 같은 보험사+상품명 → ⚠️ 중복 의심
   return head + `<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr style="background:var(--surface2)">
     ${['가입일', '상태', '보험회사', '보험명', '월보험료', ''].map(h => `<th style="padding:6px 10px;text-align:left;font-weight:600;color:var(--muted);white-space:nowrap">${h}</th>`).join('')}</tr></thead>
     <tbody>${rows.map((o, i) => `<tr style="border-bottom:1px dashed var(--border);background:${i % 2 ? '#F7FDF9' : '#fff'}">
       <td style="padding:7px 10px;color:var(--muted);white-space:nowrap">${esc(o.d || '')}</td>
       <td style="padding:7px 10px;white-space:nowrap">${esc(o.st || '')}</td>
       <td style="padding:7px 10px;white-space:nowrap">${esc(o.co || '')}</td>
-      <td style="padding:7px 10px;font-weight:500">${esc(o.n || '')}</td>
+      <td style="padding:7px 10px;font-weight:500">${esc(o.n || '')}${o.dk.some(k => dupN[k] > 1) ? ' <span class="pol-dup" title="같은 보험이 두 번 들어가 있을 수 있어요. 하나를 지워주세요">⚠️ 중복 의심</span>' : ''}</td>
       <td style="padding:7px 10px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums">${o.pr ? wonN(o.pr) + '원' : '-'}</td>
-      <td style="padding:7px 10px;text-align:right;white-space:nowrap">${proposalLinkHtml(o.pu, true)}</td></tr>`).join('')}</tbody></table>
+      <td style="padding:7px 10px;text-align:right;white-space:nowrap">${proposalLinkHtml(o.pu, true)}<button type="button" class="btn btn-secondary btn-sm" title="이 보험을 다른 사람 것으로 옮기기 (목록에 없는 사람은 새로 만들 수 있어요)" onclick="movePolicyTo('${esc(p.pid)}',${jsId(o.x.id)})">➡️ 옮기기</button> <button type="button" class="btn btn-secondary btn-sm" title="이 보험 삭제 (중복 정리)" onclick="deletePolicy('${esc(p.pid)}',${jsId(o.x.id)})">🗑</button></td></tr>`).join('')}</tbody></table>
     <div style="margin-top:10px;padding:10px 12px;background:#ECFDF5;border-radius:8px;display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:12px;color:var(--green)">월 합계 보험료 (가져온 보험)</span><span style="font-size:14px;font-weight:700;color:var(--green)">${wonN(sum)}원 / 연 ${wonN(sum * 12)}원</span></div>`;
 }
@@ -3831,6 +3832,45 @@ function deletePolicy(pid, polId){
   }
   saveCoverages(); renderAll();
   showToast(msg);
+}
+// 잘못 들어간 보험(보맵·외부·기존)을 다른 사람 것으로 옮김. 목록에 없는 사람(예: 보맵에 없던 가족)은 이름을 입력해 새로 만든다. (사용자 요청 2026-11-19)
+// 옮긴 보험은 그 사람 기록에 들어가므로 보맵을 다시 가져와도 그 자리에서 갱신된다(bmPolicyHome). 내 계약은 여기서 못 옮김(계약 수정에서 가입자를 바꿈).
+function movePolicyTo(fromPid, polId){
+  const rec = isPlain(COVERAGES[fromPid]) ? COVERAGES[fromPid] : null; if(!rec) return;
+  let fld = null, x = null;
+  for(const k of ['externalPolicies', 'otherPolicies']){ const hit = (Array.isArray(rec[k]) ? rec[k] : []).find(p => isPlain(p) && String(p.id) === String(polId)); if(hit){ fld = k; x = hit; break; } }
+  if(!x){ showToast('옮길 수 있는 보험이 아니에요 (내 계약은 계약 수정에서 가입자를 바꿔요)'); return; }
+  const others = peopleList().filter(p => p.pid !== fromPid);
+  const label = `${shortCo(x.co)} ${x.n || x.name || ''}`.trim();
+  const menu = ['0. ＋ 목록에 없는 새 사람 만들기 (이름 입력)', ...others.map((p, i) => `${i + 1}. ${p.label} — ${describePerson(p)}`)].join('\n');
+  const ans = prompt(`'${label}' 보험을 누구 것으로 옮길까요?\n(지금: ${personLabel(fromPid)})\n\n${menu}\n\n번호를 입력해주세요 (취소하거나 비워두면 그대로 둬요)`);
+  if(ans === null || String(ans).trim() === '') return;
+  const n = parseInt(ans, 10);
+  if(!(n >= 0 && n <= others.length)) return;
+  let dstPid, dstName;
+  if(n === 0){
+    const nm = String(prompt('새로 만들 사람의 이름을 입력해주세요 (예: 딸 이름, 남편 이름)', '') || '').trim().slice(0, 40);
+    if(!nm) return;
+    if(peopleList().some(p => p.name === nm)){ showToast(`'${nm}' 님은 이미 있어요 — 번호로 골라주세요`); return; }
+    dstPid = newPid(); dstName = nm;
+    const created = {policies: [], person: {name: nm, src: 'split', familyPid: rootFamilyPid(fromPid)}};
+    if(isPlain(rec.bomapp)) created.bomapp = {memberId: rec.bomapp.memberId, plannerMemberId: rec.bomapp.plannerMemberId, insured: nm};   // 다시 가져와도 원래 고객 쪽으로 안 돌아가게
+    COVERAGES[dstPid] = created;
+  } else { dstPid = others[n - 1].pid; dstName = others[n - 1].name; }
+  if(!confirm(`'${label}' 보험을 '${dstName}' 님 것으로 옮깁니다. 계속할까요?\n(옮기기 직전 상태는 이 기기 체크포인트로 남겨요)`)){ if(n === 0) delete COVERAGES[dstPid]; return; }
+  saveCheckpoint('보험 이동 전');
+  const roleKey = 'r' + String(polId);
+  const src = Object.assign({}, rec, {[fld]: rec[fld].filter(p => p !== x)});
+  if(isPlain(src.remodel) && isPlain(src.remodel.roles)){ const roles = Object.assign({}, src.remodel.roles); delete roles[roleKey]; src.remodel = Object.assign({}, src.remodel, {roles}); }
+  COVERAGES[fromPid] = src;
+  const dst = isPlain(COVERAGES[dstPid]) ? COVERAGES[dstPid] : {policies: []};
+  const dstList = Array.isArray(dst[fld]) ? dst[fld] : [];
+  let moved = x;
+  if(dstList.some(p => isPlain(p) && String(p.id) === String(x.id)))                // 번호가 겹치면 새 번호 (그 사람 안에서 보험을 번호로 찾기 때문)
+    moved = Object.assign({}, x, {id: typeof x.id === 'number' ? -((Date.now() % 1e9) * 100 + Math.floor(Math.random() * 100)) : 'ext_' + Date.now() + Math.floor(Math.random() * 100)});
+  COVERAGES[dstPid] = Object.assign({}, dst, {[fld]: [...dstList, moved]});
+  saveCoverages(); renderAll();
+  showToast(`✅ '${label}' 보험을 '${dstName}' 님 것으로 옮겼어요`);
 }
 // ── 🧹 보장분석 자료 점검·정리 (사용자 요청 2026-11-12) ─────────────
 // 계획(covTidyPlan)은 데이터를 바꾸지 않고 세기만 하고, 적용(covTidyApply)은 체크포인트를 남긴 뒤 한 번에 고친다.
@@ -5123,7 +5163,7 @@ function renderCovDetail(name){                          // name 은 가입자 �
           </div>`).join('')}
         ${items.length?'':'<div style="padding:16px;font-size:13px;color:var(--muted)">아직 특약이 없습니다. 이 보험의 제안서를 넣거나 보장을 직접 추가하세요.</div>'}
         <div style="padding:12px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn btn-secondary btn-sm" onclick="addCovItem('${name}',${jsId(polId)})">＋ 담보 추가 / 직접 입력</button>
-          <span style="flex:1"></span><button class="pol-del" onclick="deletePolicy('${name}',${jsId(polId)})">${isMine ? '🗑 계약까지 완전 삭제' : '🗑 이 보험 삭제'}</button></div>
+          <span style="flex:1"></span>${isMine ? '' : `<button class="btn btn-secondary btn-sm" onclick="movePolicyTo('${name}',${jsId(polId)})" title="잘못 들어간 보험을 다른 사람 것으로 옮기기 (목록에 없는 사람은 새로 만들 수 있어요)">➡️ 다른 사람으로 옮기기</button> `}<button class="pol-del" onclick="deletePolicy('${name}',${jsId(polId)})">${isMine ? '🗑 계약까지 완전 삭제' : '🗑 이 보험 삭제'}</button></div>
         ${bmExtraItemsHtml(pol)}
       </div>
     </details>`;
