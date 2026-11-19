@@ -58,6 +58,27 @@ summary.cv-sec small{order:3;flex-basis:100%;white-space:normal;font-size:12px;f
 .shrink-banner{margin:0 0 12px;padding:14px 16px;background:#FEF2F2;border:2px solid #F87171;border-radius:12px;color:#7F1D1D;font-size:13px;line-height:1.7}
 .shrink-banner b{font-size:15px;color:#991B1B}.shrink-banner .btn{margin-top:8px}
 .cov-prospect{display:inline-block;font-size:10.5px;font-weight:700;color:#047857;background:#D1FAE5;border-radius:999px;padding:1px 7px;margin-left:4px;white-space:nowrap}
+thead th.num{text-align:right}
+.g-tbl{table-layout:fixed;min-width:860px}
+.g-tbl .grp-move{max-width:112px;vertical-align:middle;margin-left:4px}
+.g-tbl td,.g-tbl th{overflow:hidden;text-overflow:ellipsis}
+.g-tbl th.num{text-align:right}.g-tbl th.ctr{text-align:center}
+.pol-tbl td{overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.pol-tbl td:nth-child(5){white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
+@media(max-width:760px){                       /* 폰: 표 대신 카드형 — 가입자 이름 · 계약자 · 건수 · 월보험료만 (나머지는 고객을 눌러서 펼친 칸에서). 펼친 칸이 표를 옆으로 밀어내지 않게 */
+  .g-tbl{display:block;min-width:0;table-layout:auto}
+  .g-tbl colgroup,.g-tbl thead{display:none}
+  .g-tbl tbody{display:block}
+  .g-tbl tr{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;padding:10px 12px;border-top:1px solid var(--border)}
+  .g-tbl td{display:block;padding:0;white-space:normal;overflow:visible}
+  .g-tbl td:nth-child(2){flex:1 1 100%;font-size:15px}
+  .g-tbl td:nth-child(3){color:var(--muted);font-size:12px}
+  .g-tbl td:nth-child(5){margin-left:auto;font-size:12px}
+  .g-tbl td:nth-child(6){font-weight:700}
+  .g-tbl .c-no,.g-tbl .c-kind,.g-tbl .c-yr,.g-tbl .c-list{display:none}
+  .g-tbl td[colspan]{flex:1 1 100%;width:100%;max-width:100%}
+  .g-tbl tr:has(td[colspan]){padding:0;border-top:0}
+}
 .g-ico{border:0;background:none;cursor:pointer;font-size:15px;line-height:1;padding:2px 4px;color:#F59E0B;border-radius:6px}
 .g-ico:hover{background:rgba(0,0,0,.06)}
 .g-search{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px}
@@ -359,7 +380,8 @@ thead th,.kpi-label,.kpi-sub,.cov-cust-cnt,.garr,.b-done,.b-cancel,.b-pending,.g
 .rm-cols{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:start;margin-bottom:16px}
 .rm-col{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;min-width:0}
 .rm-col h4{margin:0 0 8px;font-size:13px;color:var(--muted)}
-.rm-row{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px dashed var(--border);font-size:13px}
+.rm-row{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:6px 0;border-top:1px dashed var(--border);font-size:13px}
+.rm-row>b{white-space:nowrap;flex:none;text-align:right}.rm-row>span{min-width:0}
 .rm-row:first-of-type{border-top:none}
 .rm-arrow{align-self:center;font-size:20px;color:var(--hint)}
 @media(max-width:700px){.rm-cols{grid-template-columns:minmax(0,1fr)}.rm-arrow{transform:rotate(90deg);justify-self:center}}
@@ -2268,7 +2290,7 @@ function renderList() {
   const allGrps=[...new Set(CONTRACTS.map(r=>r.g).filter(Boolean))].sort();
   const allStatus=['계약완료','가입 예정','계약해지'];
   const activeCnt=fStatus.size+fGroups.size+fMonths.size+fCos.size;
-  const H=(k,l)=>`<th onclick="srt('${k}')">${l}${sortK===k?(sortD===1?' ↑':' ↓'):''}</th>`;
+  const H=(k,l,c)=>`<th${c?` class="${c}"`:''} onclick="srt('${k}')">${l}${sortK===k?(sortD===1?' ↑':' ↓'):''}</th>`;
 
   const chipRow=(label,items,type,activeSet)=>`
     <div style="margin-bottom:12px">
@@ -2327,8 +2349,8 @@ function renderList() {
     <div class="tbl-wrap">
     <table>
       <thead><tr>
-        ${H('s','상태')}${H('d','가입일')}<th title="가입일로부터 2년 1개월이 되는 날">2년 1개월</th>${H('c','계약자')}${H('p','가입자')}
-        ${H('co','보험회사')}${H('n','보험명')}${H('pr','월보험료')}${H('g','그룹')}<th>편집</th>
+        ${H('s','상태')}${H('d','가입일')}<th title="가입일로부터 2년 1개월이 되는 날">2년 1개월</th>${H('p','가입자')}${H('c','계약자')}
+        ${H('co','보험회사')}${H('n','보험명')}${H('pr','월보험료','num')}${H('g','그룹')}<th class="num">편집</th>
       </tr></thead>
       <tbody>${d.length?d.map(r=>`<tr onclick="openEditModal(${jsId(r.id)})" style="cursor:pointer">
         <td>${sbadge(r.s)}</td>
@@ -2336,8 +2358,8 @@ function renderList() {
           ${esc(r.d)}${r.s==='계약해지'&&r.ed?`<br><span style="color:var(--red);font-size:11px">→ ${esc(r.ed)}</span>`:''}
         </td>
         <td style="color:var(--muted);font-size:12px">${milestoneCell(r)}</td>
-        <td style="font-weight:600;white-space:nowrap">${esc(r.c)}</td>
-        <td style="color:var(--muted);white-space:nowrap">${esc(r.p)}</td>
+        <td style="font-weight:600;white-space:nowrap">${esc(r.p)}</td>
+        <td style="color:var(--muted);white-space:nowrap">${esc(r.c === r.p ? '본인' : r.c)}</td>
         <td style="white-space:nowrap">${esc(r.co)}</td>
         <td>
           <div style="font-weight:500">${esc(r.n)}</div>
@@ -2405,7 +2427,9 @@ function renderGroups() { try {
   const favOnly = !!window._gFavOnly;
   const gs = Object.entries(gm).map(([g,v])=>({g,...v,nc:v.nc.size})).sort((a,b)=>((a.g==='')-(b.g===''))||((window._fav.groups.has(b.g)?1:0)-(window._fav.groups.has(a.g)?1:0))||String(a.g).localeCompare(String(b.g),'ko'));
   if(prosFree.length) gs.push({g:'', free:true, k:0, amt:0, cancel:0, pending:0, nc:0});
-  const th = ['#', '가입자', '계약자', '구분', '건수', '월보험료', '연보험료', '보험 목록'].map(h => `<th>${h}</th>`).join('');
+  // 칸 폭을 고정하고 숫자 칸은 머리글도 같은 쪽으로 정렬 (그룹 카드마다 칸이 들쭉날쭉하고 월보험료 머리글이 숫자와 안 맞던 것, 2026-11-19)
+  const th = [['#', 'c-no'], ['가입자', ''], ['계약자', ''], ['구분', 'c-kind'], ['건수', 'ctr'], ['월보험료', 'num'], ['연보험료', 'num c-yr'], ['보험 목록', 'c-list']].map(([h, c]) => `<th${c ? ` class="${c}"` : ''}>${h}</th>`).join('');
+  const cols = '<colgroup><col class="c-no" style="width:44px"><col style="width:21%"><col style="width:12%"><col class="c-kind" style="width:236px"><col style="width:96px"><col style="width:104px"><col class="c-yr" style="width:104px"><col class="c-list"></colgroup>';
   // 🔍 검색 (사용자 요청 2026-11-19): 공백으로 나눈 낱말이 모두 들어 있는 고객만. 이름·계약자·그룹·연락처·주소·메모·보험사·보험명·증권번호·피보험자를 훑는다
   const q = String(window._gSearch || '').trim().toLowerCase(), qs = q ? q.split(/\s+/) : [];
   const hayOf = (p, rows, ext, g) => {
@@ -2438,7 +2462,7 @@ function renderGroups() { try {
         <span class="garr" id="arr-${id}">${open ? '▲' : '▼'}</span>
       </div>
       <div class="gtbl${open ? ' open' : ''}" id="gt-${id}">
-        <table>
+        <table class="g-tbl">${cols}
           <thead><tr>${th}</tr></thead>
           <tbody>${ms.map((v, i) => memberRowHtml(v, i + 1, people)).join('')}${ps.map((p, i) => prospectRowHtml(p, ms.length + i + 1, people)).join('')}</tbody>
         </table>
@@ -2761,10 +2785,10 @@ function memberRowHtml(c, no, people){
   // pid 는 data- 속성으로 넘겨요 (onclick 글자 안에 이름을 넣으면 따옴표가 든 이름이 코드로 실행될 수 있었어요)
   const names = [...c.rows.filter(r => r.s === '계약완료').map(r => r.n), ...c.ext.map(o => o.n)].filter(Boolean);
   const summaryRow = `<tr data-pid="${esc(p.pid)}" onclick="toggleCustomerDetail(this.dataset.pid)" style="cursor:pointer;background:${exp ? 'var(--blue-l)' : ''};transition:background .15s">
-    <td style="color:var(--hint);font-size:12px">${no}</td>
+    <td class="c-no" style="color:var(--hint);font-size:12px">${no}</td>
     <td style="font-weight:600">${favBtn(p.pid)}${esc(p.label)} <span style="font-size:11px;color:${exp ? 'var(--blue)' : 'var(--hint)'}">${exp ? '▲' : '▼'}</span>${profileHintHtml(p.name)}</td>
     <td style="color:var(--muted)">${c.holders.length ? esc(c.holders.map(h => h === p.name ? '본인' : h).join(', ')) : '<span style="color:var(--hint)">-</span>'}</td>
-    <td><span class="kind-badge kind-member">✓ 가입자</span>${groupSelectHtml(c.g, p.name, false, p.pid)}</td>
+    <td class="c-kind"><span class="kind-badge kind-member">✓ 가입자</span>${groupSelectHtml(c.g, p.name, false, p.pid)}</td>
     <td style="text-align:center">
       ${c.k > 0 ? `<span style="color:var(--green)">${c.k}건</span>` : ''}
       ${c.cancel ? `<span style="color:var(--red);font-size:11px"> 해지${c.cancel}</span>` : ''}
@@ -2772,8 +2796,8 @@ function memberRowHtml(c, no, people){
       ${c.ext.length ? `<span style="color:var(--muted);font-size:11px"> +보맵${c.ext.length}</span>` : ''}
     </td>
     <td style="text-align:right;font-weight:${c.amt >= 200000 ? 700 : 400};color:${c.amt >= 200000 ? 'var(--blue)' : 'inherit'}">${wonN(c.amt)}</td>
-    <td style="text-align:right;color:var(--muted)">${wonN(c.amt * 12)}</td>
-    <td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(names.slice(0, 4).join(' · '))}${names.length > 4 ? ' …' : ''}</td>
+    <td class="c-yr" style="text-align:right;color:var(--muted)">${wonN(c.amt * 12)}</td>
+    <td class="c-list" style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(names.slice(0, 4).join(' · '))}${names.length > 4 ? ' …' : ''}</td>
   </tr>`;
   const detailRow = exp ? `<tr style="background:#EFF6FF"><td colspan="8" style="padding:0"><div style="padding:12px 16px 16px;border-top:1px dashed var(--border)">
     ${maskNoticeHtml(p.pid, p.name)}${customerPanelHtml(p.name, null, p.pid)}
@@ -2787,13 +2811,13 @@ function prospectRowHtml(p, no, people){
   const holders = [...new Set(pols.map(o => resolveHolder(o.holder, p.pid, people)).filter(Boolean))];
   const exp = expandedCustomer === 'p:' + p.pid, pg = prospectGroupOf(p.name);
   const row = `<tr class="pros-tr" data-pid="${esc(p.pid)}" onclick="toggleProspectDetail(this.dataset.pid)" style="cursor:pointer;background:${exp ? '#ECFDF5' : ''}">
-    <td style="color:var(--hint);font-size:12px">${no}</td>
+    <td class="c-no" style="color:var(--hint);font-size:12px">${no}</td>
     <td style="font-weight:600">${favBtn(p.pid)}${esc(p.label)} <span style="font-size:11px;color:${exp ? 'var(--green)' : 'var(--hint)'}">${exp ? '▲' : '▼'}</span>${profileHintHtml(p.name)}</td>
     <td style="color:var(--muted)">${holders.length ? esc(holders.map(h => h === p.name ? '본인' : h).join(', ')) : '<span style="color:var(--hint)">-</span>'}</td>
-    <td><span class="kind-badge kind-prospect">🌱 예비 고객</span>${groupSelectHtml(pg, p.name, true)}</td>
+    <td class="c-kind"><span class="kind-badge kind-prospect">🌱 예비 고객</span>${groupSelectHtml(pg, p.name, true)}</td>
     <td style="text-align:center;color:var(--muted)">보험 ${covPolicyCount(p.pid)}건</td>
-    <td style="text-align:right;color:var(--hint)">-</td><td style="text-align:right;color:var(--hint)">-</td>
-    <td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(names.slice(0, 4).join(' · '))}${names.length > 4 ? ' …' : ''}</td></tr>`;
+    <td style="text-align:right;color:var(--hint)">-</td><td class="c-yr" style="text-align:right;color:var(--hint)">-</td>
+    <td class="c-list" style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(names.slice(0, 4).join(' · '))}${names.length > 4 ? ' …' : ''}</td></tr>`;
   const detail = exp ? `<tr style="background:#F0FDF4"><td colspan="8" style="padding:0"><div style="padding:12px 16px 16px;border-top:1px dashed var(--border)">
     ${maskNoticeHtml(p.pid, p.name)}${customerPanelHtml(p.name, p.pid)}${personActionsHtml(p.pid)}
     ${policyTableHtml(p, people)}</div></td></tr>` : '';
@@ -2831,7 +2855,8 @@ function policyTableHtml(p, people){
     <span>⚠️ 피보험자가 <b>${esc(nm)}</b> 인 보험 ${foreign[nm].length}건이 ${esc(p.name)}님 쪽에 들어 있어요. 다른 사람 보험이면 옮겨 주세요.</span>
     <button type="button" class="btn btn-primary btn-sm" data-pid="${esc(p.pid)}" data-ins="${esc(nm)}" onclick="moveInsuredPolicies(this.dataset.pid,this.dataset.ins)">➡️ 모두 옮기기</button></div>`).join('');
   const sumC = p.cs.filter(r => r.s === '계약완료').reduce((s, r) => s + (Number(r.pr) || 0), 0), sumX = xs.reduce((s, o) => s + (Number(o.pr) || 0), 0);
-  const th = ['가입일', '상태', '계약자', '보험회사', '보험명', '월보험료', ''].map(h => `<th style="padding:6px 10px;text-align:left;font-weight:600;color:var(--muted);white-space:nowrap">${h}</th>`).join('');
+  const th = ['가입일', '상태', '계약자', '보험회사', '보험명', '월보험료', ''].map(h => `<th style="padding:6px 10px;text-align:${h === '월보험료' || h === '' ? 'right' : 'left'};font-weight:600;color:var(--muted);white-space:nowrap">${h}</th>`).join('');
+  const pcols = '<colgroup><col style="width:92px"><col style="width:72px"><col style="width:92px"><col style="width:140px"><col><col style="width:112px"><col style="width:164px"></colgroup>';
   const holderCell = h => h ? esc(h === p.name ? '본인' : h) : '<span style="color:var(--hint)">-</span>';
   const body = rows.map((o, i) => {
     const bg = isPros ? (i % 2 ? '#F7FDF9' : '#fff') : (i % 2 ? '#F8FAFF' : '#fff');
@@ -2853,7 +2878,7 @@ function policyTableHtml(p, people){
   const foot = nC
     ? `<div style="margin-top:10px;padding:10px 12px;${bx};border-radius:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-size:12px">월 합계 보험료 (내 계약)</span><span style="font-size:14px;font-weight:700">${wonN(sumC)}원 / 연 ${wonN(sumC * 12)}원</span></div>${nX ? `<div class="rm-fine" style="margin-top:6px">+ 가져온 보맵·외부 보험 월 ${wonN(sumX)}원 (위 합계에는 안 넣어요)</div>` : ''}`
     : `<div style="margin-top:10px;padding:10px 12px;${bx};border-radius:8px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px">월 합계 보험료 (가져온 보험)</span><span style="font-size:14px;font-weight:700">${wonN(sumX)}원 / 연 ${wonN(sumX * 12)}원</span></div>`;
-  return head + foreignBar + `<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr style="background:var(--surface2)">${th}</tr></thead><tbody>${body}</tbody></table>${foot}`;
+  return head + foreignBar + `<div style="overflow-x:auto"><table class="pol-tbl" style="width:100%;min-width:760px;font-size:12px;border-collapse:collapse;table-layout:fixed">${pcols}<thead><tr style="background:var(--surface2)">${th}</tr></thead><tbody>${body}</tbody></table></div>${foot}`;
 }
 // 고객별 탭에서 보험 한 줄을 누르면 뜨는 상세 팝업: 보험 정보 + 보장(담보) 내역 (사용자 요청 2026-11-19). 읽기 전용, 내 계약·보맵·외부·기존 보험 모두.
 function policyPopupHtml(pid, polId){
@@ -2997,7 +3022,7 @@ function renderMonthly() {
         <button class="btn btn-secondary btn-sm" onclick="openIncomeModal()">＋ 수입 입력</button>
       </div>
       <div class="tbl-wrap"><table>
-        <thead><tr>${['월','신규계약','계약금액','세전 수입','세후 수입','메모',''].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <thead><tr>${[['월',''],['신규계약','ctr'],['계약금액','num'],['세전 수입','num'],['세후 수입','num'],['메모',''],['','']].map(([h,c])=>`<th${c?` class="${c}"`:''}>${h}</th>`).join('')}</tr></thead>
         <tbody>${displayMonths.map(m=>{
           const exp=expandedMonth===m.m;
           const mContracts=CONTRACTS.filter(r=>r.d&&r.d.slice(0,5)===m.m);
@@ -3014,18 +3039,19 @@ function renderMonthly() {
             </td>
           </tr>`;
           const detailRow=exp?`<tr style="background:#EFF6FF">
-            <td colspan="6" style="padding:0">
+            <td colspan="7" style="padding:0">
               <div style="padding:12px 16px 16px;border-top:1px dashed var(--border)">
                 <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">📋 ${esc(m.m)} 계약 리스트 (${mContracts.length}건)</div>
                 ${mContracts.length>0?`<table style="width:100%;font-size:12px;border-collapse:collapse">
                   <thead><tr style="background:var(--surface2)">
-                    ${['가입일','상태','계약자','보험회사','보험명','월보험료',''].map(h=>`<th style="padding:6px 10px;text-align:left;font-weight:600;color:var(--muted);white-space:nowrap">${h}</th>`).join('')}
+                    ${['가입일','상태','가입자','계약자','보험회사','보험명','월보험료',''].map(h=>`<th style="padding:6px 10px;text-align:${h==='월보험료'?'right':'left'};font-weight:600;color:var(--muted);white-space:nowrap">${h}</th>`).join('')}
                   </tr></thead>
                   <tbody>${mContracts.map((r,ri)=>`
                     <tr style="border-bottom:1px dashed var(--border);background:${ri%2?'#F8FAFF':'#fff'}">
                       <td style="padding:7px 10px;color:var(--muted);white-space:nowrap">${esc(r.d)}</td>
                       <td style="padding:7px 10px">${sbadge(r.s)}</td>
-                      <td style="padding:7px 10px;font-weight:600;white-space:nowrap">${esc(r.c)}</td>
+                      <td style="padding:7px 10px;font-weight:600;white-space:nowrap">${esc(r.p)}</td>
+                      <td style="padding:7px 10px;color:var(--muted);white-space:nowrap">${esc(r.c === r.p ? '본인' : r.c)}</td>
                       <td style="padding:7px 10px;white-space:nowrap">${esc(r.co)}</td>
                       <td style="padding:7px 10px">
                     <div style="font-weight:500">${esc(r.n)}</div>

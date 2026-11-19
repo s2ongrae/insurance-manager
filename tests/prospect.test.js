@@ -45,7 +45,7 @@ ok(!/예비 고객 · 계약 전/.test(D.el('cov-detail').innerHTML), '가입자
 console.log('C) 고객별 탭: 구분 열(가입자 / 예비 고객) · 필터 · 눌러서 보장분석');
 D.run('renderGroups()');
 let h = D.el('pane-그룹별').innerHTML;
-ok(/<th>구분<\/th>/.test(h) && count(h, 'kind-badge kind-member') === 2 && count(h, 'kind-badge kind-prospect') === 3, '구분 열: 가입자 2 · 예비 고객 3');
+ok(/<th class="c-kind">구분<\/th>/.test(h) && count(h, 'kind-badge kind-member') === 2 && count(h, 'kind-badge kind-prospect') === 3, '구분 열: 가입자 2 · 예비 고객 3');
 ok(/전체 <b>5<\/b>/.test(h) && /가입자 <b>2<\/b>/.test(h) && /예비 고객 <b>3<\/b>/.test(h), '필터 버튼 건수: 전체 5 · 가입자 2 · 예비 고객 3');
 ok(/박예비/.test(h) && /보험 1건/.test(h) && /보험1/.test(h), '예비 고객 행: 이름 · 보험 건수 · 보험 이름');
 D.run(`setCustKind('prospect')`); h = D.el('pane-그룹별').innerHTML;
