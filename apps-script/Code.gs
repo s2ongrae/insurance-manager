@@ -308,6 +308,7 @@ function driveUrlOnly(u) {
 }
 
 function personNameOfContracts(cs) {              // 가장 많이 쓰인 이름 (동률이면 최근 계약의 이름)
+  // ⚠ index.html personNameOfContracts 와 쌍둥이 구현 — 로직을 바꾸면 양쪽을 같이 고칠 것
   const cnt = {};
   cs.forEach(function (c) { cnt[c.p] = (cnt[c.p] || 0) + 1; });
   let best = null;
