@@ -75,7 +75,7 @@ console.log('G) 기존 고객 다듬기: 한때 한 줄로 묶여 고쳐 둔 값
 D = dev({ policies: [{ id: 1, items: [{ name: '암진단비', amount: 3000, unit: '만원' }, { name: '특정암진단비', amount: 1000, unit: '만원' }] }], matrixView: { '일반암 진단비': { [PK]: 6000 } } });
 c = cards(D);
 ok(c.includes('일반암 진단비 5천만원') && c.includes('특정암 진단비 1천만원'), '일반암 5천만원(직접 고친 차이 포함) + 특정암 1천만원 = 6천만원 그대로 (실제: ' + c.join(' / ') + ')');
-ok(D.get(`COVERAGES['${P}'].covNameVer`) === 3 && D.get(`migrateCovNames(COVERAGES['${P}'], CONTRACTS).changed===false`), '한 번 다듬은 뒤에는 다시 바뀌지 않음');
+ok(D.get(`COVERAGES['${P}'].covNameVer`) === D.get('COV_NAME_VER') && D.get(`migrateCovNames(COVERAGES['${P}'], CONTRACTS).changed===false`), '한 번 다듬은 뒤에는 다시 바뀌지 않음');
 D = dev({ policies: [{ id: 1, items }], matrixView: { '빈설정줄': {} }, itemOrder: ['없는담보', '암진단비'], matrixNames: { '없는담보': 'x' } });
 const r2 = D.get(`COVERAGES['${P}']`);
 ok(!('빈설정줄' in r2.matrixView), '담보도 값도 없는 빈 설정은 정리');

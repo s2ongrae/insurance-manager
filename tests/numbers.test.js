@@ -7,7 +7,7 @@ const seed = (cov, extra) => makeDevice({ session: { ins_unlocked: '1' }, ls: Ob
   ins_coverages: JSON.stringify({ [P]: cov }), ins_monthly: '[]', ins_groups: '{}' }, extra || {}) });
 const pad = n => String(n).padStart(2, '0');
 const dayAfter = n => { const t = new Date(); const d = new Date(t.getFullYear(), t.getMonth(), t.getDate() + n); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-const twoExt = { covNameVer: 3, policies: [{ id: 1, items: [] }], externalPolicies: [
+const twoExt = { covNameVer: 4, policies: [{ id: 1, items: [] }], externalPolicies: [
   { id: -1, co: '마바손보', n: '외부보험', pr: 1, items: [{ name: '골절 진단비', amount: 1000, unit: '만원' }] },
   { id: -2, co: '마바손보', n: '외부보험', pr: 1, items: [{ name: '골절 진단비', amount: 500, unit: '만원' }] }] };
 const adminSum = D => { const m = D.el('cov-detail').innerHTML.match(/mtx-sum-n">골절 진단비[\s\S]*?mtx-sum-v[^>]*>([^<]*)/); return m && m[1]; };

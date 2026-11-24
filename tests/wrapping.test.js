@@ -38,7 +38,7 @@ ok(/\.pol-dup,\.cov-prospect,\.kind-badge[^{]*\.policy-source-delete\{font-size:
 
 console.log('E) 화면 조각: 쪼개지면 안 되는 덩어리는 .nw 로 감싸 있음');
 { const C = [{ id: 1, pid: 'pid_w', s: '계약완료', d: '24.03.10', c: '홍길동', p: '홍길동', co: '삼성화재', n: '무배당 삼성 인생이모작 건강보험 갱신형 플러스', pr: 85000, g: '그룹' }];
-  const cov = { pid_w: { covNameVer: 3, policies: [{ id: 1, items: [{ name: '암 진단비', amount: 3000, unit: '만원', price: 0 }] }], externalPolicies: [{ id: -1, co: 'DB손해보험', n: '실손의료비보험', pr: 21000, items: [{ name: '질병입원의료비', amount: 5000, unit: '만원', price: 0 }] }] } };
+  const cov = { pid_w: { covNameVer: 4, policies: [{ id: 1, items: [{ name: '암 진단비', amount: 3000, unit: '만원', price: 0 }] }], externalPolicies: [{ id: -1, co: 'DB손해보험', n: '실손의료비보험', pr: 21000, items: [{ name: '질병입원의료비', amount: 5000, unit: '만원', price: 0 }] }] } };
   const D = makeDevice({ session: { ins_unlocked: '1' }, ls: { ins_contracts: JSON.stringify(C), ins_coverages: JSON.stringify(cov), ins_monthly: '[]', ins_groups: '{}' } });
   D.run(`selectedCovCustomer='pid_w'; renderCoverageTab('보장분석')`);
   const cd = D.el('cov-detail').innerHTML;

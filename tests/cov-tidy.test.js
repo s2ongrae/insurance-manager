@@ -34,7 +34,7 @@ ok(JSON.stringify(a.policies.map(p => p.id)) === '[1]', '엄마 쪽엔 1번 기�
 ok(JSON.stringify(b.policies.map(p => p.id).sort()) === '[2,3]' && b.policies.find(p => p.id === 2).items[0].name === '상해사망', '2번 담보 기록이 딸에게 옮겨짐 (내용 그대로)');
 ok(!('r99' in a.remodel.roles) && a.remodel.roles.r1 === 'both' && a.remodel.roles['r-1'] === 'both', '없는 보험 비교 설정만 정리');
 ok(D.get(`!('pid_emptyone' in COVERAGES) && ('pid_personkeep' in COVERAGES)`), '빈 기록만 지움');
-ok(a.matrixView['일반암 진단비'] && !('암진단비' in a.matrixView) && a.covNameVer === 3, '담보 이름 다듬기 적용');
+ok(a.matrixView['일반암 진단비'] && !('암진단비' in a.matrixView) && a.covNameVer === D.get('COV_NAME_VER'), '담보 이름 다듬기 적용');
 ok(a.externalPolicies.length === 2, '중복 의심 보험은 자동으로 지우지 않음');
 ok(D.get(`load('ins_cp_index', []).some(id => (load(id, {}) || {}).label === '보장분석 정리 전')`), '정리 직전 체크포인트');
 ok(D.get(`JSON.parse(localStorage.getItem('ins_coverages'))['${B}'].policies.length===2`), '저장·동기화 대상에 반영');

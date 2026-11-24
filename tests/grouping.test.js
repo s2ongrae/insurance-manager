@@ -9,7 +9,7 @@ const mv = D => D.get(`COVERAGES['${P}'].matrixView`);
 const grpOf = (D, n) => D.get(`(COVERAGES['${P}'].matrixView[${JSON.stringify(n)}]||{}).__group || getCovGroup(${JSON.stringify(n)}).label`);
 
 console.log('A) 그룹 이름을 바꾸면 줄마다 옮겨 둔 그룹 지정도 따라감');
-{ const D = seed({ covNameVer: 3, policies: [{ id: 1, items: [{ name: '골절 진단비', amount: 30 }] }], matrixView: { '골절 진단비': { __group: '💀 사망·장해·후유' } } });
+{ const D = seed({ covNameVer: 4, policies: [{ id: 1, items: [{ name: '골절 진단비', amount: 30 }] }], matrixView: { '골절 진단비': { __group: '💀 사망·장해·후유' } } });
   ok(D.errors.length === 0, '로드 오류 없음 ' + D.errors.join('|'));
   ok(grpOf(D, '골절 진단비') === '💀 사망·장해·후유', '처음: 직접 옮겨 둔 사망 그룹');
   D.run('openCovGroupEditor()');
@@ -34,7 +34,7 @@ console.log('B) 그룹 설정 창에서 취소하면 아무것도 바뀌지 않�
 }
 
 console.log('C) 그룹을 지우면 그 그룹으로 옮겨 둔 줄은 키워드 그룹으로 (다른 줄은 그대로)');
-{ const D = seed({ covNameVer: 3, policies: [{ id: 1, items: [{ name: '골절 진단비', amount: 30 }, { name: '뇌졸중 진단비', amount: 10 }] }],
+{ const D = seed({ covNameVer: 4, policies: [{ id: 1, items: [{ name: '골절 진단비', amount: 30 }, { name: '뇌졸중 진단비', amount: 10 }] }],
     matrixView: { '골절 진단비': { __group: '👵 간병·치매' }, '뇌졸중 진단비': { __group: '🎗️ 암 관련 보장' } } });
   D.confirmQ.push(true);
   D.run('openCovGroupEditor()'); D.run(`delCovGroup(_cgDraft.findIndex(g=>g.label==='👵 간병·치매'))`); D.run('saveCovGroupsUI()');
@@ -56,7 +56,7 @@ console.log('D) 담보 이름 통합으로 한 줄이 여러 줄로 나뉘면 �
 }
 
 console.log('E) "＋ 담보"가 이미 있는 줄을 다른 그룹으로 옮기지 않음');
-{ const D = seed({ covNameVer: 3, policies: [{ id: 1, items: [{ name: '일반암 진단비', amount: 2000 }] }] });
+{ const D = seed({ covNameVer: 4, policies: [{ id: 1, items: [{ name: '일반암 진단비', amount: 2000 }] }] });
   D.run(`renderCovDetail('${P}')`);
   D.el('tmp-name').value = '암진단비'; D.el('tmp-amt').value = '3000'; D.el('tmp-pol').value = '1';
   D.run(`_addRowState={customer:'${P}',contracts:[{id:1,co:'다라생명',n:'내계약'}],grpLabel:'📋 기타 보장'}; confirmAddMatrixRow()`);
@@ -71,7 +71,7 @@ console.log('E) "＋ 담보"가 이미 있는 줄을 다른 그룹으로 옮기�
 }
 
 console.log('F) 기존 보험(ext_ 번호)에도 "＋ 담보"로 넣을 수 있음');
-{ const D = seed({ covNameVer: 3, policies: [], otherPolicies: [{ id: 'ext_17', co: '옛보험사', name: '옛상품', price: 1, items: [] }] });
+{ const D = seed({ covNameVer: 4, policies: [], otherPolicies: [{ id: 'ext_17', co: '옛보험사', name: '옛상품', price: 1, items: [] }] });
   D.run(`renderCovDetail('${P}')`);
   D.el('tmp-name').value = '골절 진단비'; D.el('tmp-amt').value = '20'; D.el('tmp-pol').value = 'ext_17';
   D.run(`_addRowState={customer:'${P}',contracts:[{id:'ext_17',co:'옛보험사',n:'옛상품',_ext:true}],grpLabel:''}; confirmAddMatrixRow()`);
