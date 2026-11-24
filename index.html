@@ -2417,7 +2417,7 @@ function renderList() {
         <td style="color:var(--muted);white-space:nowrap">${esc(r.c === r.p ? '본인' : r.c)}</td>
         <td style="white-space:nowrap">${esc(r.co)}</td>
         <td>
-          <div style="font-weight:500">${esc(r.n)}</div>
+          <div style="font-weight:500">${esc(r.n)}${bmContractLink(r)?' <span class="rm-fine" title="보맵에서 가져온 보험과 연결된 계약이에요 (보장분석 → 보험 카드에서 해제)">🔗 보맵 연결</span>':''}</div>
           ${MEMOS[r.id]?`<div style="font-size:11px;color:#3B82F6;margin-top:3px;font-weight:400">${esc(MEMOS[r.id].split('\n')[0])}</div>`:''}
         </td>
         <td style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">${wonN(r.pr)}</td>
@@ -4292,6 +4292,82 @@ function movePolicies(fromPid, polIds, presetDst){                   // 옮겼�
   showToast(`✅ '${label}' 을(를) '${dstName}' 님 것으로 옮겼어요`);
   return dstPid;
 }
+// 🔗 내 계약 연결 / 해제 (사용자 요청 2026-11-24): 보맵으로 가져온 보험이 내 계약과 겹칠 때, 새로 가져온 보맵 정보를 살려서 그 계약에 붙인다.
+// 연결 = 보맵 기록이 계약 번호를 달고 policies 로 들어감 (보맵을 다시 가져와도 그 계약에 갱신됨 — importBomappData 의 `linked`). 해제 = 외부 보험으로 되돌림.
+function bmContractLink(c){                                  // 이 계약에 연결된 보맵 보험 기록 (없으면 null)
+  const rec = c ? COVERAGES[cpid(c)] : null;
+  const pol = isPlain(rec) && (Array.isArray(rec.policies) ? rec.policies : []).find(p => isPlain(p) && p.id === c.id);
+  return pol && isPlain(pol.bm) ? pol : null;
+}
+function moveRemodelRole(rec, fromId, toId, keepExisting){   // 비교 역할(r+보험id)을 새 번호로 옮김
+  if(!isPlain(rec.remodel) || !isPlain(rec.remodel.roles)) return rec;
+  const roles = Object.assign({}, rec.remodel.roles), fk = 'r' + String(fromId), tk = 'r' + String(toId);
+  if(hasOwn(roles, fk)){ if(!(keepExisting && hasOwn(roles, tk))) roles[tk] = roles[fk]; delete roles[fk]; }
+  return Object.assign({}, rec, {remodel: Object.assign({}, rec.remodel, {roles})});
+}
+function linkPolicyToContract(pid, polId){
+  const rec = isPlain(COVERAGES[pid]) ? COVERAGES[pid] : null; if(!rec) return;
+  let fld = null, x = null;
+  for(const k of ['externalPolicies', 'otherPolicies']){ const hit = (Array.isArray(rec[k]) ? rec[k] : []).find(p => isPlain(p) && String(p.id) === String(polId)); if(hit){ fld = k; x = hit; break; } }
+  if(!x || !isPlain(x.bm)){ showToast('보맵에서 가져온 보험만 내 계약으로 연결할 수 있어요'); return; }
+  const person = peopleList().find(p => p.pid === pid);
+  const cands = CONTRACTS.filter(c => cpid(c) === pid && c.s !== '계약해지' && !bmContractLink(c));
+  const label = `${shortCo(x.co)} ${x.n || x.name || ''}`.trim();
+  const menu = ['0. ＋ 새 계약으로 등록 (계약 리스트에 추가)', ...cands.map((c, i) => `${i + 1}. ${c.co} ${c.n} (가입 ${c.d || '-'}, 월 ${wonN(c.pr)}원${proposalUrlOf(c) ? ', 제안서 있음' : ''})`)].join('\n');
+  const ans = prompt(`'${label}' 을(를) 어느 내 계약으로 연결할까요?\n(보맵 담보가 그 계약의 담보가 되고, 계약에 있던 옛 담보는 사라져요. 제안서 파일 링크는 유지돼요)\n\n${menu}\n\n번호를 입력해주세요 (취소하거나 비워두면 그대로 둬요)`);
+  if(ans === null || String(ans).trim() === '') return;
+  const n = parseInt(ans, 10);
+  if(!(n >= 0 && n <= cands.length)) return;
+  saveCheckpoint('내 계약 연결 전');
+  let c, oldPol = null, createdNew = false;
+  if(n === 0){
+    const dt = parseYMD(String(x.bm.issue || '').replace(/\./g, '-'));
+    const sib = CONTRACTS.find(r => cpid(r) === pid && r.g);
+    const nm = (person && person.name) || String(x.bm.insured || x.bm.holder || '');
+    c = {id: newContractId(), s: '계약완료', d: dt ? fmtYMD(dt) : '', c: String(x.bm.holder || nm), p: nm, pid, co: String(x.co || ''), n: String(x.n || x.name || ''), pr: Math.max(0, Math.floor(Number(x.pr || x.price) || 0)), pn: String(x.pn || '').slice(0, 40), g: sib ? sib.g : ''};
+    if(x.proposalUrl) c.proposalUrl = x.proposalUrl;
+    CONTRACTS.push(c); createdNew = true;
+    if(c.d && !MONTHLY.find(m => m.m === c.d.slice(0, 5))){ MONTHLY.push({m: c.d.slice(0, 5), k: 0, before: 0, after: 0, tax: 0, memo: ''}); MONTHLY.sort((a, b) => a.m.localeCompare(b.m)); }
+  } else {
+    c = cands[n - 1];
+    oldPol = (Array.isArray(rec.policies) ? rec.policies : []).find(p => isPlain(p) && p.id === c.id) || null;
+    const i = CONTRACTS.indexOf(c), fill = {};
+    if(!c.proposalUrl && x.proposalUrl) fill.proposalUrl = x.proposalUrl;       // 제안서 링크는 계약 쪽 것을 유지, 없으면 보맵 기록 것
+    if(!c.pn && x.pn) fill.pn = String(x.pn).slice(0, 40);
+    if(!(Number(c.pr) > 0) && Number(x.pr || x.price) > 0) fill.pr = Math.floor(Number(x.pr || x.price));
+    if(Object.keys(fill).length){ c = Object.assign({}, c, fill); CONTRACTS[i] = c; }
+  }
+  const nr = Object.assign({}, x, {id: c.id}); delete nr.userMoved;
+  if(oldPol){ ['proposalUrl', 'termsUrl'].forEach(k => { if(!nr[k] && oldPol[k]) nr[k] = oldPol[k]; }); }
+  let next = Object.assign({}, rec, {
+    policies: [...(Array.isArray(rec.policies) ? rec.policies : []).filter(p => !(isPlain(p) && p.id === c.id)), nr],
+    [fld]: rec[fld].filter(p => p !== x)
+  });
+  next = moveRemodelRole(next, x.id, c.id, false);
+  COVERAGES[pid] = next;
+  save('ins_contracts', CONTRACTS); save('ins_monthly', MONTHLY); saveCoverages(); renderAll();
+  showToast(`🔗 '${label}' 을(를) ${createdNew ? '새 내 계약으로 등록했어요' : `'${c.co} ${c.n}' 계약에 연결했어요`}`);
+}
+function unlinkContractPolicy(pid, polId){
+  const c = CONTRACTS.find(r => String(r.id) === String(polId) && cpid(r) === pid), pol = bmContractLink(c);
+  if(!c || !pol){ showToast('보맵과 연결된 내 계약이 아니에요'); return; }
+  const label = `${c.co} ${c.n}`.trim();
+  if(!confirm(`'${label}' 계약과 보맵 보험의 연결을 해제할까요?\n\n보맵 보험(담보)은 "외부 보험"으로 남고, 보맵을 다시 가져와도 다시 붙지 않아요.\n(해제 직전 상태는 이 기기 체크포인트로 남겨요)`)) return;
+  const delContract = confirm(`계약 리스트의 '${label}' 계약도 같이 삭제할까요?\n\n[확인] 계약도 삭제 (월별 실적 집계에서도 빠져요)\n[취소] 계약은 남기고 연결만 해제 (담보 없는 계약이 돼요)`);
+  saveCheckpoint('내 계약 해제 전');
+  const rec = COVERAGES[pid];
+  const ext = Object.assign({}, pol, {id: -((Date.now() % 1e9) * 100 + Math.floor(Math.random() * 100))});
+  if(!ext.proposalUrl && c.proposalUrl) ext.proposalUrl = c.proposalUrl;
+  let next = Object.assign({}, rec, {
+    policies: (Array.isArray(rec.policies) ? rec.policies : []).filter(p => !(isPlain(p) && p.id === c.id)),
+    externalPolicies: [...(Array.isArray(rec.externalPolicies) ? rec.externalPolicies : []), ext]
+  });
+  next = moveRemodelRole(next, c.id, ext.id, false);
+  COVERAGES[pid] = next;
+  if(delContract){ CONTRACTS = CONTRACTS.filter(r => r !== c); delete MEMOS[c.id]; }
+  save('ins_contracts', CONTRACTS); save('ins_memos', MEMOS); saveCoverages(); renderAll();
+  showToast(delContract ? '🔓 연결을 해제하고 계약도 삭제했어요 (보맵 보험은 외부 보험으로 남아요)' : '🔓 내 계약 연결을 해제했어요 (보맵 보험은 외부 보험으로 남아요)');
+}
 // 같은 보험이 두 번 들어간 것(보험사·상품명·가입일이 같음 — 고객 본인 보맵 계정과 계약자 계정에서 각각 가져온 경우 등)을 묶어서 돌려줌 → [{keep, drops}]
 // 남길 쪽 = 담보가 더 많은 것(같으면 월보험료가 있는 것). 보험료·계약자 이름은 버릴 쪽에서 채워 넣는다.
 function dupPolicyGroups(pid){
@@ -5662,7 +5738,7 @@ function renderCovDetail(name){                          // name 은 가입자 �
           </div>`).join('')}
         ${items.length?'':'<div style="padding:16px;font-size:13px;color:var(--muted)">아직 특약이 없습니다. 이 보험의 제안서를 넣거나 보장을 직접 추가하세요.</div>'}
         <div style="padding:12px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn btn-secondary btn-sm" onclick="addCovItem('${name}',${jsId(polId)})">＋ 담보 추가 / 직접 입력</button>
-          <span style="flex:1"></span>${isMine ? '' : `<button class="btn btn-secondary btn-sm" onclick="movePolicyTo('${name}',${jsId(polId)})" title="잘못 들어간 보험을 다른 사람 것으로 옮기기 (목록에 없는 사람은 새로 만들 수 있어요)">➡️ 다른 사람으로 옮기기</button> `}<button class="pol-del" onclick="deletePolicy('${name}',${jsId(polId)})">${isMine ? '🗑 계약까지 완전 삭제' : '🗑 이 보험 삭제'}</button></div>
+          <span style="flex:1"></span>${isMine ? (isPlain(pol.bm) ? `<button class="btn btn-secondary btn-sm" onclick="unlinkContractPolicy('${name}',${jsId(polId)})" title="보맵 보험과 이 계약의 연결을 풀어요 (보맵 보험은 외부 보험으로 남아요)">🔓 내 계약 해제</button> ` : '') : (isPlain(pol.bm) ? `<button class="btn btn-secondary btn-sm" onclick="linkPolicyToContract('${name}',${jsId(polId)})" title="이 보맵 보험을 내 계약으로 설정해요 (기존 계약에 연결하거나 새 계약으로 등록)">🔗 내 계약으로 설정</button> ` : '')}${isMine ? '' : `<button class="btn btn-secondary btn-sm" onclick="movePolicyTo('${name}',${jsId(polId)})" title="잘못 들어간 보험을 다른 사람 것으로 옮기기 (목록에 없는 사람은 새로 만들 수 있어요)">➡️ 다른 사람으로 옮기기</button> `}<button class="pol-del" onclick="deletePolicy('${name}',${jsId(polId)})">${isMine ? '🗑 계약까지 완전 삭제' : '🗑 이 보험 삭제'}</button></div>
         ${bmExtraItemsHtml(pol)}
       </div>
     </details>`;
